@@ -1,0 +1,5 @@
+module.exports = {
+  EN_COURS: "EN_COURS",
+  COMPLETE: "COMPLETE",
+  ABANDONNE: "ABANDONNE",
+};
