@@ -1,6 +1,6 @@
 // Courses.jsx - Gestion cours
 import React, { useState, useEffect } from 'react';
-//import { colors } from '../../styles/colors';
+import { colors } from '../../utils/colors';
 
 const Courses = ({ theme = 'light' }) => {
   const [courses, setCourses] = useState([]);

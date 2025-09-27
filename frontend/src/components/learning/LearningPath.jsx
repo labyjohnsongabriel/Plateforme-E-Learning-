@@ -1,6 +1,6 @@
 // LearningPath.jsx - Parcours d'apprentissage avec niveaux
 import React from 'react';
-import { colors } from '../styles/colors';
+import { colors } from '../../utils/colors';
 
 const LearningPath = ({ level, theme = 'light' }) => {
   const levels = ['Alfa', 'Bêta', 'Gamma', 'Delta'];

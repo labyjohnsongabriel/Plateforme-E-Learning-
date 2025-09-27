@@ -4,7 +4,7 @@ import UserManagement from './UserManagement';
 import CourseManagement from './CourseManagement';
 import StatisticsPanel from './StatisticsPanel';
 import SystemSettings from './SystemSettings';
-import { colors } from '../styles/colors';
+import { colors, gradients } from '../../utils/colors';
 
 const AdminDashboard = ({ theme = 'light' }) => {
   const [usersCount, setUsersCount] = useState(0);

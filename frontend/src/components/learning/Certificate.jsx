@@ -1,6 +1,6 @@
 // Certificate.jsx - Composant certificat avec génération simulée
 import React from 'react';
-import { colors } from '../styles/colors';
+import { colors } from "../../utils/colors";
 
 const Certificate = ({ level, theme = 'light' }) => {
   const bg = theme === 'dark' ? colors.globalGradientDark : colors.levelBeta.gradient; // Bleu pour Bêta+

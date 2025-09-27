@@ -1,6 +1,6 @@
 // StudentProgress.jsx - Suivi des étudiants
 import React, { useState, useEffect } from 'react';
-import { colors } from '../styles/colors';
+import { colors } from '../../utils/colors';
 
 const StudentProgress = ({ theme = 'light' }) => {
   const [students, setStudents] = useState([]);

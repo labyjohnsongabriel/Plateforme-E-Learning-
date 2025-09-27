@@ -1,6 +1,6 @@
 // AdminDashboard.jsx - Dashboard admin
 import React, { useState, useEffect } from 'react';
-//import { colors } from '../../styles/colors';
+import { colors } from "../../utils/colors";
 
 const AdminDashboard = ({ theme = 'light' }) => {
   const [usersCount, setUsersCount] = useState(0);

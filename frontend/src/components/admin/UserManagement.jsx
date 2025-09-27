@@ -1,6 +1,6 @@
 // UserManagement.jsx - Gestion des utilisateurs
 import React, { useState, useEffect } from 'react';
-import { colors } from '../styles/colors';
+import { colors, gradients } from "../../utils/colors";
 
 const UserManagement = ({ theme = 'light' }) => {
   const [users, setUsers] = useState([]);

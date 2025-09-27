@@ -1,7 +1,7 @@
 // EditCourse.jsx - Édition cours
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-//import { colors } from '../../styles/colors';
+import { colors } from '../../utils/colors';
 
 const EditCourse = ({ theme = 'light' }) => {
   const { id } = useParams();

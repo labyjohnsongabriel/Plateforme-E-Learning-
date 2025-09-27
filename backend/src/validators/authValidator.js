@@ -6,7 +6,7 @@ const RoleUtilisateur = require("../../src/models/enums/RoleUtilisateur");
  */
 exports.register = [
   body("email").isEmail().withMessage("Format d'email invalide"),
-  body("motDePasse")
+  body("password")
     .isLength({ min: 6 })
     .withMessage("Le mot de passe doit contenir au moins 6 caractères"),
   body("nom").notEmpty().withMessage("Le nom est requis"),
@@ -29,7 +29,7 @@ exports.register = [
  */
 exports.login = [
   body("email").isEmail().withMessage("Format d'email invalide"),
-  body("motDePasse").notEmpty().withMessage("Le mot de passe est requis"),
+  body("password").notEmpty().withMessage("Le mot de passe est requis"),
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {

@@ -1,6 +1,6 @@
 // QuizBuilder.jsx - Constructeur de quiz
 import React, { useState } from 'react';
-import { colors } from '../styles/colors';
+import { colors } from '../../utils/colors';
 
 const QuizBuilder = ({ theme = 'light' }) => {
   const [questions, setQuestions] = useState([{ question: '', options: ['', ''], answer: '' }]);

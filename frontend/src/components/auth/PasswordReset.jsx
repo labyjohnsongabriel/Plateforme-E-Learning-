@@ -1,7 +1,7 @@
 // PasswordReset.jsx - Formulaire de réinitialisation de mot de passe
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom'; // Assumer React Router pour le token dans l'URL
-
+import { colors, gradients } from "../../utils/colors";
 const PasswordReset = () => {
   const { token } = useParams(); // Token de reset depuis l'URL (ex. /reset/:token)
   const [password, setPassword] = useState('');

@@ -1,6 +1,6 @@
 // NotificationItem.jsx - Item de notification
 import React from 'react';
-import { colors } from '../styles/colors';
+import { colors } from '../../utils/colors';
 
 const NotificationItem = ({ notification, theme = 'light' }) => {
   const bg = theme === 'dark' ? colors.backgroundDark : colors.backgroundLight;

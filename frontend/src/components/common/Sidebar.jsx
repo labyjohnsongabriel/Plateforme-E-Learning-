@@ -1,18 +1,19 @@
-import React from 'react';
+// src/components/Sidebar.jsx - Barre latérale professionnelle avec animations et style cohérent
+import React from "react";
 import {
   Drawer,
   List,
   ListItem,
+  ListItemButton,
   ListItemIcon,
   ListItemText,
-  ListItemButton,
   Divider,
   Typography,
   Box,
   Chip,
-  useTheme,
-  useMediaQuery
-} from '@mui/material';
+  Fade,
+} from "@mui/material";
+import { styled, keyframes } from "@mui/material/styles";
 import {
   Dashboard as DashboardIcon,
   School as CourseIcon,
@@ -23,270 +24,373 @@ import {
   Analytics as AnalyticsIcon,
   LibraryBooks as ContentIcon,
   ExitToApp as LogoutIcon,
-  AccountCircle as ProfileIcon
-} from '@mui/icons-material';
-import { useNavigate, useLocation } from 'react-router-dom';
-//import { useAuth } from '../context/AuthContext';
-//import { colors } from '../utils/colors';
+  AccountCircle as ProfileIcon,
+} from "@mui/icons-material";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
-const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+// Animations sophistiquées
+const fadeInLeft = keyframes`
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+`;
+
+const floatingAnimation = keyframes`
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+`;
+
+// Couleurs principales
+const colors = {
+  navy: "#010b40",
+  lightNavy: "#1a237e",
+  red: "#f13544",
+  pink: "#ff6b74",
+  purple: "#8b5cf6",
+};
+
+// Styled Components
+const StyledDrawer = styled(Drawer)(({ theme }) => ({
+  width: 280,
+  flexShrink: 0,
+  "& .MuiDrawer-paper": {
+    width: 280,
+    boxSizing: "border-box",
+    border: "none",
+    background: `linear-gradient(180deg, ${colors.navy} 0%, ${colors.lightNavy} 100%)`,
+    backdropFilter: "blur(20px)",
+    color: "#ffffff",
+    overflowX: "hidden",
+    transition: theme.transitions.create("width", {
+      easing: theme.transitions.easing.sharp,
+      duration: theme.transitions.duration.leavingScreen,
+    }),
+    animation: `${fadeInLeft} 0.6s ease-out forwards`,
+  },
+}));
+
+const Sidebar = ({ open, onClose, variant = "persistent" }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const drawerWidth = 280;
-
-  // Navigation items selon le rôle
+  // Navigation items based on user role
   const getNavigationItems = () => {
     const baseItems = [
       {
-        text: 'Tableau de bord',
+        text: "Tableau de bord",
         icon: <DashboardIcon />,
         path: `/${user?.role}/dashboard`,
-        roles: ['student', 'instructor', 'admin']
+        roles: ["learner", "instructor", "admin"],
       },
       {
-        text: 'Mes Cours',
+        text: "Mes Cours",
         icon: <CourseIcon />,
         path: `/${user?.role}/courses`,
-        roles: ['student']
+        roles: ["learner"],
       },
       {
-        text: 'Gestion des Cours',
+        text: "Gestion des Cours",
         icon: <ContentIcon />,
         path: `/${user?.role}/courses`,
-        roles: ['instructor', 'admin']
+        roles: ["instructor", "admin"],
       },
       {
-        text: 'Ma Progression',
+        text: "Ma Progression",
         icon: <ProgressIcon />,
         path: `/${user?.role}/progress`,
-        roles: ['student']
+        roles: ["learner"],
       },
       {
-        text: 'Analytiques',
+        text: "Analytiques",
         icon: <AnalyticsIcon />,
         path: `/${user?.role}/analytics`,
-        roles: ['instructor', 'admin']
+        roles: ["instructor", "admin"],
       },
       {
-        text: 'Mes Certificats',
+        text: "Mes Certificats",
         icon: <CertificateIcon />,
         path: `/${user?.role}/certificates`,
-        roles: ['student', 'instructor']
+        roles: ["learner", "instructor"],
       },
       {
-        text: 'Utilisateurs',
+        text: "Utilisateurs",
         icon: <UsersIcon />,
-        path: '/admin/users',
-        roles: ['admin']
-      }
+        path: "/admin/users",
+        roles: ["admin"],
+      },
     ];
 
-    return baseItems.filter(item => item.roles.includes(user?.role));
+    return baseItems.filter((item) => item.roles.includes(user?.role));
   };
 
   const commonItems = [
     {
-      text: 'Mon Profil',
+      text: "Mon Profil",
       icon: <ProfileIcon />,
       path: `/${user?.role}/profile`,
-      roles: ['student', 'instructor', 'admin']
+      roles: ["learner", "instructor", "admin"],
     },
     {
-      text: 'Paramètres',
+      text: "Paramètres",
       icon: <SettingsIcon />,
       path: `/${user?.role}/settings`,
-      roles: ['student', 'instructor', 'admin']
-    }
+      roles: ["learner", "instructor", "admin"],
+    },
   ];
 
   const isActive = (path) => {
-    return location.pathname === path || location.pathname.startsWith(path + '/');
+    return (
+      location.pathname === path || location.pathname.startsWith(path + "/")
+    );
   };
 
   const handleNavigation = (path) => {
     navigate(path);
-    if (isMobile) {
-      onClose();
-    }
+    onClose();
   };
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
   };
 
   const navigationItems = getNavigationItems();
 
   return (
-    <Drawer
-      variant={isMobile ? 'temporary' : variant}
+    <StyledDrawer
+      variant={variant}
       open={open}
       onClose={onClose}
-      sx={{
-        width: drawerWidth,
-        flexShrink: 0,
-        '& .MuiDrawer-paper': {
-          width: drawerWidth,
-          boxSizing: 'border-box',
-          border: 'none',
-          background: `linear-gradient(180deg, ${colors.primary.main} 0%, ${colors.primary.dark} 100%)`,
-          color: 'white',
-          overflowX: 'hidden'
-        },
-      }}
       ModalProps={{
-        keepMounted: true, // Better open performance on mobile.
+        keepMounted: true, // Better open performance on mobile
       }}
     >
-      {/* Header Sidebar */}
-      <Box sx={{ p: 3, textAlign: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-        <Typography 
-          variant="h5" 
-          fontWeight={700}
-          sx={{
-            background: 'linear-gradient(45deg, #ffffff 30%, #ff6b74 90%)',
-            backgroundClip: 'text',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            mb: 1
-          }}
-        >
-          Youth Computing
-        </Typography>
-        <Chip 
-          label={user?.role.toUpperCase()} 
-          size="small" 
-          sx={{ 
-            backgroundColor: colors.secondary.main,
-            color: 'white',
-            fontWeight: 600
-          }} 
-        />
-      </Box>
-
-      {/* User Info */}
-      <Box sx={{ p: 2, textAlign: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-        <Typography variant="h6" fontWeight={600}>
-          {user?.firstName} {user?.lastName}
-        </Typography>
-        <Typography variant="body2" sx={{ opacity: 0.8 }}>
-          {user?.email}
-        </Typography>
-        <Chip 
-          label={`Niveau ${user?.level}`} 
-          size="small" 
-          variant="outlined"
-          sx={{ 
-            mt: 1,
-            borderColor: colors.secondary.main,
-            color: colors.secondary.light,
-            fontWeight: 500
-          }} 
-        />
-      </Box>
-
-      {/* Navigation Principale */}
-      <List sx={{ flex: 1, p: 1 }}>
-        {navigationItems.map((item) => (
-          <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
-            <ListItemButton
-              onClick={() => handleNavigation(item.path)}
-              sx={{
-                borderRadius: 2,
-                backgroundColor: isActive(item.path) ? 'rgba(255,255,255,0.15)' : 'transparent',
-                '&:hover': {
-                  backgroundColor: 'rgba(255,255,255,0.1)',
-                },
-                py: 1.5
-              }}
-            >
-              <ListItemIcon sx={{ color: isActive(item.path) ? colors.secondary.main : 'white', minWidth: 40 }}>
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText 
-                primary={item.text} 
-                primaryTypographyProps={{ 
-                  fontWeight: isActive(item.path) ? 600 : 400,
-                  fontSize: '0.95rem'
-                }}
-              />
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List>
-
-      <Divider sx={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
-
-      {/* Navigation Secondaire */}
-      <List sx={{ p: 1 }}>
-        {commonItems.map((item) => (
-          <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
-            <ListItemButton
-              onClick={() => handleNavigation(item.path)}
-              sx={{
-                borderRadius: 2,
-                backgroundColor: isActive(item.path) ? 'rgba(255,255,255,0.15)' : 'transparent',
-                '&:hover': {
-                  backgroundColor: 'rgba(255,255,255,0.1)',
-                },
-                py: 1.5
-              }}
-            >
-              <ListItemIcon sx={{ color: isActive(item.path) ? colors.secondary.main : 'white', minWidth: 40 }}>
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText 
-                primary={item.text} 
-                primaryTypographyProps={{ 
-                  fontWeight: isActive(item.path) ? 600 : 400,
-                  fontSize: '0.95rem'
-                }}
-              />
-            </ListItemButton>
-          </ListItem>
-        ))}
-
-        {/* Déconnexion */}
-        <ListItem disablePadding sx={{ mt: 1 }}>
-          <ListItemButton
-            onClick={handleLogout}
+      <Fade in timeout={800}>
+        <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+          {/* Header Sidebar */}
+          <Box
             sx={{
-              borderRadius: 2,
-              '&:hover': {
-                backgroundColor: 'rgba(244, 67, 54, 0.1)',
-              },
-              py: 1.5
+              p: 3,
+              textAlign: "center",
+              borderBottom: `1px solid ${colors.red}33`,
+              backgroundColor: `${colors.navy}b3`,
             }}
           >
-            <ListItemIcon sx={{ color: colors.error.light, minWidth: 40 }}>
-              <LogoutIcon />
-            </ListItemIcon>
-            <ListItemText 
-              primary="Déconnexion" 
-              primaryTypographyProps={{ 
-                color: colors.error.light,
-                fontWeight: 500,
-                fontSize: '0.95rem'
+            <Typography
+              variant="h5"
+              sx={{
+                fontFamily: "Ubuntu, sans-serif",
+                fontWeight: 700,
+                color: "#ffffff",
+                mb: 1,
+                fontSize: { xs: "1.5rem", sm: "1.8rem" },
+              }}
+            >
+              Youth Computing
+            </Typography>
+            <Chip
+              label={user?.role.toUpperCase()}
+              size="small"
+              sx={{
+                background: `linear-gradient(135deg, ${colors.red}, ${colors.pink})`,
+                color: "#ffffff",
+                fontWeight: 600,
+                fontSize: "0.9rem",
               }}
             />
-          </ListItemButton>
-        </ListItem>
-      </List>
+          </Box>
 
-      {/* Footer Sidebar */}
-      <Box sx={{ p: 2, textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-        <Typography variant="caption" sx={{ opacity: 0.6 }}>
-          Version 1.0.0
-        </Typography>
-        <Typography variant="caption" sx={{ display: 'block', opacity: 0.6, mt: 0.5 }}>
-          © 2024 Youth Computing
-        </Typography>
-      </Box>
-    </Drawer>
+          {/* User Info */}
+          <Box
+            sx={{
+              p: 2,
+              textAlign: "center",
+              borderBottom: `1px solid ${colors.red}33`,
+            }}
+          >
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 600,
+                color: "#ffffff",
+                fontSize: "1.2rem",
+              }}
+            >
+              {user?.prenom} {user?.nom}
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{
+                opacity: 0.8,
+                color: "#ffffff",
+                fontSize: "0.9rem",
+                mt: 0.5,
+              }}
+            >
+              {user?.email}
+            </Typography>
+            <Chip
+              label={`Niveau ${user?.level || "N/A"}`}
+              size="small"
+              variant="outlined"
+              sx={{
+                mt: 1,
+                borderColor: colors.purple,
+                color: colors.purple,
+                fontWeight: 500,
+                fontSize: "0.8rem",
+              }}
+            />
+          </Box>
+
+          {/* Main Navigation */}
+          <List sx={{ flex: 1, p: 2 }}>
+            {navigationItems.map((item) => (
+              <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
+                <ListItemButton
+                  onClick={() => handleNavigation(item.path)}
+                  sx={{
+                    borderRadius: "12px",
+                    backgroundColor: isActive(item.path)
+                      ? `${colors.red}33`
+                      : "transparent",
+                    "&:hover": {
+                      backgroundColor: `${colors.red}4d`,
+                      transform: "translateX(4px)",
+                    },
+                    py: 1.5,
+                    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  }}
+                  aria-label={item.text}
+                >
+                  <ListItemIcon
+                    sx={{
+                      color: isActive(item.path) ? colors.red : "#ffffff",
+                      minWidth: 40,
+                      fontSize: "24px",
+                    }}
+                  >
+                    {item.icon}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={item.text}
+                    primaryTypographyProps={{
+                      fontWeight: isActive(item.path) ? 600 : 400,
+                      fontSize: "1.1rem",
+                      color: "#ffffff",
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
+
+          <Divider sx={{ backgroundColor: `${colors.red}33` }} />
+
+          {/* Secondary Navigation */}
+          <List sx={{ p: 2 }}>
+            {commonItems.map((item) => (
+              <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
+                <ListItemButton
+                  onClick={() => handleNavigation(item.path)}
+                  sx={{
+                    borderRadius: "12px",
+                    backgroundColor: isActive(item.path)
+                      ? `${colors.red}33`
+                      : "transparent",
+                    "&:hover": {
+                      backgroundColor: `${colors.red}4d`,
+                      transform: "translateX(4px)",
+                    },
+                    py: 1.5,
+                    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  }}
+                  aria-label={item.text}
+                >
+                  <ListItemIcon
+                    sx={{
+                      color: isActive(item.path) ? colors.red : "#ffffff",
+                      minWidth: 40,
+                      fontSize: "24px",
+                    }}
+                  >
+                    {item.icon}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={item.text}
+                    primaryTypographyProps={{
+                      fontWeight: isActive(item.path) ? 600 : 400,
+                      fontSize: "1.1rem",
+                      color: "#ffffff",
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            ))}
+
+            {/* Logout */}
+            <ListItem disablePadding sx={{ mt: 1 }}>
+              <ListItemButton
+                onClick={handleLogout}
+                sx={{
+                  borderRadius: "12px",
+                  "&:hover": {
+                    backgroundColor: `${colors.red}4d`,
+                    transform: "translateX(4px)",
+                  },
+                  py: 1.5,
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                }}
+                aria-label="Déconnexion"
+              >
+                <ListItemIcon
+                  sx={{ color: colors.red, minWidth: 40, fontSize: "24px" }}
+                >
+                  <LogoutIcon />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Déconnexion"
+                  primaryTypographyProps={{
+                    color: colors.red,
+                    fontWeight: 500,
+                    fontSize: "1.1rem",
+                  }}
+                />
+              </ListItemButton>
+            </ListItem>
+          </List>
+
+          {/* Footer Sidebar */}
+          <Box
+            sx={{
+              p: 2,
+              textAlign: "center",
+              borderTop: `1px solid ${colors.red}33`,
+              backgroundColor: `${colors.navy}b3`,
+            }}
+          >
+            <Typography
+              variant="caption"
+              sx={{ opacity: 0.6, color: "#ffffff", fontSize: "0.8rem" }}
+            >
+              Version 1.0.0
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{
+                display: "block",
+                opacity: 0.6,
+                color: "#ffffff",
+                mt: 0.5,
+                fontSize: "0.8rem",
+              }}
+            >
+              © {new Date().getFullYear()} Youth Computing
+            </Typography>
+          </Box>
+        </Box>
+      </Fade>
+    </StyledDrawer>
   );
 };
 

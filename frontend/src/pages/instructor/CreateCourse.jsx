@@ -1,6 +1,6 @@
 // CreateCourse.jsx - Création cours
 import React, { useState } from 'react';
-//import { colors } from '../../styles/colors';
+import { colors } from "../../utils/colors";
 
 const CreateCourse = ({ theme = 'light' }) => {
   const [title, setTitle] = useState('');

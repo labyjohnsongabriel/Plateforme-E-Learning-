@@ -270,10 +270,8 @@ const theme = createTheme({
 function App() {
   return (
     <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <AuthProvider>
-        <NotificationProvider>
-          <CourseProvider>
+
+    
             <Router>
               <div className="App">
                 <Routes>
@@ -312,7 +310,7 @@ function App() {
                   }>
                     <Route index element={<Navigate to="/instructor/dashboard" />} />
                     <Route path="dashboard" element={<InstructorDashboard />} />
-                    <Route path="courses" element={<ManageCourses />} />
+                 
                     <Route path="courses/create" element={<CreateCourse />} />
                     <Route path="courses/edit/:id" element={<EditCourse />} />
                     <Route path="analytics" element={<StudentAnalytics />} />
@@ -341,9 +339,7 @@ function App() {
                 </Routes>
               </div>
             </Router>
-          </CourseProvider>
-        </NotificationProvider>
-      </AuthProvider>
+
     </ThemeProvider>
   );
 }

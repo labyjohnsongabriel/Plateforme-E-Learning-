@@ -1,6 +1,6 @@
 // NotFound.jsx - Page 404
 import React from 'react';
-//import { colors } from '../../styles/colors';
+import { colors } from "../../utils/colors";
 
 const NotFound = ({ theme = 'light' }) => {
   const bg = theme === 'dark' ? colors.globalGradientDark : colors.globalGradientLight;

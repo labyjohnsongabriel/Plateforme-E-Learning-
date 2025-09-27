@@ -1,6 +1,6 @@
 // CourseEditor.jsx - Éditeur de cours
 import React, { useState } from 'react';
-import { colors } from '../styles/colors';
+import { colors } from '../../utils/colors';
 
 const CourseEditor = ({ theme = 'light' }) => {
   const [title, setTitle] = useState('');

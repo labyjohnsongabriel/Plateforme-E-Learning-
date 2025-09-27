@@ -1,49 +1,428 @@
-// Login.jsx - Page de connexion
-import React, { useState } from 'react';
-//import { colors } from '../../styles/colors';
+import React, { useState } from "react";
+import {
+  Box,
+  Container,
+  Typography,
+  TextField,
+  Button,
+  Card,
+  Stack,
+  Fade,
+  InputAdornment,
+  Checkbox,
+  FormControlLabel,
+  Divider,
+} from "@mui/material";
+import { styled, keyframes } from "@mui/material/styles";
+import { Link } from "react-router-dom";
+import { Mail, Lock, Facebook, Twitter } from "lucide-react";
 
-const Login = ({ theme = 'light' }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const bg = theme === 'dark' ? colors.globalGradientDark : colors.globalGradientLight;
+// Couleurs principales
+const colors = {
+  navy: "#010b40",
+  fuschia: "#f13544",
+  lightNavy: "#1a237e",
+  lightFuschia: "#ff6b74",
+  white: "#ffffff",
+  facebook: "#3b5998",
+  twitter: "#55acee",
+};
+
+// Animations
+const fadeInUp = keyframes`
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
+
+const floatingAnimation = keyframes`
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+`;
+
+// Styled Components
+const LoginCard = styled(Card)(({ theme }) => ({
+  background: `linear-gradient(135deg, ${colors.navy}cc, ${colors.lightNavy}cc)`,
+  backdropFilter: "blur(12px)",
+  border: `1px solid ${colors.fuschia}33`,
+  borderRadius: "16px",
+  padding: theme.spacing(4),
+  width: "140%",
+  transition: "all 0.3s ease",
+  animation: `${fadeInUp} 0.6s ease-out`,
+  "&:hover": {
+    transform: "translateY(-4px)",
+    boxShadow: `0 8px 24px ${colors.navy}33`,
+  },
+  [theme.breakpoints.down("sm")]: {
+    padding: theme.spacing(3),
+  },
+}));
+
+const StyledButton = styled(Button)(({ theme }) => ({
+  background: `linear-gradient(135deg, ${colors.fuschia}, ${colors.lightFuschia})`,
+  borderRadius: "12px",
+  padding: theme.spacing(1.5, 4),
+  fontWeight: 600,
+  fontSize: "1.1rem",
+  textTransform: "none",
+  boxShadow: `0 4px 16px ${colors.fuschia}4d`,
+  color: colors.white,
+  "&:hover": {
+    background: `linear-gradient(135deg, ${colors.fuschia}cc, ${colors.lightFuschia}cc)`,
+    boxShadow: `0 6px 20px ${colors.fuschia}66`,
+    transform: "translateY(-2px)",
+  },
+  "&:disabled": {
+    background: `linear-gradient(135deg, ${colors.fuschia}80, ${colors.lightFuschia}80)`,
+    cursor: "not-allowed",
+  },
+}));
+
+const SocialButton = styled(Button)(({ theme, social }) => ({
+  backgroundColor: social === "facebook" ? colors.facebook : colors.twitter,
+  borderRadius: "12px",
+  padding: theme.spacing(1.5, 4),
+  fontWeight: 600,
+  fontSize: "1.1rem",
+  textTransform: "none",
+  color: colors.white,
+  "&:hover": {
+    backgroundColor:
+      social === "facebook" ? `${colors.facebook}cc` : `${colors.twitter}cc`,
+    boxShadow: `0 6px 20px ${
+      social === "facebook" ? colors.facebook : colors.twitter
+    }66`,
+    transform: "translateY(-2px)",
+  },
+}));
+
+const Login = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const validateForm = () => {
+    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+      setError("Veuillez entrer un email valide");
+      return false;
+    }
+    if (!password || password.length < 6) {
+      setError("Le mot de passe doit contenir au moins 6 caractères");
+      return false;
+    }
+    return true;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+    if (!validateForm()) return;
+
+    setIsLoading(true);
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      const response = await fetch("http://localhost:3000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, rememberMe }),
       });
+      const data = await response.json();
       if (response.ok) {
-        window.location.href = '/student/dashboard';
+        localStorage.setItem("token", data.token);
+        window.location.href = "/student/dashboard";
       } else {
-        setError('Identifiants incorrects');
+        setError(data.message || "Identifiants incorrects");
       }
     } catch (err) {
-      setError('Erreur de connexion');
+      setError("Erreur de connexion au serveur");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div style={{ background: bg, minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-      <form onSubmit={handleSubmit} style={{ maxWidth: '400px', padding: '32px', borderRadius: '8px', background: theme === 'dark' ? colors.backgroundDark : '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-        <h2 style={{ color: theme === 'dark' ? colors.textDark : colors.textLight }}>Connexion</h2>
-        {error && <p style={{ color: colors.error }}>{error}</p>}
-        <div>
-          <label>Email :</label>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required style={{ width: '100%', padding: '8px', margin: '8px 0' }} />
-        </div>
-        <div>
-          <label>Mot de passe :</label>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required style={{ width: '100%', padding: '8px', margin: '8px 0' }} />
-        </div>
-        <button type="submit" style={{ width: '100%', padding: '10px', background: colors.primary, color: 'white' }}>Se connecter</button>
-        <p><a href="/forgot-password" style={{ color: colors.secondary }}>Mot de passe oublié ?</a></p>
-        <p>Pas de compte ? <a href="/register" style={{ color: colors.secondary }}>S'inscrire</a></p>
-      </form>
-    </div>
+    <Box
+      sx={{
+        minHeight: "100vh",
+        width: "100vw",
+        background: `linear-gradient(135deg, ${colors.navy}, ${colors.lightNavy})`,
+        display: "flex",
+        alignItems: "center",
+        fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
+      }}
+    >
+      {/* Background Decorations */}
+      <Box
+        sx={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage: `
+            linear-gradient(${colors.fuschia}1a 1px, transparent 1px),
+            linear-gradient(90deg, ${colors.fuschia}1a 1px, transparent 1px)
+          `,
+          backgroundSize: "40px 40px",
+          opacity: 0.05,
+        }}
+      />
+      <Box
+        sx={{
+          position: "absolute",
+          bottom: 60,
+          right: 30,
+          width: 100,
+          height: 100,
+          background: `linear-gradient(135deg, ${colors.fuschia}, ${colors.lightFuschia})`,
+          borderRadius: "50%",
+          opacity: 0.15,
+          animation: `${floatingAnimation} 4s ease-in-out infinite`,
+        }}
+      />
+
+      <Container maxWidth="lg">
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: { xs: "column", md: "row" },
+            alignItems: "center",
+            justifyContent: "center",
+            py: 5,
+            gap: { xs: 4, md: 2 },
+          }}
+        >
+          {/* Image Section */}
+          <Box
+            sx={{
+              flex: { md: "0 0 50%", lg: "0 0 45%", xl: "0 0 40%" },
+              maxWidth: { md: "50%", lg: "45%", xl: "40%" },
+              display: { xs: "none", md: "flex" },
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <img
+              src="https://mdbcdn.b-cdn.net/img/Photos/new-templates/bootstrap-login-form/draw2.svg"
+              alt="Phone illustration"
+              style={{ maxWidth: "100%", height: "auto" }}
+            />
+          </Box>
+
+          {/* Form Section */}
+          <Box
+            sx={{
+              flex: { md: "0 0 45%", lg: "0 0 35%", xl: "0 0 30%" },
+              maxWidth: { xs: "100%", md: "45%", lg: "35%", xl: "30%" },
+              mx: { xs: "auto", xl: 2 },
+            }}
+          >
+            <Fade in timeout={800}>
+              <LoginCard elevation={0}>
+                <Stack spacing={3} alignItems="center">
+                  <Typography
+                    variant="h5"
+                    sx={{
+                      fontWeight: 600,
+                      color: colors.white,
+                      textAlign: "center",
+                      fontSize: { xs: "1.6rem", md: "2rem" },
+                    }}
+                  >
+                    Connexion
+                  </Typography>
+
+                  {error && (
+                    <Typography
+                      sx={{
+                        color: colors.fuschia,
+                        fontWeight: 500,
+                        textAlign: "center",
+                        fontSize: "0.95rem",
+                        bgcolor: `${colors.fuschia}1a`,
+                        p: 1,
+                        borderRadius: "8px",
+                      }}
+                    >
+                      {error}
+                    </Typography>
+                  )}
+
+                  <TextField
+                    name="email"
+                    label="Email"
+                    variant="outlined"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    fullWidth
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Mail size={20} color={colors.fuschia} />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        "& fieldset": { borderColor: `${colors.fuschia}4d` },
+                        "&:hover fieldset": { borderColor: colors.fuschia },
+                        "&.Mui-focused fieldset": {
+                          borderColor: colors.fuschia,
+                        },
+                        borderRadius: "8px",
+                        color: colors.white,
+                        fontSize: "1.1rem",
+                      },
+                      "& .MuiInputLabel-root": {
+                        color: `${colors.white}b3`,
+                        "&.Mui-focused": { color: colors.fuschia },
+                        fontSize: "1.1rem",
+                      },
+                      "& .MuiInputBase-input": { color: colors.white },
+                      mb: 2,
+                    }}
+                  />
+
+                  <TextField
+                    name="password"
+                    label="Mot de passe"
+                    type="password"
+                    variant="outlined"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    fullWidth
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Lock size={20} color={colors.fuschia} />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        "& fieldset": { borderColor: `${colors.fuschia}4d` },
+                        "&:hover fieldset": { borderColor: colors.fuschia },
+                        "&.Mui-focused fieldset": {
+                          borderColor: colors.fuschia,
+                        },
+                        borderRadius: "8px",
+                        color: colors.white,
+                        fontSize: "1.1rem",
+                      },
+                      "& .MuiInputLabel-root": {
+                        color: `${colors.white}b3`,
+                        "&.Mui-focused": { color: colors.fuschia },
+                        fontSize: "1.1rem",
+                      },
+                      "& .MuiInputBase-input": { color: colors.white },
+                      mb: 2,
+                    }}
+                  />
+
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                    sx={{ width: "100%", mb: 2 }}
+                  >
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={rememberMe}
+                          onChange={(e) => setRememberMe(e.target.checked)}
+                          sx={{
+                            color: `${colors.fuschia}80`,
+                            "&.Mui-checked": { color: colors.fuschia },
+                          }}
+                        />
+                      }
+                      label="Se souvenir de moi"
+                      sx={{ color: colors.white }}
+                    />
+                    <Typography
+                      component={Link}
+                      to="/forgot-password"
+                      sx={{
+                        color: colors.lightFuschia,
+                        fontSize: "0.9rem",
+                        textDecoration: "none",
+                        "&:hover": {
+                          color: colors.fuschia,
+                          textDecoration: "underline",
+                        },
+                      }}
+                    >
+                      Mot de passe oublié ?
+                    </Typography>
+                  </Stack>
+
+                  <StyledButton
+                    type="submit"
+                    variant="contained"
+                    onClick={handleSubmit}
+                    fullWidth
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <CircularProgress size={20} color="inherit" />
+                    ) : (
+                      "Se connecter"
+                    )}
+                  </StyledButton>
+
+                  <Divider
+                    sx={{
+                      my: 3,
+                      color: `${colors.white}80`,
+                      "&::before, &::after": {
+                        borderColor: `${colors.fuschia}4d`,
+                      },
+                    }}
+                  >
+                    OU
+                  </Divider>
+
+                  <SocialButton
+                    social="facebook"
+                    fullWidth
+                    startIcon={<Facebook size={20} />}
+                    href="#"
+                  >
+                    Continuer avec Facebook
+                  </SocialButton>
+
+                  <SocialButton
+                    social="twitter"
+                    fullWidth
+                    startIcon={<Twitter size={20} />}
+                    href="#"
+                  >
+                    Continuer avec Twitter
+                  </SocialButton>
+
+                  <Typography
+                    component={Link}
+                    to="/register"
+                    sx={{
+                      color: colors.lightFuschia,
+                      fontSize: "0.9rem",
+                      textDecoration: "none",
+                      textAlign: "center",
+                      "&:hover": {
+                        color: colors.fuschia,
+                        textDecoration: "underline",
+                      },
+                    }}
+                  >
+                    Pas de compte ? S'inscrire
+                  </Typography>
+                </Stack>
+              </LoginCard>
+            </Fade>
+          </Box>
+        </Box>
+      </Container>
+    </Box>
   );
 };
 

@@ -1,6 +1,6 @@
 // Users.jsx - Gestion utilisateurs
 import React, { useState, useEffect } from 'react';
-//import { colors } from '../../styles/colors';
+import { colors } from "../../utils/colors";
 
 const Users = ({ theme = 'light' }) => {
   const [users, setUsers] = useState([]);

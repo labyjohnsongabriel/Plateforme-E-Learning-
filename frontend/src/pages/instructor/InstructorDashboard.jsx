@@ -1,7 +1,6 @@
 // InstructorDashboard.jsx - Dashboard instructeur
 import React from 'react';
-//import { colors } from '../../styles/colors';
-
+import { colors } from "../../utils/colors";
 const InstructorDashboard = ({ theme = 'light' }) => {
   const bg = theme === 'dark' ? colors.globalGradientDark : colors.globalGradientLight;
 

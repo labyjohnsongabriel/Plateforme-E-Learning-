@@ -1,7 +1,7 @@
 // NotificationList.jsx - Liste des notifications
 import React, { useState, useEffect } from 'react';
 import NotificationItem from './NotificationItem';
-import { colors } from '../styles/colors';
+import { colors } from "../../utils/colors";
 
 const NotificationList = ({ theme = 'light', onClose }) => {
   const [notifications, setNotifications] = useState([]);

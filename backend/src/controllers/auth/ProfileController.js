@@ -2,7 +2,7 @@ const User = require("../../models/user/User");
 
 exports.getProfile = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id).select("-motDePasse");
+    const user = await User.findById(req.user.id).select("-password");
     if (!user) {
       return res.status(404).json({ message: "Utilisateur non trouvé" });
     }
@@ -18,7 +18,7 @@ exports.updateProfile = async (req, res, next) => {
       req.user.id,
       { $set: req.body },
       { new: true, runValidators: true }
-    ).select("-motDePasse");
+    ).select("-password");
     if (!updated) {
       return res.status(404).json({ message: "Utilisateur non trouvé" });
     }
@@ -30,7 +30,7 @@ exports.updateProfile = async (req, res, next) => {
 
 exports.getUsers = async (req, res, next) => {
   try {
-    const users = await User.find().select("-motDePasse");
+    const users = await User.find().select("-password");
     res.json(users);
   } catch (err) {
     next(err);

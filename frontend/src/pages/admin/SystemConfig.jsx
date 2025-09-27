@@ -1,6 +1,6 @@
 // SystemConfig.jsx - Configuration
 import React, { useState } from 'react';
-//import { colors } from '../../styles/colors';
+import { colors } from '../../utils/colors';
 
 const SystemConfig = ({ theme = 'light' }) => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);

@@ -1,6 +1,6 @@
 // SystemSettings.jsx - Paramètres système
 import React, { useState } from 'react';
-import { colors } from '../styles/colors';
+import { colors, gradients } from '../../utils/colors';
 
 const SystemSettings = ({ theme = 'light' }) => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);

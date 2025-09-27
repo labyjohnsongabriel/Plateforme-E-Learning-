@@ -1,6 +1,6 @@
 // StudentAnalytics.jsx - Analytics étudiants
 import React, { useState, useEffect } from 'react';
-//import { colors } from '../../styles/colors';
+import { colors } from "../../utils/colors";
 
 const StudentAnalytics = ({ theme = 'light' }) => {
   const [analytics, setAnalytics] = useState([]);

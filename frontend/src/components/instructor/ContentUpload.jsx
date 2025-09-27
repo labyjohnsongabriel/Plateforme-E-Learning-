@@ -1,6 +1,6 @@
 // ContentUpload.jsx - Upload de contenu
 import React, { useState } from 'react';
-import { colors } from '../styles/colors';
+import { colors } from "../../utils/colors";
 
 const ContentUpload = ({ theme = 'light' }) => {
   const [file, setFile] = useState(null);

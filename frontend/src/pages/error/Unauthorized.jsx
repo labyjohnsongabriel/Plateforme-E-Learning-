@@ -1,6 +1,6 @@
 // Unauthorized.jsx - Page 401
 import React from 'react';
-//import { colors } from '../../styles/colors';
+import { colors } from "../../utils/colors";
 
 const Unauthorized = ({ theme = 'light' }) => {
   const bg = theme === 'dark' ? colors.globalGradientDark : colors.globalGradientLight;

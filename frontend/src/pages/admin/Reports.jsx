@@ -1,6 +1,6 @@
 // Reports.jsx - Rapports
 import React, { useState, useEffect } from 'react';
-//import { colors } from '../../styles/colors';
+import { colors } from "../../utils/colors";
 
 const Reports = ({ theme = 'light' }) => {
   const [reports, setReports] = useState([]);

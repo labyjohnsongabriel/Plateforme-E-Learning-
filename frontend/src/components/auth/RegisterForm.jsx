@@ -7,7 +7,7 @@ const RegisterForm = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
-
+import { colors, gradients } from '../../utils/colors';
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (password !== confirmPassword) {

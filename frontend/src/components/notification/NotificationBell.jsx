@@ -1,7 +1,7 @@
 // NotificationBell.jsx - Cloche de notifications
 import React, { useState, useEffect } from 'react';
 import NotificationList from './NotificationList';
-import { colors } from '../styles/colors';
+import { colors } from '../../utils/colors';
 
 const NotificationBell = ({ theme = 'light' }) => {
   const [isOpen, setIsOpen] = useState(false);

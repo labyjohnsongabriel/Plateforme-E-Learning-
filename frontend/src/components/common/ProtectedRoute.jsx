@@ -1,269 +1,162 @@
-import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { 
-  Box, 
-  Typography, 
-  CircularProgress,
-  Container 
-} from '@mui/material';
-//import { useAuth } from '../context/AuthContext';
-//import { colors } from '../utils/colors';
+import React, { createContext, useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { useTheme } from "@mui/material/styles";
 
-const ProtectedRoute = ({ 
-  children, 
-  requiredRole = null, 
-  requiredLevel = null,
-  fallbackPath = '/login',
-  showLoading = true 
-}) => {
-  const { user, isLoading, isAuthenticated } = useAuth();
-  const location = useLocation();
+const AuthContext = createContext({
+  user: null,
+  login: async () => {},
+  logout: () => {},
+  register: async () => {},
+  isAuthenticated: false,
+  isLoading: false,
+  error: null,
+});
 
-  // Affichage pendant le chargement
-  if (isLoading && showLoading) {
-    return (
-      <Container 
-        maxWidth="sm" 
-        sx={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          minHeight: '60vh',
-          textAlign: 'center'
-        }}
-      >
-        <CircularProgress 
-          size={60} 
-          thickness={4}
-          sx={{ 
-            color: colors.primary.main,
-            mb: 3
-          }} 
-        />
-        <Typography variant="h6" color={colors.text.primary} gutterBottom>
-          Vérification de l'accès...
-        </Typography>
-        <Typography variant="body2" color={colors.text.secondary}>
-          Chargement de vos informations de sécurité
-        </Typography>
-      </Container>
-    );
-  }
+// Custom hook to use the AuthContext
+export const useAuth = () => React.useContext(AuthContext);
 
-  // Redirection si non authentifié
-  if (!isAuthenticated) {
-    return (
-      <Navigate 
-        to={fallbackPath} 
-        state={{ 
-          from: location,
-          message: 'Veuillez vous connecter pour accéder à cette page'
-        }} 
-        replace 
-      />
-    );
-  }
+export const AuthProvider = ({ children }) => {
+  const theme = useTheme();
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
-  // Vérification du rôle requis
-  if (requiredRole && user?.role !== requiredRole) {
-    // Si l'utilisateur a un rôle mais pas le bon, rediriger vers son dashboard
-    const userDashboard = `/${user?.role}/dashboard`;
-    
-    return (
-      <Navigate 
-        to={userDashboard} 
-        state={{ 
-          from: location,
-          message: `Accès réservé aux ${requiredRole}s`,
-          severity: 'warning'
-        }} 
-        replace 
-      />
-    );
-  }
-
-  // Vérification du niveau requis
-  if (requiredLevel) {
-    const levelHierarchy = {
-      'alfa': 1,
-      'beta': 2,
-      'gamma': 3,
-      'delta': 4,
-      'epsilon': 5
-    };
-
-    const userLevelIndex = levelHierarchy[user?.level] || 0;
-    const requiredLevelIndex = levelHierarchy[requiredLevel] || 0;
-
-    if (userLevelIndex < requiredLevelIndex) {
-      return (
-        <Navigate 
-          to="/unauthorized" 
-          state={{ 
-            from: location,
-            message: `Niveau ${requiredLevel} requis. Vous êtes actuellement au niveau ${user?.level}`,
-            requiredLevel,
-            currentLevel: user?.level
-          }} 
-          replace 
-        />
-      );
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (err) {
+        console.error("Failed to parse stored user:", err);
+        localStorage.removeItem("user");
+      }
     }
-  }
+  }, []);
 
-  // Si toutes les vérifications sont passées, afficher le contenu
-  return children;
-};
+  const login = useCallback(
+    async (email, password) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
 
-// Variante pour les routes administratives
-export const AdminRoute = ({ children, ...props }) => (
-  <ProtectedRoute requiredRole="admin" {...props}>
-    {children}
-  </ProtectedRoute>
-);
+        if (!response.ok) {
+          throw new Error("Identifiants incorrects");
+        }
 
-// Variante pour les routes instructeurs
-export const InstructorRoute = ({ children, ...props }) => (
-  <ProtectedRoute requiredRole="instructor" {...props}>
-    {children}
-  </ProtectedRoute>
-);
+        const data = await response.json();
+        const userData = {
+          id: data.id,
+          email: data.email,
+          name: data.name,
+          role: data.role,
+          token: data.token,
+          level: data.level || "beta",
+        };
 
-// Variante pour les routes étudiants
-export const StudentRoute = ({ children, ...props }) => (
-  <ProtectedRoute requiredRole="student" {...props}>
-    {children}
-  </ProtectedRoute>
-);
+        setUser(userData);
+        localStorage.setItem("user", JSON.stringify(userData));
+        navigate(`/${data.role}/dashboard`);
+      } catch (err) {
+        setError(err.message || "Erreur de connexion");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [navigate]
+  );
 
-// Variante avec niveau minimum requis
-export const LevelRoute = ({ children, minLevel, ...props }) => (
-  <ProtectedRoute requiredLevel={minLevel} {...props}>
-    {children}
-  </ProtectedRoute>
-);
+  const register = useCallback(
+    async (name, email, password) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, password }),
+        });
 
-// Route publique uniquement pour les non-authentifiés (ex: login, register)
-export const PublicOnlyRoute = ({ children, redirectPath = '/dashboard' }) => {
-  const { isAuthenticated, isLoading } = useAuth();
-  const location = useLocation();
+        if (!response.ok) {
+          throw new Error("Erreur lors de l'inscription");
+        }
 
-  if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+        navigate("/login");
+      } catch (err) {
+        setError(err.message || "Erreur serveur");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [navigate]
+  );
 
-  if (isAuthenticated) {
-    // Rediriger vers la page d'origine ou le dashboard
-    const from = location.state?.from?.pathname || redirectPath;
-    return <Navigate to={from} replace />;
-  }
+  const logout = useCallback(() => {
+    setUser(null);
+    localStorage.removeItem("user");
+    navigate("/login");
+  }, [navigate]);
 
-  return children;
-};
+  const contextValue = {
+    user,
+    login,
+    logout,
+    register,
+    isAuthenticated: !!user,
+    isLoading,
+    error,
+  };
 
-// Composant pour afficher les erreurs d'autorisation
-export const AuthorizationError = ({ 
-  title = "Accès non autorisé", 
-  message = "Vous n'avez pas les permissions nécessaires pour accéder à cette page.",
-  requiredRole = null,
-  currentRole = null,
-  requiredLevel = null,
-  currentLevel = null 
-}) => {
   return (
-    <Container maxWidth="md" sx={{ py: 8, textAlign: 'center' }}>
-      <Box sx={{ maxWidth: 480, mx: 'auto' }}>
-        <Typography 
-          variant="h3" 
-          component="h1" 
-          gutterBottom 
-          color={colors.error.main}
-          fontWeight={700}
+    <AuthContext.Provider value={contextValue}>
+      {children}
+      {isLoading && (
+        <Box
+          sx={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: theme.palette.primary.main + "90",
+            zIndex: 9999,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
         >
-          ⚠️ {title}
-        </Typography>
-        
-        <Typography variant="h6" color={colors.text.primary} paragraph>
-          {message}
-        </Typography>
-
-        {(requiredRole || currentRole) && (
-          <Box sx={{ 
-            backgroundColor: colors.grey[50], 
-            p: 3, 
-            borderRadius: 2,
-            mb: 3 
-          }}>
-            <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-              Informations sur les rôles:
+          <Box sx={{ textAlign: "center" }}>
+            <CircularProgress
+              size={40}
+              thickness={4}
+              sx={{ color: theme.palette.secondary.main, mb: 2 }}
+            />
+            <Typography variant="h6" color="white">
+              Chargement...
             </Typography>
-            {requiredRole && (
-              <Typography variant="body2">
-                <strong>Rôle requis:</strong> {requiredRole}
-              </Typography>
-            )}
-            {currentRole && (
-              <Typography variant="body2">
-                <strong>Votre rôle:</strong> {currentRole}
-              </Typography>
-            )}
           </Box>
-        )}
-
-        {(requiredLevel || currentLevel) && (
-          <Box sx={{ 
-            backgroundColor: colors.grey[50], 
-            p: 3, 
-            borderRadius: 2,
-            mb: 3 
-          }}>
-            <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-              Informations sur les niveaux:
-            </Typography>
-            {requiredLevel && (
-              <Typography variant="body2">
-                <strong>Niveau requis:</strong> {requiredLevel}
-              </Typography>
-            )}
-            {currentLevel && (
-              <Typography variant="body2">
-                <strong>Votre niveau:</strong> {currentLevel}
-              </Typography>
-            )}
-          </Box>
-        )}
-
-        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Button 
-            variant="contained" 
-            onClick={() => window.history.back()}
-            sx={{ minWidth: 120 }}
-          >
-            Retour
-          </Button>
-          <Button 
-            variant="outlined" 
-            onClick={() => window.location.href = '/'}
-            sx={{ minWidth: 120 }}
-          >
-            Accueil
-          </Button>
-          <Button 
-            variant="text" 
-            onClick={() => window.location.href = '/contact'}
-            sx={{ minWidth: 120 }}
-          >
-            Support
-          </Button>
         </Box>
-      </Box>
-    </Container>
+      )}
+      {error && (
+        <Box
+          sx={{
+            position: "fixed",
+            bottom: 16,
+            right: 16,
+            backgroundColor: theme.palette.error.main,
+            color: "white",
+            p: 2,
+            borderRadius: 2,
+            boxShadow: 3,
+          }}
+        >
+          <Typography variant="body2">{error}</Typography>
+        </Box>
+      )}
+    </AuthContext.Provider>
   );
 };
 
-export default ProtectedRoute;
+export default AuthContext;

@@ -1,6 +1,6 @@
 // ProgressBar.jsx - Barre de progression avec gradient personnalisé
 import React from 'react';
-import { colors } from '../styles/colors';
+import { colors } from '../../utils/colors';
 
 const ProgressBar = ({ progress, level, theme = 'light' }) => {
   const levelColor = colors[`level${level}`]?.color || colors.primary;

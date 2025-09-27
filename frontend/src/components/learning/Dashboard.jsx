@@ -4,7 +4,7 @@ import ProgressBar from './ProgressBar';
 import Certificate from './Certificate';
 import Statistics from './Statistics';
 import LearningPath from './LearningPath';
-import { colors } from '../styles/colors';
+import { colors } from '../../utils/colors';
 
 const Dashboard = ({ user, theme = 'light' }) => {
   const [progress, setProgress] = useState(0);

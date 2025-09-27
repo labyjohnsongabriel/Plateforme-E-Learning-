@@ -1,6 +1,6 @@
 // ServerError.jsx - Page 500
 import React from 'react';
-//import { colors } from '../../styles/colors';
+import { colors } from "../../utils/colors";
 
 const ServerError = ({ theme = 'light' }) => {
   const bg = theme === 'dark' ? colors.globalGradientDark : colors.globalGradientLight;

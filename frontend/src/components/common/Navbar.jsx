@@ -36,7 +36,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
-import { colors, gradients } from '../utils/colors';
+import { colors } from '../../utils/colors';
 
 // Animation de disparition au scroll
 function HideOnScroll(props) {
