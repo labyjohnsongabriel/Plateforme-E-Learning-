@@ -20,6 +20,13 @@ router.post("/register", authValidator.register, AuthController.register);
 router.post("/login", authValidator.login, AuthController.login);
 
 /**
+ * @route GET /api/auth/me
+ * @desc Récupérer les informations de l'utilisateur authentifié
+ * @access Privé
+ */
+router.get("/me", authMiddleware, AuthController.getMe);
+
+/**
  * @route GET /api/auth/profile
  * @desc Récupérer le profil utilisateur
  * @access Privé

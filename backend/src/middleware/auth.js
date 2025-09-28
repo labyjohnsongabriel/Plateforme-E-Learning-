@@ -24,14 +24,18 @@ const authMiddleware = (req, res, next) => {
   const secretKey = process.env.JWT_SECRET;
   if (!secretKey) {
     console.error("JWT_SECRET non défini dans les variables d'environnement");
-    return res.status(500).json({ message: "Erreur serveur : configuration manquante" });
+    return res
+      .status(500)
+      .json({ message: "Erreur serveur : configuration manquante" });
   }
 
   try {
     // Vérifier et décoder le jeton
     const decoded = jwt.verify(token, secretKey);
     if (!decoded.id || !decoded.role) {
-      return res.status(401).json({ message: "Jeton invalide : données manquantes" });
+      return res
+        .status(401)
+        .json({ message: "Jeton invalide : données manquantes" });
     }
     req.user = decoded; // Attache les données décodées (id, role) à req.user
     next();

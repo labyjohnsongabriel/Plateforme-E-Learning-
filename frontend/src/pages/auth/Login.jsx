@@ -9,13 +9,16 @@ import {
   Stack,
   Fade,
   InputAdornment,
+  IconButton,
   Checkbox,
   FormControlLabel,
-  Divider,
+  Alert,
+  CircularProgress,
 } from "@mui/material";
 import { styled, keyframes } from "@mui/material/styles";
-import { Link } from "react-router-dom";
-import { Mail, Lock, Facebook, Twitter } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import axios from "axios";
 
 // Couleurs principales
 const colors = {
@@ -24,8 +27,6 @@ const colors = {
   lightNavy: "#1a237e",
   lightFuschia: "#ff6b74",
   white: "#ffffff",
-  facebook: "#3b5998",
-  twitter: "#55acee",
 };
 
 // Animations
@@ -46,7 +47,8 @@ const LoginCard = styled(Card)(({ theme }) => ({
   border: `1px solid ${colors.fuschia}33`,
   borderRadius: "16px",
   padding: theme.spacing(4),
-  width: "140%",
+  width: "150%",
+  maxWidth: 500,
   transition: "all 0.3s ease",
   animation: `${fadeInUp} 0.6s ease-out`,
   "&:hover": {
@@ -78,37 +80,32 @@ const StyledButton = styled(Button)(({ theme }) => ({
   },
 }));
 
-const SocialButton = styled(Button)(({ theme, social }) => ({
-  backgroundColor: social === "facebook" ? colors.facebook : colors.twitter,
-  borderRadius: "12px",
-  padding: theme.spacing(1.5, 4),
-  fontWeight: 600,
-  fontSize: "1.1rem",
-  textTransform: "none",
-  color: colors.white,
-  "&:hover": {
-    backgroundColor:
-      social === "facebook" ? `${colors.facebook}cc` : `${colors.twitter}cc`,
-    boxShadow: `0 6px 20px ${
-      social === "facebook" ? colors.facebook : colors.twitter
-    }66`,
-    transform: "translateY(-2px)",
-  },
-}));
-
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   const validateForm = () => {
-    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedEmail) {
+      setError("L'email est requis");
+      return false;
+    }
+    if (!/\S+@\S+\.\S+/.test(trimmedEmail)) {
       setError("Veuillez entrer un email valide");
       return false;
     }
-    if (!password || password.length < 6) {
+    if (!trimmedPassword) {
+      setError("Le mot de passe est requis");
+      return false;
+    }
+    if (trimmedPassword.length < 6) {
       setError("Le mot de passe doit contenir au moins 6 caractères");
       return false;
     }
@@ -122,20 +119,34 @@ const Login = () => {
 
     setIsLoading(true);
     try {
-      const response = await fetch("http://localhost:3000/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, rememberMe }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        localStorage.setItem("token", data.token);
-        window.location.href = "/student/dashboard";
-      } else {
-        setError(data.message || "Identifiants incorrects");
-      }
+      const response = await axios.post(
+        "http://localhost:3000/api/auth/login",
+        {
+          email: email.trim(),
+          password: password.trim(),
+          rememberMe,
+        }
+      );
+      localStorage.setItem("token", response.data.token);
+      navigate("/student/dashboard");
     } catch (err) {
-      setError("Erreur de connexion au serveur");
+      if (err.response) {
+        switch (err.response.status) {
+          case 400:
+            setError("Veuillez vérifier vos informations");
+            break;
+          case 401:
+            setError("Email ou mot de passe incorrect");
+            break;
+          case 500:
+            setError("Erreur serveur, veuillez réessayer plus tard");
+            break;
+          default:
+            setError(err.response.data.message || "Une erreur s'est produite");
+        }
+      } else {
+        setError("Impossible de se connecter au serveur");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -231,19 +242,9 @@ const Login = () => {
                   </Typography>
 
                   {error && (
-                    <Typography
-                      sx={{
-                        color: colors.fuschia,
-                        fontWeight: 500,
-                        textAlign: "center",
-                        fontSize: "0.95rem",
-                        bgcolor: `${colors.fuschia}1a`,
-                        p: 1,
-                        borderRadius: "8px",
-                      }}
-                    >
+                    <Alert severity="error" sx={{ width: "100%" }}>
                       {error}
-                    </Typography>
+                    </Alert>
                   )}
 
                   <TextField
@@ -285,7 +286,7 @@ const Login = () => {
                   <TextField
                     name="password"
                     label="Mot de passe"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     variant="outlined"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -295,6 +296,20 @@ const Login = () => {
                       startAdornment: (
                         <InputAdornment position="start">
                           <Lock size={20} color={colors.fuschia} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={() => setShowPassword(!showPassword)}
+                            sx={{ color: `${colors.white}b3` }}
+                          >
+                            {showPassword ? (
+                              <EyeOff size={20} />
+                            ) : (
+                              <Eye size={20} />
+                            )}
+                          </IconButton>
                         </InputAdornment>
                       ),
                     }}
@@ -364,41 +379,14 @@ const Login = () => {
                     disabled={isLoading}
                   >
                     {isLoading ? (
-                      <CircularProgress size={20} color="inherit" />
+                      <CircularProgress
+                        size={20}
+                        sx={{ color: colors.white }}
+                      />
                     ) : (
                       "Se connecter"
                     )}
                   </StyledButton>
-
-                  <Divider
-                    sx={{
-                      my: 3,
-                      color: `${colors.white}80`,
-                      "&::before, &::after": {
-                        borderColor: `${colors.fuschia}4d`,
-                      },
-                    }}
-                  >
-                    OU
-                  </Divider>
-
-                  <SocialButton
-                    social="facebook"
-                    fullWidth
-                    startIcon={<Facebook size={20} />}
-                    href="#"
-                  >
-                    Continuer avec Facebook
-                  </SocialButton>
-
-                  <SocialButton
-                    social="twitter"
-                    fullWidth
-                    startIcon={<Twitter size={20} />}
-                    href="#"
-                  >
-                    Continuer avec Twitter
-                  </SocialButton>
 
                   <Typography
                     component={Link}

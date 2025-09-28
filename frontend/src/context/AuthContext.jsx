@@ -1,4 +1,3 @@
-// src/context/AuthContext.jsx
 import React, {
   createContext,
   useState,
@@ -6,19 +5,15 @@ import React, {
   useCallback,
   useContext,
 } from "react";
+import { Backdrop, CircularProgress, Typography } from "@mui/material";
+import axios from "axios";
+import { useNotifications } from "./NotificationContext";
 import { useNavigate } from "react-router-dom";
-import {
-  Backdrop,
-  CircularProgress,
-  Alert,
-  Snackbar,
-  Typography,
-} from "@mui/material";
 
 /**
  * AuthContext for managing user authentication state
  * @type {Object}
- * @property {Object|null} user - The authenticated user object with id, email, firstName, lastName, role, token, and optional level
+ * @property {Object|null} user - The authenticated user object with id, prenom, nom, email, role, token
  * @property {Function} login - Function to log in a user
  * @property {Function} logout - Function to log out a user
  * @property {Function} register - Function to register a new user
@@ -55,99 +50,118 @@ export const useAuth = () => {
  */
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start as true to check stored user
   const [error, setError] = useState(null);
+  const { addNotification } = useNotifications();
   const navigate = useNavigate();
+  const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
-  // Initialize user from localStorage on mount
+  // Initialize user from localStorage and verify token on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (err) {
-        console.error("Failed to parse stored user:", err);
-        localStorage.removeItem("user");
+    const initializeAuth = async () => {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        try {
+          const userData = JSON.parse(storedUser);
+          // Verify token with the backend
+          const response = await axios.get(`${API_BASE_URL}/api/auth/me`, {
+            headers: { Authorization: `Bearer ${userData.token}` },
+          });
+          setUser({ ...response.data, token: userData.token });
+        } catch (err) {
+          console.error("Failed to verify user:", err);
+          localStorage.removeItem("user");
+          setUser(null);
+          addNotification(
+            "Session invalide, veuillez vous reconnecter.",
+            "error"
+          );
+        }
       }
-    }
-  }, []);
+      setIsLoading(false);
+    };
+    initializeAuth();
+  }, [addNotification, API_BASE_URL]);
 
   /**
    * Handle user login
    * @param {string} email - User's email
    * @param {string} password - User's password
+   * @param {boolean} rememberMe - Whether to remember the user
    */
   const login = useCallback(
-    async (email, password) => {
+    async (email, password, rememberMe) => {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
+        const response = await axios.post(`${API_BASE_URL}/api/auth/login`, {
+          email,
+          password,
+          rememberMe,
         });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || "Identifiants incorrects");
-        }
-
-        const data = await response.json();
-        const userData = {
-          id: data.id,
-          email: data.email,
-          firstName: data.firstName || data.name.split(" ")[0] || data.name, // Extract firstName
-          lastName:
-            data.lastName || data.name.split(" ").slice(1).join(" ") || "", // Extract lastName
-          role: data.role,
-          token: data.token,
-          level: data.level || "beta",
+        const { token, user: userData } = response.data;
+        const formattedUser = {
+          id: userData._id,
+          prenom: userData.prenom || userData.name?.split(" ")[0] || "Étudiant",
+          nom:
+            userData.nom || userData.name?.split(" ").slice(1).join(" ") || "",
+          email: userData.email,
+          role: userData.role,
+          token,
         };
-
-        // Optimistic update
-        setUser(userData);
-        localStorage.setItem("user", JSON.stringify(userData));
-        navigate(`/${data.role}/dashboard`, { replace: true });
+        setUser(formattedUser);
+        if (rememberMe) {
+          localStorage.setItem("user", JSON.stringify(formattedUser));
+        }
+        addNotification("Connexion réussie", "success");
+        return formattedUser;
       } catch (err) {
-        setError(err.message || "Erreur de connexion");
+        const errorMessage =
+          err.response?.data?.message || "Erreur de connexion";
+        setError(errorMessage);
+        addNotification(errorMessage, "error");
+        throw err;
       } finally {
         setIsLoading(false);
       }
     },
-    [navigate]
+    [addNotification, API_BASE_URL]
   );
 
   /**
    * Handle user registration
-   * @param {string} name - User's full name
+   * @param {string} nom - User's last name
+   * @param {string} prenom - User's first name
    * @param {string} email - User's email
    * @param {string} password - User's password
+   * @param {boolean} rememberMe - Whether to remember the user
    */
   const register = useCallback(
-    async (name, email, password) => {
+    async (nom, prenom, email, password, rememberMe) => {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch("/api/auth/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, email, password }),
+        await axios.post(`${API_BASE_URL}/api/auth/register`, {
+          nom,
+          prenom,
+          email,
+          password,
+          rememberMe,
         });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || "Erreur lors de l'inscription");
-        }
-
-        navigate("/login", { replace: true });
+        addNotification("Inscription réussie", "success");
+        return true;
       } catch (err) {
-        setError(err.message || "Erreur serveur");
+        const errorMessage =
+          err.response?.data?.message || "Erreur lors de l'inscription";
+        setError(errorMessage);
+        addNotification(errorMessage, "error");
+        throw err;
       } finally {
         setIsLoading(false);
       }
     },
-    [navigate]
+    [addNotification, API_BASE_URL]
   );
 
   /**
@@ -156,8 +170,9 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback(() => {
     setUser(null);
     localStorage.removeItem("user");
-    navigate("/login", { replace: true });
-  }, [navigate]);
+    addNotification("Déconnexion réussie", "success");
+    navigate("/login");
+  }, [navigate, addNotification]);
 
   const contextValue = {
     user,
@@ -189,20 +204,6 @@ export const AuthProvider = ({ children }) => {
           Chargement...
         </Typography>
       </Backdrop>
-      <Snackbar
-        open={!!error}
-        autoHideDuration={6000}
-        onClose={() => setError(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-      >
-        <Alert
-          severity="error"
-          onClose={() => setError(null)}
-          sx={{ width: "100%" }}
-        >
-          {error}
-        </Alert>
-      </Snackbar>
     </AuthContext.Provider>
   );
 };

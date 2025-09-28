@@ -104,3 +104,83 @@
 {"level":"info","message":"MongoDB connected successfully","timestamp":"2025-09-27T07:47:48.604Z"}
 {"level":"info","message":"MongoDB connected via config/database.js","timestamp":"2025-09-27T07:47:48.606Z"}
 {"level":"info","message":"🚀 Server running on port 3000","timestamp":"2025-09-27T07:47:48.614Z"}
+{"level":"warn","message":"Mongoose disconnected from DB","timestamp":"2025-09-27T09:18:06.564Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-27T09:22:27.230Z"}
+{"level":"info","message":"MongoDB connected successfully","timestamp":"2025-09-27T09:22:27.239Z"}
+{"level":"info","message":"MongoDB connected via config/database.js","timestamp":"2025-09-27T09:22:27.241Z"}
+{"level":"info","message":"🚀 Server running on port 3000","timestamp":"2025-09-27T09:22:27.248Z"}
+{"level":"error","message":"Error: User validation failed: role: Path `role` is required.","timestamp":"2025-09-27T09:41:23.182Z"}
+{"level":"error","message":"Error: User validation failed: role: Path `role` is required.","timestamp":"2025-09-27T09:42:21.929Z"}
+{"level":"warn","message":"Mongoose disconnected from DB","timestamp":"2025-09-27T09:42:26.862Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-27T09:42:32.561Z"}
+{"level":"info","message":"MongoDB connected successfully","timestamp":"2025-09-27T09:42:32.567Z"}
+{"level":"info","message":"MongoDB connected via config/database.js","timestamp":"2025-09-27T09:42:32.568Z"}
+{"level":"info","message":"🚀 Server running on port 3000","timestamp":"2025-09-27T09:42:32.572Z"}
+{"level":"warn","message":"Mongoose disconnected from DB","timestamp":"2025-09-27T15:10:05.211Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-27T15:10:19.132Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-27T18:27:07.110Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-27T18:31:42.697Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-27T18:35:41.603Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-27T18:38:37.852Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-27T18:39:24.005Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-27T18:40:48.691Z"}
+{"level":"warn","message":"Mongoose disconnected from DB","timestamp":"2025-09-27T18:41:58.303Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-27T18:43:46.352Z"}
+{"level":"info","message":"MongoDB connected successfully","timestamp":"2025-09-27T18:43:46.358Z"}
+{"level":"info","message":"MongoDB connected via config/database.js","timestamp":"2025-09-27T18:43:46.359Z"}
+{"level":"info","message":"🚀 Server running on port 3000","timestamp":"2025-09-27T18:43:46.363Z"}
+{"level":"warn","message":"Mongoose disconnected from DB","timestamp":"2025-09-28T04:18:35.066Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-28T04:18:45.088Z"}
+{"level":"warn","message":"Mongoose disconnected from DB","timestamp":"2025-09-28T04:52:15.326Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-28T04:57:46.666Z"}
+{"level":"info","message":"MongoDB connected successfully","timestamp":"2025-09-28T04:57:46.676Z"}
+{"level":"info","message":"MongoDB connected via config/database.js","timestamp":"2025-09-28T04:57:46.678Z"}
+{"level":"info","message":"🚀 Server running on port 3000","timestamp":"2025-09-28T04:57:46.688Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-28T05:31:20.733Z"}
+{"level":"info","message":"MongoDB connected successfully","timestamp":"2025-09-28T05:31:20.740Z"}
+{"level":"info","message":"MongoDB connected via config/database.js","timestamp":"2025-09-28T05:31:20.740Z"}
+{"level":"info","message":"🚀 Server running on port 3000","timestamp":"2025-09-28T05:31:20.746Z"}
+{"level":"warn","message":"Mongoose disconnected from DB","timestamp":"2025-09-28T07:16:04.749Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-28T07:16:15.551Z"}
+{"level":"warn","message":"Mongoose disconnected from DB","timestamp":"2025-09-28T07:25:59.758Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-28T07:35:46.415Z"}
+{"level":"info","message":"MongoDB connected successfully","timestamp":"2025-09-28T07:35:46.423Z"}
+{"level":"info","message":"MongoDB connected via config/database.js","timestamp":"2025-09-28T07:35:46.424Z"}
+{"level":"info","message":"🚀 Server running on port 3000","timestamp":"2025-09-28T07:35:46.431Z"}
+{"level":"warn","message":"Mongoose disconnected from DB","timestamp":"2025-09-28T07:46:14.127Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-28T07:46:24.726Z"}
+{"level":"warn","message":"Mongoose disconnected from DB","timestamp":"2025-09-28T08:15:18.550Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-28T08:15:28.571Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:30:45.181Z"}
+{"level":"warn","message":"Mongoose disconnected from DB","timestamp":"2025-09-28T08:31:48.048Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-28T08:32:09.117Z"}
+{"level":"info","message":"MongoDB connected successfully","timestamp":"2025-09-28T08:32:09.122Z"}
+{"level":"info","message":"MongoDB connected via config/database.js","timestamp":"2025-09-28T08:32:09.123Z"}
+{"level":"info","message":"🚀 Server running on port 3000","timestamp":"2025-09-28T08:32:09.127Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:32:12.069Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:32:22.729Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:32:22.757Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:37:25.043Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:37:25.077Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:39:28.848Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:39:28.874Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:45:50.729Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:45:50.898Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:59:13.106Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:59:14.430Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T09:33:06.657Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T09:33:07.627Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T09:33:33.575Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T09:33:34.126Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T10:29:26.578Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T10:29:26.596Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T10:30:13.905Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T10:30:13.934Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T10:32:10.548Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T10:32:10.557Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T11:00:09.149Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T11:00:11.110Z"}
+{"level":"warn","message":"Mongoose disconnected from DB","timestamp":"2025-09-28T16:32:35.026Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-28T16:33:05.931Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T17:12:10.872Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T17:12:11.190Z"}

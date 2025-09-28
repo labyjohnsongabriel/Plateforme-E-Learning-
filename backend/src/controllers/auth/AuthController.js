@@ -1,8 +1,8 @@
+// controllers/auth/AuthController.js
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { User, RoleUtilisateur } = require("../../models/user/User");
 
-// Debug the User model
 console.log("User model:", User);
 
 exports.register = async (req, res, next) => {
@@ -98,10 +98,41 @@ exports.login = async (req, res, next) => {
       { expiresIn: "1h" }
     );
 
-    res.status(200).json({ message: "Connexion réussie", token });
+    // Return user data along with token
+    res.status(200).json({
+      message: "Connexion réussie",
+      token,
+      user: {
+        _id: user._id,
+        prenom: user.prenom,
+        nom: user.nom,
+        email: user.email,
+        role: user.role,
+      },
+    });
   } catch (error) {
     console.error("Login error:", error);
     next(error);
+  }
+};
+
+exports.getMe = async (req, res, next) => {
+  try {
+    // req.user is set by authMiddleware (contains id and role from JWT)
+    const user = await User.findById(req.user.id).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+    res.json({
+      _id: user._id,
+      prenom: user.prenom,
+      nom: user.nom,
+      email: user.email,
+      role: user.role,
+    });
+  } catch (error) {
+    console.error("Error in getMe:", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 

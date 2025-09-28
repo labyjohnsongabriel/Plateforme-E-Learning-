@@ -12,11 +12,13 @@ import {
   IconButton,
   Checkbox,
   FormControlLabel,
-  Divider,
+  Alert,
+  CircularProgress,
 } from "@mui/material";
 import { styled, keyframes } from "@mui/material/styles";
-import { Link } from "react-router-dom";
-import { Mail, Lock, Eye, EyeOff, User, Facebook, Twitter } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Mail, Lock, Eye, EyeOff, User } from "lucide-react";
+import axios from "axios";
 
 // Couleurs principales
 const colors = {
@@ -25,8 +27,6 @@ const colors = {
   lightNavy: "#1a237e",
   lightFuschia: "#ff6b74",
   white: "#ffffff",
-  facebook: "#3b5998",
-  twitter: "#55acee",
 };
 
 // Animations
@@ -48,6 +48,7 @@ const RegisterCard = styled(Card)(({ theme }) => ({
   borderRadius: "16px",
   padding: theme.spacing(4),
   width: "140%",
+  maxWidth: 500,
   transition: "all 0.3s ease",
   animation: `${fadeInUp} 0.6s ease-out`,
   "&:hover": {
@@ -79,24 +80,6 @@ const StyledButton = styled(Button)(({ theme }) => ({
   },
 }));
 
-const SocialButton = styled(Button)(({ theme, social }) => ({
-  backgroundColor: social === "facebook" ? colors.facebook : colors.twitter,
-  borderRadius: "12px",
-  padding: theme.spacing(1.5, 4),
-  fontWeight: 600,
-  fontSize: "1.1rem",
-  textTransform: "none",
-  color: colors.white,
-  "&:hover": {
-    backgroundColor:
-      social === "facebook" ? `${colors.facebook}cc` : `${colors.twitter}cc`,
-    boxShadow: `0 6px 20px ${
-      social === "facebook" ? colors.facebook : colors.twitter
-    }66`,
-    transform: "translateY(-2px)",
-  },
-}));
-
 const Register = () => {
   const [nom, setNom] = useState("");
   const [prenom, setPrenom] = useState("");
@@ -108,25 +91,40 @@ const Register = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   const validateForm = () => {
-    if (!nom || nom.length < 2) {
+    const trimmedNom = nom.trim();
+    const trimmedPrenom = prenom.trim();
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+    const trimmedConfirmPassword = confirmPassword.trim();
+
+    if (!trimmedNom || trimmedNom.length < 2) {
       setError("Le nom doit contenir au moins 2 caractères");
       return false;
     }
-    if (!prenom || prenom.length < 2) {
+    if (!trimmedPrenom || trimmedPrenom.length < 2) {
       setError("Le prénom doit contenir au moins 2 caractères");
       return false;
     }
-    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+    if (!trimmedEmail) {
+      setError("L'email est requis");
+      return false;
+    }
+    if (!/\S+@\S+\.\S+/.test(trimmedEmail)) {
       setError("Veuillez entrer un email valide");
       return false;
     }
-    if (!password || password.length < 6) {
+    if (!trimmedPassword) {
+      setError("Le mot de passe est requis");
+      return false;
+    }
+    if (trimmedPassword.length < 6) {
       setError("Le mot de passe doit contenir au moins 6 caractères");
       return false;
     }
-    if (password !== confirmPassword) {
+    if (trimmedPassword !== trimmedConfirmPassword) {
       setError("Les mots de passe ne correspondent pas");
       return false;
     }
@@ -140,19 +138,32 @@ const Register = () => {
 
     setIsLoading(true);
     try {
-      const response = await fetch("http://localhost:3000/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nom, prenom, email, password, rememberMe }),
+      const response = await axios.post("http://localhost:3000/api/auth/register", {
+        nom: nom.trim(),
+        prenom: prenom.trim(),
+        email: email.trim(),
+        password: password.trim(),
+        rememberMe,
       });
-      const data = await response.json();
-      if (response.ok) {
-        window.location.href = "/login";
-      } else {
-        setError(data.message || "Erreur lors de l'inscription");
-      }
+      navigate("/login");
     } catch (err) {
-      setError("Erreur serveur : impossible de se connecter au backend");
+      if (err.response) {
+        switch (err.response.status) {
+          case 400:
+            setError("Veuillez vérifier vos informations");
+            break;
+          case 409:
+            setError("Cet email est déjà utilisé");
+            break;
+          case 500:
+            setError("Erreur serveur, veuillez réessayer plus tard");
+            break;
+          default:
+            setError(err.response.data.message || "Une erreur s'est produite");
+        }
+      } else {
+        setError("Impossible de se connecter au serveur");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -248,19 +259,9 @@ const Register = () => {
                   </Typography>
 
                   {error && (
-                    <Typography
-                      sx={{
-                        color: colors.fuschia,
-                        fontWeight: 500,
-                        textAlign: "center",
-                        fontSize: "0.95rem",
-                        bgcolor: `${colors.fuschia}1a`,
-                        p: 1,
-                        borderRadius: "8px",
-                      }}
-                    >
+                    <Alert severity="error" sx={{ width: "100%" }}>
                       {error}
-                    </Typography>
+                    </Alert>
                   )}
 
                   <TextField
@@ -520,7 +521,10 @@ const Register = () => {
                     disabled={isLoading}
                   >
                     {isLoading ? (
-                      <CircularProgress size={20} color="inherit" />
+                      <CircularProgress
+                        size={20}
+                        sx={{ color: colors.white }}
+                      />
                     ) : (
                       "S'inscrire"
                     )}

@@ -1,19 +1,21 @@
 // src/context/NotificationContext.jsx
-import React, { createContext, useState, useEffect, useCallback } from "react";
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  useCallback,
+  useContext,
+} from "react";
+import {
+  Snackbar,
+  Alert,
+  Backdrop,
+  CircularProgress,
+  Typography,
+} from "@mui/material";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
-/**
- * NotificationContext for managing user notifications
- * @type {Object}
- * @property {Array} notifications - Array of notification objects
- * @property {Function} fetchNotifications - Fetch notifications from API
- * @property {Function} addNotification - Add a new notification
- * @property {Function} markAsRead - Mark a notification as read
- * @property {Function} markAllAsRead - Mark all notifications as read
- * @property {Function} clearNotifications - Clear all notifications
- * @property {number} unreadCount - Number of unread notifications
- * @property {boolean} isLoading - Whether a notification operation is in progress
- * @property {string|null} error - Error message, if any
- */
 export const NotificationContext = createContext({
   notifications: [],
   fetchNotifications: async () => {},
@@ -26,15 +28,23 @@ export const NotificationContext = createContext({
   error: null,
 });
 
-/**
- * NotificationProvider component to wrap the application and provide notification context
- * @param {Object} props
- * @param {React.ReactNode} props.children - The child components
- */
+export const useNotifications = () => {
+  const context = useContext(NotificationContext);
+  if (!context) {
+    throw new Error(
+      "useNotifications must be used within a NotificationProvider"
+    );
+  }
+  return context;
+};
+
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+  const navigate = useNavigate();
 
   // Calculate unread notifications count
   const unreadCount = notifications.filter((n) => !n.isRead).length;
@@ -57,133 +67,155 @@ export const NotificationProvider = ({ children }) => {
    * Fetch notifications from the API
    */
   const fetchNotifications = useCallback(async () => {
+    const storedUser = localStorage.getItem("user");
+    const token = storedUser ? JSON.parse(storedUser).token : null;
+    if (!token) {
+      return; // Skip fetching if no token
+    }
+
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/notifications", {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
+      const response = await axios.get(`${API_BASE_URL}/api/notifications`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
-      if (!response.ok) {
-        throw new Error("Erreur lors du chargement des notifications");
-      }
-
-      const data = await response.json();
+      const data = response.data.data || [];
       setNotifications(data);
       localStorage.setItem("notifications", JSON.stringify(data));
     } catch (err) {
-      setError(err.message || "Erreur serveur");
+      const errorMessage =
+        err.response?.data?.message ||
+        "Erreur lors du chargement des notifications";
+      setError(errorMessage);
+      if (err.response?.status === 401) {
+        navigate("/login");
+      }
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [API_BASE_URL, navigate]);
 
   /**
    * Add a new notification
-   * @param {Object} notification - Notification data without id or createdAt
    */
-  const addNotification = useCallback(async (notification) => {
-    setIsLoading(true);
-    setError(null);
-    try {
+  const addNotification = useCallback(
+    async (message, severity = "info") => {
+      setIsLoading(true);
+      setError(null);
       const newNotification = {
-        ...notification,
+        message,
+        severity,
         id: crypto.randomUUID(),
         createdAt: new Date().toISOString(),
+        isRead: false,
       };
 
-      // Optimistic update
-      setNotifications((prev) => {
-        const updatedNotifications = [...prev, newNotification];
-        localStorage.setItem(
-          "notifications",
-          JSON.stringify(updatedNotifications)
-        );
-        return updatedNotifications;
-      });
+      try {
+        setNotifications((prev) => {
+          const updatedNotifications = [...prev, newNotification];
+          localStorage.setItem(
+            "notifications",
+            JSON.stringify(updatedNotifications)
+          );
+          return updatedNotifications;
+        });
 
-      const response = await fetch("/api/notifications", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newNotification),
-      });
-
-      if (!response.ok) {
-        throw new Error("Erreur lors de l'ajout de la notification");
+        const storedUser = localStorage.getItem("user");
+        const token = storedUser ? JSON.parse(storedUser).token : null;
+        if (token) {
+          const response = await axios.post(
+            `${API_BASE_URL}/api/notifications`,
+            newNotification,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          const savedNotification = response.data;
+          setNotifications((prev) => {
+            const updatedNotifications = prev.map((n) =>
+              n.id === newNotification.id ? savedNotification : n
+            );
+            localStorage.setItem(
+              "notifications",
+              JSON.stringify(updatedNotifications)
+            );
+            return updatedNotifications;
+          });
+        }
+      } catch (err) {
+        const errorMessage =
+          err.response?.data?.message ||
+          "Erreur lors de l'ajout de la notification";
+        setError(errorMessage);
+        if (err.response?.status !== 401) {
+          // Only rollback if not a 401 error (unauthenticated users skip API call)
+          setNotifications((prev) => {
+            const updatedNotifications = prev.filter(
+              (n) => n.id !== newNotification.id
+            );
+            localStorage.setItem(
+              "notifications",
+              JSON.stringify(updatedNotifications)
+            );
+            return updatedNotifications;
+          });
+        }
+      } finally {
+        setIsLoading(false);
       }
-
-      const savedNotification = await response.json();
-      setNotifications((prev) => {
-        const updatedNotifications = prev.map((n) =>
-          n.id === newNotification.id ? savedNotification : n
-        );
-        localStorage.setItem(
-          "notifications",
-          JSON.stringify(updatedNotifications)
-        );
-        return updatedNotifications;
-      });
-    } catch (err) {
-      setError(err.message || "Erreur serveur");
-      setNotifications((prev) => {
-        const updatedNotifications = prev.filter(
-          (n) => n.id !== newNotification.id
-        );
-        localStorage.setItem(
-          "notifications",
-          JSON.stringify(updatedNotifications)
-        );
-        return updatedNotifications;
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    },
+    [API_BASE_URL]
+  );
 
   /**
    * Mark a notification as read
-   * @param {string} id - Notification ID
    */
-  const markAsRead = useCallback(async (id) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      setNotifications((prev) => {
-        const updatedNotifications = prev.map((n) =>
-          n.id === id ? { ...n, isRead: true } : n
-        );
-        localStorage.setItem(
-          "notifications",
-          JSON.stringify(updatedNotifications)
-        );
-        return updatedNotifications;
-      });
+  const markAsRead = useCallback(
+    async (id) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        setNotifications((prev) => {
+          const updatedNotifications = prev.map((n) =>
+            n.id === id ? { ...n, isRead: true } : n
+          );
+          localStorage.setItem(
+            "notifications",
+            JSON.stringify(updatedNotifications)
+          );
+          return updatedNotifications;
+        });
 
-      const response = await fetch(`/api/notifications/${id}/read`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!response.ok) {
-        throw new Error("Erreur lors de la mise à jour de la notification");
+        const storedUser = localStorage.getItem("user");
+        const token = storedUser ? JSON.parse(storedUser).token : null;
+        if (token) {
+          await axios.patch(
+            `${API_BASE_URL}/api/notifications/${id}/read`,
+            {},
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+        }
+      } catch (err) {
+        const errorMessage =
+          err.response?.data?.message ||
+          "Erreur lors de la mise à jour de la notification";
+        setError(errorMessage);
+        if (err.response?.status !== 401) {
+          setNotifications((prev) => {
+            const updatedNotifications = prev.map((n) =>
+              n.id === id ? { ...n, isRead: false } : n
+            );
+            localStorage.setItem(
+              "notifications",
+              JSON.stringify(updatedNotifications)
+            );
+            return updatedNotifications;
+          });
+        }
+      } finally {
+        setIsLoading(false);
       }
-    } catch (err) {
-      setError(err.message || "Erreur serveur");
-      setNotifications((prev) => {
-        const updatedNotifications = prev.map((n) =>
-          n.id === id ? { ...n, isRead: false } : n
-        );
-        localStorage.setItem(
-          "notifications",
-          JSON.stringify(updatedNotifications)
-        );
-        return updatedNotifications;
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    },
+    [API_BASE_URL]
+  );
 
   /**
    * Mark all notifications as read
@@ -201,31 +233,37 @@ export const NotificationProvider = ({ children }) => {
         return updatedNotifications;
       });
 
-      const response = await fetch("/api/notifications/read-all", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!response.ok) {
-        throw new Error("Erreur lors de la mise à jour des notifications");
+      const storedUser = localStorage.getItem("user");
+      const token = storedUser ? JSON.parse(storedUser).token : null;
+      if (token) {
+        await axios.patch(
+          `${API_BASE_URL}/api/notifications/read-all`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
       }
     } catch (err) {
-      setError(err.message || "Erreur serveur");
-      setNotifications((prev) => {
-        const updatedNotifications = prev.map((n) => ({
-          ...n,
-          isRead: n.isRead,
-        }));
-        localStorage.setItem(
-          "notifications",
-          JSON.stringify(updatedNotifications)
-        );
-        return updatedNotifications;
-      });
+      const errorMessage =
+        err.response?.data?.message ||
+        "Erreur lors de la mise à jour des notifications";
+      setError(errorMessage);
+      if (err.response?.status !== 401) {
+        setNotifications((prev) => {
+          const updatedNotifications = prev.map((n) => ({
+            ...n,
+            isRead: n.isRead,
+          }));
+          localStorage.setItem(
+            "notifications",
+            JSON.stringify(updatedNotifications)
+          );
+          return updatedNotifications;
+        });
+      }
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [API_BASE_URL]);
 
   /**
    * Clear all notifications
@@ -237,21 +275,23 @@ export const NotificationProvider = ({ children }) => {
       setNotifications([]);
       localStorage.removeItem("notifications");
 
-      const response = await fetch("/api/notifications", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!response.ok) {
-        throw new Error("Erreur lors de la suppression des notifications");
+      const storedUser = localStorage.getItem("user");
+      const token = storedUser ? JSON.parse(storedUser).token : null;
+      if (token) {
+        await axios.delete(`${API_BASE_URL}/api/notifications`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
       }
     } catch (err) {
-      setError(err.message || "Erreur serveur");
+      const errorMessage =
+        err.response?.data?.message ||
+        "Erreur lors de la suppression des notifications";
+      setError(errorMessage);
       fetchNotifications();
     } finally {
       setIsLoading(false);
     }
-  }, [fetchNotifications]);
+  }, [fetchNotifications, API_BASE_URL]);
 
   const contextValue = {
     notifications,
@@ -268,39 +308,37 @@ export const NotificationProvider = ({ children }) => {
   return (
     <NotificationContext.Provider value={contextValue}>
       {children}
-      {isLoading && (
-        <div className="fixed inset-0 bg-primary-main/90 z-[9999] flex items-center justify-center">
-          <div className="text-center">
-            <svg
-              className="animate-spin h-10 w-10 text-secondary-main mb-4"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="#f13544"
-                strokeWidth="4"
-                fill="none"
-              />
-              <path
-                className="opacity-75"
-                fill="#f13544"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              />
-            </svg>
-            <h3 className="text-white text-xl font-ubuntu">
-              Chargement des notifications...
-            </h3>
-          </div>
-        </div>
-      )}
-      {error && (
-        <div className="fixed bottom-4 right-4 bg-error-main text-white p-4 rounded-lg shadow-lg">
-          <p>{error}</p>
-        </div>
-      )}
+      <Backdrop
+        open={isLoading}
+        sx={{
+          zIndex: 9999,
+          color: "#fff",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <CircularProgress color="inherit" size={40} />
+        <Typography
+          variant="h6"
+          sx={{ mt: 2, fontFamily: "Ubuntu, sans-serif" }}
+        >
+          Chargement des notifications...
+        </Typography>
+      </Backdrop>
+      <Snackbar
+        open={!!error}
+        autoHideDuration={6000}
+        onClose={() => setError(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert
+          onClose={() => setError(null)}
+          severity="error"
+          sx={{ width: "100%" }}
+        >
+          {error}
+        </Alert>
+      </Snackbar>
     </NotificationContext.Provider>
   );
 };

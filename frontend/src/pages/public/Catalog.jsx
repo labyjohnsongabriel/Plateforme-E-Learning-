@@ -1,5 +1,5 @@
-// Catalog.jsx - Catalogue public professionnel
-import React, { useState, useEffect } from "react";
+// src/components/Catalog.jsx
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Box,
   Container,
@@ -11,13 +11,13 @@ import {
   CircularProgress,
   Chip,
   Paper,
-  IconButton,
   Fade,
   Slide,
   MenuItem,
   Select,
   InputLabel,
   FormControl,
+  Alert,
 } from "@mui/material";
 import { styled, keyframes } from "@mui/material/styles";
 import { Link } from "react-router-dom";
@@ -25,26 +25,22 @@ import {
   Star,
   BookOpen,
   Filter,
-  Search,
   ChevronRight,
   Globe,
   Award,
   Users,
 } from "lucide-react";
 import axios from "axios";
+import { useNotifications } from "../../context/NotificationContext";
 
 // Configuration de l'API
-const API_BASE_URL = "http://localhost:3000/api";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
 
-// Animations sophistiquées
+// Animations
 const fadeInUp = keyframes`
   from { opacity: 0; transform: translateY(40px); }
   to { opacity: 1; transform: translateY(0); }
-`;
-
-const fadeInRight = keyframes`
-  from { opacity: 0; transform: translateX(40px); }
-  to { opacity: 1; transform: translateX(0); }
 `;
 
 const floatingAnimation = keyframes`
@@ -63,7 +59,6 @@ const colors = {
   lightNavy: "#1a237e",
   red: "#f13544",
   pink: "#ff6b74",
-  purple: "#8b5cf6",
 };
 
 // Styled Components
@@ -104,72 +99,88 @@ const CourseCard = styled(Card)({
 
 const Catalog = () => {
   const [courses, setCourses] = useState([]);
-  const [domains, setDomains] = useState([]);
+  const [domains, setDomains] = useState([
+    { id: "all", nom: "Tous les domaines" },
+  ]);
+  const [stats, setStats] = useState({
+    courses: "500+",
+    learners: "1,200+",
+    satisfaction: "95%",
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filterLevel, setFilterLevel] = useState("all");
   const [filterDomain, setFilterDomain] = useState("all");
   const [isVisible, setIsVisible] = useState(false);
   const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const coursesPerPage = 9;
+  const { addNotification } = useNotifications();
 
+  // Fetch data on mount and when page changes
   useEffect(() => {
     setIsVisible(true);
     const fetchData = async () => {
       setLoading(true);
+      setError(null);
       try {
-        // Récupérer les cours
-        const coursesResponse = await axios.get(`${API_BASE_URL}/courses`);
-        setCourses(coursesResponse.data);
+        const [statsResponse, coursesResponse, domainsResponse] =
+          await Promise.all([
+            axios.get(`${API_BASE_URL}/stats`).catch(() => ({
+              data: {
+                courses: "500+",
+                learners: "1,200+",
+                satisfaction: "95%",
+              },
+            })),
+            axios
+              .get(`${API_BASE_URL}/courses`, {
+                params: { page, limit: coursesPerPage },
+              })
+              .catch(() => ({ data: { data: [], totalPages: 1 } })),
+            axios
+              .get(`${API_BASE_URL}/courses/domaine`)
+              .catch(() => ({ data: { data: [] } })),
+          ]);
 
-        // Récupérer les domaines
-        const domainsResponse = await axios.get(`${API_BASE_URL}/domaine`);
+        setStats(statsResponse.data);
+        setCourses(coursesResponse.data.data || []);
+        setTotalPages(coursesResponse.data.totalPages || 1);
         setDomains([
           { id: "all", nom: "Tous les domaines" },
-          ...domainsResponse.data,
+          ...(domainsResponse.data.data || []),
         ]);
       } catch (err) {
-        setError(
-          err.response?.data?.message || "Échec du chargement des données"
-        );
+        console.error("Error fetching data:", err);
+        const errorMessage =
+          err.response?.data?.message || "Échec du chargement des données.";
+        setError(errorMessage);
+        addNotification(errorMessage, "error");
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-  }, []);
+  }, [page, addNotification]);
 
-  const filteredCourses = courses
-    .filter((course) => filterLevel === "all" || course.level === filterLevel)
-    .filter(
-      (course) => filterDomain === "all" || course.domaineId === filterDomain
-    );
-
-  const paginatedCourses = filteredCourses.slice(
-    (page - 1) * coursesPerPage,
-    page * coursesPerPage
+  // Memoize filtered courses to prevent unnecessary re-renders
+  const filteredCourses = useMemo(
+    () =>
+      courses
+        .filter(
+          (course) =>
+            filterLevel === "all" ||
+            course.level === filterLevel ||
+            (course.niveau && course.niveau.nom === filterLevel) // Handle populated niveau if present
+        )
+        .filter(
+          (course) =>
+            filterDomain === "all" ||
+            course.domaineId === filterDomain ||
+            (course.domaineId && course.domaineId._id === filterDomain) // Handle populated domaineId
+        ),
+    [courses, filterLevel, filterDomain]
   );
-
-  const stats = [
-    {
-      number: "500+",
-      label: "Cours disponibles",
-      icon: BookOpen,
-      color: colors.red,
-    },
-    {
-      number: "1,200+",
-      label: "Apprenants inscrits",
-      icon: Users,
-      color: colors.navy,
-    },
-    {
-      number: "95%",
-      label: "Taux de satisfaction",
-      icon: Award,
-      color: "#4caf50",
-    },
-  ];
 
   const handlePageChange = (newPage) => {
     setPage(newPage);
@@ -178,7 +189,7 @@ const Catalog = () => {
 
   return (
     <Box sx={{ overflow: "hidden", width: "100vw", minHeight: "100vh" }}>
-      {/* Section Hero */}
+      {/* Hero Section */}
       <HeroSection>
         <Box
           sx={{
@@ -204,7 +215,6 @@ const Catalog = () => {
             transform: "rotate(45deg)",
           }}
         />
-
         <Container
           maxWidth={false}
           sx={{ position: "relative", zIndex: 10, px: { xs: 2, md: 4 } }}
@@ -229,7 +239,6 @@ const Catalog = () => {
                       fontWeight: 600,
                     }}
                   />
-
                   <Typography
                     variant="h1"
                     sx={{
@@ -253,7 +262,6 @@ const Catalog = () => {
                       Formations
                     </Box>
                   </Typography>
-
                   <Typography
                     variant="h5"
                     sx={{
@@ -266,90 +274,42 @@ const Catalog = () => {
                     }}
                   >
                     Découvrez notre sélection de cours certifiants en
-                    informatique, communication et multimédia, conçus pour tous
-                    les niveaux.
+                    informatique, communication et multimédia.
                   </Typography>
-
                   <Stack direction="row" spacing={2} sx={{ mb: 4 }}>
-                    <Button
-                      variant={filterLevel === "all" ? "contained" : "outlined"}
-                      sx={{
-                        background:
-                          filterLevel === "all"
-                            ? `linear-gradient(135deg, ${colors.red}, ${colors.pink})`
-                            : "transparent",
-                        borderColor: `${colors.red}4d`,
-                        color: "#ffffff",
-                        borderRadius: "16px",
-                        px: 4,
-                        py: 1.5,
-                        fontWeight: 600,
-                        textTransform: "none",
-                        fontSize: "1.1rem",
-                        "&:hover": {
-                          background: `linear-gradient(135deg, ${colors.pink}, ${colors.red})`,
-                          transform: "translateY(-2px)",
-                        },
-                      }}
-                      onClick={() => setFilterLevel("all")}
-                      startIcon={<Filter size={24} />}
-                    >
-                      Tous
-                    </Button>
-                    <Button
-                      variant={
-                        filterLevel === "ALFA" ? "contained" : "outlined"
-                      }
-                      sx={{
-                        background:
-                          filterLevel === "ALFA"
-                            ? `linear-gradient(135deg, ${colors.red}, ${colors.pink})`
-                            : "transparent",
-                        borderColor: `${colors.red}4d`,
-                        color: "#ffffff",
-                        borderRadius: "16px",
-                        px: 4,
-                        py: 1.5,
-                        fontWeight: 600,
-                        textTransform: "none",
-                        fontSize: "1.1rem",
-                        "&:hover": {
-                          background: `linear-gradient(135deg, ${colors.pink}, ${colors.red})`,
-                          transform: "translateY(-2px)",
-                        },
-                      }}
-                      onClick={() => setFilterLevel("ALFA")}
-                    >
-                      Niveau ALFA
-                    </Button>
-                    <Button
-                      variant={
-                        filterLevel === "BÊTA" ? "contained" : "outlined"
-                      }
-                      sx={{
-                        background:
-                          filterLevel === "BÊTA"
-                            ? `linear-gradient(135deg, ${colors.red}, ${colors.pink})`
-                            : "transparent",
-                        borderColor: `${colors.red}4d`,
-                        color: "#ffffff",
-                        borderRadius: "16px",
-                        px: 4,
-                        py: 1.5,
-                        fontWeight: 600,
-                        textTransform: "none",
-                        fontSize: "1.1rem",
-                        "&:hover": {
-                          background: `linear-gradient(135deg, ${colors.pink}, ${colors.red})`,
-                          transform: "translateY(-2px)",
-                        },
-                      }}
-                      onClick={() => setFilterLevel("BÊTA")}
-                    >
-                      Niveau BÊTA
-                    </Button>
+                    {["all", "ALFA", "BÊTA"].map((level) => (
+                      <Button
+                        key={level}
+                        variant={
+                          filterLevel === level ? "contained" : "outlined"
+                        }
+                        sx={{
+                          background:
+                            filterLevel === level
+                              ? `linear-gradient(135deg, ${colors.red}, ${colors.pink})`
+                              : "transparent",
+                          borderColor: `${colors.red}4d`,
+                          color: "#ffffff",
+                          borderRadius: "16px",
+                          px: 4,
+                          py: 1.5,
+                          fontWeight: 600,
+                          textTransform: "none",
+                          fontSize: "1.1rem",
+                          "&:hover": {
+                            background: `linear-gradient(135deg, ${colors.pink}, ${colors.red})`,
+                            transform: "translateY(-2px)",
+                          },
+                        }}
+                        onClick={() => setFilterLevel(level)}
+                        startIcon={
+                          level === "all" ? <Filter size={24} /> : null
+                        }
+                      >
+                        {level === "all" ? "Tous" : `Niveau ${level}`}
+                      </Button>
+                    ))}
                   </Stack>
-
                   <FormControl sx={{ minWidth: 200, mb: 4 }}>
                     <InputLabel sx={{ color: "#ffffff" }}>Domaine</InputLabel>
                     <Select
@@ -374,7 +334,6 @@ const Catalog = () => {
                 </Box>
               </Fade>
             </Grid>
-
             <Grid item xs={12} lg={5}>
               <Slide direction="left" in={isVisible} timeout={1200}>
                 <GlassCard
@@ -409,7 +368,7 @@ const Catalog = () => {
                           fontSize: "1.8rem",
                         }}
                       >
-                        {courses.length || "500+"}
+                        {stats.courses}
                       </Typography>
                       <Typography
                         sx={{
@@ -429,7 +388,7 @@ const Catalog = () => {
         </Container>
       </HeroSection>
 
-      {/* Section Statistiques */}
+      {/* Statistics Section */}
       <Box
         sx={{
           py: 8,
@@ -440,7 +399,26 @@ const Catalog = () => {
       >
         <Container maxWidth={false} sx={{ px: { xs: 2, md: 4 } }}>
           <Grid container spacing={4}>
-            {stats.map((stat, index) => (
+            {[
+              {
+                number: stats.courses,
+                label: "Cours disponibles",
+                icon: BookOpen,
+                color: colors.red,
+              },
+              {
+                number: stats.learners,
+                label: "Apprenants inscrits",
+                icon: Users,
+                color: colors.navy,
+              },
+              {
+                number: stats.satisfaction,
+                label: "Taux de satisfaction",
+                icon: Award,
+                color: "#4caf50",
+              },
+            ].map((stat, index) => (
               <Grid item xs={12} sm={4} key={index}>
                 <Slide
                   direction="up"
@@ -461,9 +439,7 @@ const Catalog = () => {
                         mb: 2,
                         boxShadow: `0 8px 32px ${stat.color}4d`,
                         transition: "transform 0.3s ease",
-                        "&:hover": {
-                          transform: "scale(1.1) rotate(5deg)",
-                        },
+                        "&:hover": { transform: "scale(1.1) rotate(5deg)" },
                       }}
                     >
                       <stat.icon size={36} color="white" />
@@ -495,7 +471,7 @@ const Catalog = () => {
         </Container>
       </Box>
 
-      {/* Section Cours */}
+      {/* Courses Section */}
       <Box
         sx={{
           py: 10,
@@ -529,10 +505,9 @@ const Catalog = () => {
                 }}
               >
                 Explorez une variété de formations conçues pour booster vos
-                compétences numériques
+                compétences numériques.
               </Typography>
             </Box>
-
             {loading && (
               <Fade in={loading} timeout={1000}>
                 <CircularProgress
@@ -544,22 +519,15 @@ const Catalog = () => {
               </Fade>
             )}
             {error && (
-              <Typography
-                sx={{
-                  color: colors.red,
-                  fontWeight: 600,
-                  textAlign: "center",
-                  fontSize: "1.2rem",
-                }}
-              >
+              <Alert severity="error" sx={{ mb: 4 }}>
                 {error}
-              </Typography>
+              </Alert>
             )}
             {!loading && !error && (
               <>
                 <Grid container spacing={4}>
-                  {paginatedCourses.map((course, index) => (
-                    <Grid item xs={12} sm={6} md={4} key={course.id}>
+                  {filteredCourses.map((course, index) => (
+                    <Grid item xs={12} sm={6} md={4} key={course._id || index}>
                       <Slide
                         direction="up"
                         in={isVisible}
@@ -579,7 +547,9 @@ const Catalog = () => {
                               {course.title}
                             </Typography>
                             <Chip
-                              label={`Niveau: ${course.level}`}
+                              label={`Niveau: ${
+                                course.level || course.niveau?.nom || "N/A"
+                              }`}
                               size="small"
                               sx={{
                                 backgroundColor: `${colors.navy}33`,
@@ -603,7 +573,7 @@ const Catalog = () => {
                             </Typography>
                             <Button
                               component={Link}
-                              to={`/course/${course.id}`}
+                              to={`/course/${course._id}`}
                               variant="contained"
                               sx={{
                                 background: `linear-gradient(135deg, ${colors.red}, ${colors.pink})`,
@@ -628,39 +598,29 @@ const Catalog = () => {
                     </Grid>
                   ))}
                 </Grid>
-
-
-                
                 <Stack direction="row" spacing={2} sx={{ mt: 4 }}>
-                  {Array.from(
-                    {
-                      length: Math.ceil(
-                        filteredCourses.length / coursesPerPage
-                      ),
-                    },
-                    (_, index) => (
-                      <Button
-                        key={index + 1}
-                        variant={page === index + 1 ? "contained" : "outlined"}
-                        sx={{
-                          background:
-                            page === index + 1
-                              ? `linear-gradient(135deg, ${colors.red}, ${colors.pink})`
-                              : "transparent",
-                          borderColor: `${colors.red}4d`,
-                          color: "#ffffff",
-                          borderRadius: "12px",
-                          minWidth: "40px",
-                          "&:hover": {
-                            background: `linear-gradient(135deg, ${colors.pink}, ${colors.red})`,
-                          },
-                        }}
-                        onClick={() => handlePageChange(index + 1)}
-                      >
-                        {index + 1}
-                      </Button>
-                    )
-                  )}
+                  {Array.from({ length: totalPages }, (_, index) => (
+                    <Button
+                      key={index + 1}
+                      variant={page === index + 1 ? "contained" : "outlined"}
+                      sx={{
+                        background:
+                          page === index + 1
+                            ? `linear-gradient(135deg, ${colors.red}, ${colors.pink})`
+                            : "transparent",
+                        borderColor: `${colors.red}4d`,
+                        color: "#ffffff",
+                        borderRadius: "12px",
+                        minWidth: "40px",
+                        "&:hover": {
+                          background: `linear-gradient(135deg, ${colors.pink}, ${colors.red})`,
+                        },
+                      }}
+                      onClick={() => handlePageChange(index + 1)}
+                    >
+                      {index + 1}
+                    </Button>
+                  ))}
                 </Stack>
               </>
             )}
@@ -668,7 +628,7 @@ const Catalog = () => {
         </Container>
       </Box>
 
-      {/* Section CTA */}
+      {/* CTA Section */}
       <Box
         sx={{
           py: 10,

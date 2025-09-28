@@ -1,31 +1,56 @@
-// StatisticsPanel.jsx - Panneau de statistiques
-import React, { useState, useEffect } from 'react';
-import { colors } from '../styles/colors';
+// src/pages/admin/StatisticsPanel.jsx
+import React, { useState, useEffect } from "react";
+import { Box, Typography, Card, CircularProgress } from "@mui/material";
+import axios from "axios";
+import { useAuth } from "../../context/AuthContext";
+import { useNotifications } from "../../context/NotificationContext";
+import { colors } from "../../utils/colors";
 
-const StatisticsPanel = ({ theme = 'light' }) => {
-  const [stats, setStats] = useState({ totalUsers: 0, totalCourses: 0 });
-  const bg = theme === 'dark' ? colors.backgroundDark : colors.backgroundLight;
+const StatisticsPanel = () => {
+  const { user } = useAuth();
+  const { addNotification } = useNotifications();
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
   useEffect(() => {
-    // Appel API pour récupérer les statistiques
-    fetch('/api/admin/stats')
-      .then(res => res.json())
-      .then(data => setStats(data));
-  }, []);
+    if (!user) return;
+
+    const fetchStats = async () => {
+      setLoading(true);
+      try {
+        const response = await axios.get(`${API_BASE_URL}/api/stats`, {
+          headers: { Authorization: `Bearer ${user.token}` },
+        });
+        setStats(response.data);
+      } catch (err) {
+        addNotification("Erreur lors du chargement des statistiques", "error");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, [user, addNotification]);
 
   return (
-    <div style={{
-      background: bg,
-      padding: '24px',
-      borderRadius: '8px',
-      maxWidth: '400px',
-      margin: '16px 0',
-      color: theme === 'dark' ? colors.textDark : colors.textLight,
-    }}>
-      <h3>Statistiques</h3>
-      <p>Utilisateurs totaux: {stats.totalUsers}</p>
-      <p>Cours totaux: {stats.totalCourses}</p>
-    </div>
+    <Card sx={{ bgcolor: colors.globalGradientLight, p: 2 }}>
+      <Typography variant="h6" sx={{ mb: 2 }}>
+        Statistiques
+      </Typography>
+      {loading ? (
+        <CircularProgress />
+      ) : stats ? (
+        <Box>
+          <Typography>Cours inscrits: {stats.courseCount}</Typography>
+          <Typography>Progression moyenne: {stats.averageProgress}%</Typography>
+          <Typography>Certificats obtenus: {stats.certificateCount}</Typography>
+        </Box>
+      ) : (
+        <Typography>Aucune statistique disponible</Typography>
+      )}
+    </Card>
   );
 };
 

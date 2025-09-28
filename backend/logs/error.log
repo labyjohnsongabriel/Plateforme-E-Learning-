@@ -17,3 +17,33 @@
 {"level":"error","message":"Error: User validation failed: role: `ADMINISTRATEUR` is not a valid enum value for path `role`.","timestamp":"2025-09-26T18:50:25.526Z"}
 {"level":"error","message":"Error: User validation failed: role: `ADMINISTRATEUR` is not a valid enum value for path `role`.","timestamp":"2025-09-26T18:50:39.941Z"}
 {"level":"error","message":"Error: User validation failed: role: `APPRENANT` is not a valid enum value for path `role`.","timestamp":"2025-09-26T18:51:32.781Z"}
+{"level":"error","message":"Error: User validation failed: role: Path `role` is required.","timestamp":"2025-09-27T09:41:23.182Z"}
+{"level":"error","message":"Error: User validation failed: role: Path `role` is required.","timestamp":"2025-09-27T09:42:21.929Z"}
+{"level":"error","message":"Uncaught Exception: listen EADDRINUSE: address already in use :::3000","timestamp":"2025-09-27T18:39:24.023Z"}
+{"level":"error","message":"Uncaught Exception: listen EADDRINUSE: address already in use :::3000","timestamp":"2025-09-27T18:40:48.706Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:30:45.181Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:32:12.069Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:32:22.729Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:32:22.757Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:37:25.043Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:37:25.077Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:39:28.848Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:39:28.874Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:45:50.729Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:45:50.898Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:59:13.106Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T08:59:14.430Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T09:33:06.657Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T09:33:07.627Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T09:33:33.575Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T09:33:34.126Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T10:29:26.578Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T10:29:26.596Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T10:30:13.905Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T10:30:13.934Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T10:32:10.548Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T10:32:10.557Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T11:00:09.149Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T11:00:11.110Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T17:12:10.872Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T17:12:11.190Z"}
