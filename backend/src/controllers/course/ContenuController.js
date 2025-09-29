@@ -1,15 +1,18 @@
 // controllers/course/ContenuController.js
 const createError = require("http-errors");
+const mongoose = require("mongoose"); // Ajouté pour clarté
 const Contenu = require("../../models/course/Contenu");
+const Cours = require("../../models/course/Cours"); // Importation explicite
 
 class ContenuService {
   static async create(data, file) {
     if (file) data.url = `/uploads/${file.filename}`; // Gestion d'upload
     const contenu = new Contenu(data);
     await contenu.save();
-    // Ajouter au cours (innovation)
-    const Cours = mongoose.model("Cours");
-    await Cours.findByIdAndUpdate(data.cours, { $push: { contenus: contenu._id } });
+    // Ajouter au cours
+    await Cours.findByIdAndUpdate(data.cours, {
+      $push: { contenus: contenu._id },
+    });
     return contenu;
   }
 
@@ -64,7 +67,11 @@ module.exports = {
   },
   update: async (req, res, next) => {
     try {
-      const contenu = await ContenuService.update(req.params.id, req.body, req.file);
+      const contenu = await ContenuService.update(
+        req.params.id,
+        req.body,
+        req.file
+      );
       res.json(contenu);
     } catch (err) {
       next(err);

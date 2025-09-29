@@ -9,8 +9,8 @@ import {
   CircularProgress,
   InputAdornment,
   Container,
-  Card,
-  CardContent,
+  Avatar,
+  Alert,
   Divider,
 } from "@mui/material";
 import {
@@ -25,18 +25,17 @@ import {
   Settings,
 } from "@mui/icons-material";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
+import axios from "axios";
+import { useAuth } from "../../context/AuthContext"; // Importer le contexte d'authentification
+import { useNavigate } from "react-router-dom";
 
 const theme = createTheme({
   palette: {
-    primary: {
-      main: "#010b40", // Bleu marine
-    },
-    secondary: {
-      main: "#f13544", // Fuchsia
-    },
-    background: {
-      default: "#010b40",
-    },
+    primary: { main: "#010b40" }, // Bleu marine
+    secondary: { main: "#f13544" }, // Fuchsia
+    background: { default: "#010b40" },
+    success: { main: "#4CAF50", light: "#E8F5E9" },
+    error: { main: "#F44336", light: "#FFEBEE" },
   },
   typography: {
     h4: { fontSize: "2.5rem", fontWeight: 700 },
@@ -47,88 +46,75 @@ const theme = createTheme({
 });
 
 const Profile = ({ userId }) => {
+  const { user: authUser, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [user, setUser] = useState({
     nom: "",
     prenom: "",
     email: "",
+    avatar: "",
     dateInscription: "",
     coursTermines: 0,
     progression: 0,
-    role: "apprenant", // Par défaut
+    role: "ETUDIANT",
   });
-  const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     nom: "",
     prenom: "",
     email: "",
   });
+  const [newAvatar, setNewAvatar] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!authUser) {
+      navigate("/login");
+      return;
+    }
+
     const loadUserProfile = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch(
-          `http://localhost:3000/api/users/${userId}`,
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}/auth/profile`,
           {
             headers: {
-              Authorization: `Bearer ${window.authToken || "demo-token"}`,
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
             },
           }
         );
 
-        if (response.ok) {
-          const data = await response.json();
-          setUser(data);
-          setEditForm({
-            nom: data.nom,
-            prenom: data.prenom,
-            email: data.email,
-          });
-        } else {
-          const demoUser = {
-            nom: "Dupont",
-            prenom: "Jean",
-            email: "jean.dupont@email.com",
-            dateInscription: "2024-01-15",
-            coursTermines: 5,
-            progression: 75,
-            role: "apprenant",
-          };
-          setUser(demoUser);
-          setEditForm({
-            nom: demoUser.nom,
-            prenom: demoUser.prenom,
-            email: demoUser.email,
-          });
-        }
-      } catch (err) {
-        console.error("Erreur de chargement du profil:", err);
-        const demoUser = {
-          nom: "Dupont",
-          prenom: "Jean",
-          email: "jean.dupont@email.com",
-          dateInscription: "2024-01-15",
-          coursTermines: 5,
-          progression: 75,
-          role: "apprenant",
-        };
-        setUser(demoUser);
-        setEditForm({
-          nom: demoUser.nom,
-          prenom: demoUser.prenom,
-          email: demoUser.email,
+        const userData = response.data.data;
+        setUser({
+          nom: userData.nom,
+          prenom: userData.prenom,
+          email: userData.email,
+          avatar: userData.avatar || "",
+          dateInscription: userData.createdAt,
+          coursTermines: userData.coursTermines || 0, // À récupérer depuis l'API
+          progression: userData.progression || 0, // À récupérer depuis l'API
+          role: userData.role || "ETUDIANT",
         });
+        setEditForm({
+          nom: userData.nom,
+          prenom: userData.prenom,
+          email: userData.email,
+        });
+      } catch (err) {
+        setError("Erreur lors de la récupération du profil");
+        console.error("Erreur de chargement du profil:", err);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadUserProfile();
-  }, [userId]);
+  }, [authUser, authLoading, navigate, userId]);
 
   const handleEditToggle = () => {
     setIsEditing(!isEditing);
@@ -140,6 +126,7 @@ const Profile = ({ userId }) => {
         prenom: user.prenom,
         email: user.email,
       });
+      setNewAvatar(null);
     }
   };
 
@@ -149,6 +136,22 @@ const Profile = ({ userId }) => {
       ...prev,
       [name]: value,
     }));
+  };
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (!["image/jpeg", "image/png", "image/jpg"].includes(file.type)) {
+        setError("Veuillez sélectionner une image JPEG ou PNG");
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setError("L'image ne doit pas dépasser 5MB");
+        return;
+      }
+      setNewAvatar(file);
+      setError("");
+    }
   };
 
   const validateForm = () => {
@@ -173,51 +176,73 @@ const Profile = ({ userId }) => {
     setIsSaving(true);
 
     try {
-      const response = await fetch(
-        `http://localhost:3000/api/users/${userId}`,
+      // Mettre à jour les informations du profil
+      await axios.put(
+        `${import.meta.env.VITE_API_URL}/auth/profile`,
         {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${window.authToken || "demo-token"}`,
-          },
-          body: JSON.stringify(editForm),
-        }
-      );
-
-      if (response.ok) {
-        const updatedUser = await response.json();
-        setUser((prev) => ({
-          ...prev,
-          ...updatedUser,
-        }));
-        setMessage("Profil mis à jour avec succès");
-        setIsEditing(false);
-      } else {
-        setUser((prev) => ({
-          ...prev,
           nom: editForm.nom,
           prenom: editForm.prenom,
           email: editForm.email,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+
+      // Télécharger l'avatar si sélectionné
+      if (newAvatar) {
+        const formData = new FormData();
+        formData.append("avatar", newAvatar);
+        const avatarResponse = await axios.post(
+          `${import.meta.env.VITE_API_URL}/auth/upload-avatar`,
+          formData,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+        setUser((prev) => ({
+          ...prev,
+          avatar: avatarResponse.data.data.avatar,
         }));
-        setMessage("Profil mis à jour avec succès");
-        setIsEditing(false);
       }
-    } catch (err) {
-      setUser((prev) => ({
-        ...prev,
-        nom: editForm.nom,
-        prenom: editForm.prenom,
-        email: editForm.email,
-      }));
+
+      // Rafraîchir les données du profil
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL}/auth/profile`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+      const userData = response.data.data;
+      setUser({
+        nom: userData.nom,
+        prenom: userData.prenom,
+        email: userData.email,
+        avatar: userData.avatar || "",
+        dateInscription: userData.createdAt,
+        coursTermines: userData.coursTermines || 0,
+        progression: userData.progression || 0,
+        role: userData.role || "ETUDIANT",
+      });
       setMessage("Profil mis à jour avec succès");
       setIsEditing(false);
+    } catch (err) {
+      setError(
+        err.response?.data?.message || "Erreur lors de la mise à jour du profil"
+      );
     } finally {
       setIsSaving(false);
     }
   };
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <Box
         sx={{
@@ -292,20 +317,16 @@ const Profile = ({ userId }) => {
                 mb: 3,
               }}
             >
-              <Box
+              <Avatar
+                src={user.avatar}
                 sx={{
                   width: 80,
                   height: 80,
-                  bgcolor: "secondary.main",
-                  borderRadius: 3,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  boxShadow: 4,
+                  border: `3px solid ${theme.palette.secondary.main}`,
                 }}
               >
-                <Person sx={{ color: "white", fontSize: 40 }} />
-              </Box>
+                {user.prenom[0]}{user.nom[0]}
+              </Avatar>
               <Box>
                 <Typography variant="h4" color="white" fontWeight="bold">
                   Youth Computing
@@ -357,47 +378,50 @@ const Profile = ({ userId }) => {
                 </Box>
 
                 {message && (
-                  <Box
-                    sx={{
-                      mb: 4,
-                      p: 3,
-                      bgcolor: "success.light",
-                      borderRadius: 2,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1.5,
-                    }}
-                  >
-                    <Verified sx={{ color: "success.main", fontSize: 24 }} />
-                    <Typography variant="body2" color="success.main">
-                      {message}
-                    </Typography>
-                  </Box>
+                  <Alert severity="success" sx={{ mb: 4 }}>
+                    {message}
+                  </Alert>
                 )}
-
                 {error && (
-                  <Box
-                    sx={{
-                      mb: 4,
-                      p: 3,
-                      bgcolor: "error.light",
-                      borderRadius: 2,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1.5,
-                    }}
-                  >
-                    <Email sx={{ color: "error.main", fontSize: 24 }} />
-                    <Typography variant="body2" color="error.main">
-                      {error}
-                    </Typography>
-                  </Box>
+                  <Alert severity="error" sx={{ mb: 4 }}>
+                    {error}
+                  </Alert>
                 )}
 
                 {isEditing ? (
                   <Box
                     sx={{ display: "flex", flexDirection: "column", gap: 4 }}
                   >
+                    <Box sx={{ display: "flex", justifyContent: "center" }}>
+                      <Avatar
+                        src={
+                          newAvatar
+                            ? URL.createObjectURL(newAvatar)
+                            : user.avatar
+                        }
+                        sx={{
+                          width: 100,
+                          height: 100,
+                          border: `3px solid ${theme.palette.secondary.main}`,
+                        }}
+                      >
+                        {user.prenom[0]}{user.nom[0]}
+                      </Avatar>
+                    </Box>
+                    <Button
+                      variant="contained"
+                      component="label"
+                      color="secondary"
+                      sx={{ mb: 2 }}
+                    >
+                      Changer l'avatar
+                      <input
+                        type="file"
+                        hidden
+                        accept="image/jpeg,image/png,image/jpg"
+                        onChange={handleAvatarChange}
+                      />
+                    </Button>
                     <Grid container spacing={3}>
                       <Grid item xs={12} sm={6}>
                         <TextField
@@ -502,19 +526,16 @@ const Profile = ({ userId }) => {
                     sx={{ display: "flex", flexDirection: "column", gap: 4 }}
                   >
                     <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                      <Box
+                      <Avatar
+                        src={user.avatar}
                         sx={{
                           width: 48,
                           height: 48,
-                          bgcolor: "secondary.main",
-                          borderRadius: 2,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
+                          border: `2px solid ${theme.palette.secondary.main}`,
                         }}
                       >
-                        <Person sx={{ color: "white", fontSize: 24 }} />
-                      </Box>
+                        {user.prenom[0]}{user.nom[0]}
+                      </Avatar>
                       <Box>
                         <Typography variant="body2" color="text.secondary">
                           Nom complet
@@ -602,14 +623,14 @@ const Profile = ({ userId }) => {
                   color="text.primary"
                   sx={{ mb: 4 }}
                 >
-                  {user.role === "apprenant"
+                  {user.role === "ETUDIANT"
                     ? "Statistiques d'apprentissage"
-                    : user.role === "administrateur"
+                    : user.role === "ADMIN"
                     ? "Gestion des utilisateurs"
                     : "Gestion des cours"}
                 </Typography>
 
-                {user.role === "apprenant" && (
+                {user.role === "ETUDIANT" && (
                   <Box
                     sx={{ display: "flex", flexDirection: "column", gap: 4 }}
                   >
@@ -692,50 +713,10 @@ const Profile = ({ userId }) => {
                             fontWeight="bold"
                             color="secondary.main"
                           >
-                            12
+                            {user.certificats || 0} {/* À récupérer depuis l'API */}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
                             Certificats
-                          </Typography>
-                        </Card>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Card
-                          sx={{
-                            bgcolor: "primary.light",
-                            textAlign: "center",
-                            p: 2,
-                          }}
-                        >
-                          <Typography
-                            variant="h6"
-                            fontWeight="bold"
-                            color="primary.main"
-                          >
-                            48h
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Temps d'étude
-                          </Typography>
-                        </Card>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Card
-                          sx={{
-                            bgcolor: "secondary.light",
-                            textAlign: "center",
-                            p: 2,
-                          }}
-                        >
-                          <Typography
-                            variant="h6"
-                            fontWeight="bold"
-                            color="secondary.main"
-                          >
-                            15
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Jours actifs
                           </Typography>
                         </Card>
                       </Grid>
@@ -758,6 +739,7 @@ const Profile = ({ userId }) => {
                           gap: 2,
                         }}
                       >
+                        {/* À remplacer par des données dynamiques depuis l'API */}
                         <Box
                           sx={{
                             display: "flex",
@@ -790,44 +772,12 @@ const Profile = ({ userId }) => {
                             </Typography>
                           </Box>
                         </Box>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 2,
-                            p: 2,
-                            bgcolor: "success.light",
-                            borderRadius: 2,
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              width: 32,
-                              height: 32,
-                              bgcolor: "success.main",
-                              borderRadius: "50%",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <Verified sx={{ color: "white", fontSize: 20 }} />
-                          </Box>
-                          <Box>
-                            <Typography variant="body2" fontWeight="medium">
-                              Certificat obtenu
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              Il y a 1 semaine
-                            </Typography>
-                          </Box>
-                        </Box>
                       </Box>
                     </Box>
                   </Box>
                 )}
 
-                {user.role === "administrateur" && (
+                {user.role === "ADMIN" && (
                   <Box
                     sx={{ display: "flex", flexDirection: "column", gap: 4 }}
                   >
@@ -869,7 +819,7 @@ const Profile = ({ userId }) => {
                   </Box>
                 )}
 
-                {user.role === "instructeur" && (
+                {user.role === "INSTRUCTEUR" && (
                   <Box
                     sx={{ display: "flex", flexDirection: "column", gap: 4 }}
                   >

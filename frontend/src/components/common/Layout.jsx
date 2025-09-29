@@ -1,27 +1,10 @@
-// src/components/Layout.jsx - Disposition principale professionnelle avec footer fixé en bas et style cohérent
 import React, { useState, useEffect } from "react";
 import { Box, Fab, Zoom, CssBaseline, GlobalStyles } from "@mui/material";
-import { styled, keyframes } from "@mui/material/styles";
+import { styled } from "@mui/material/styles";
 import { KeyboardArrowUp as ArrowUpIcon } from "@mui/icons-material";
-import Header from "./Header";
+import Navbar from "./Navbar";
 import Sidebar from "./Sidebar";
 import Footer from "./Footer";
-
-// Animations sophistiquées
-const fadeInUp = keyframes`
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-`;
-
-const fadeInLeft = keyframes`
-  from { opacity: 0; transform: translateX(-20px); }
-  to { opacity: 1; transform: translateX(0); }
-`;
-
-const pulse = keyframes`
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-`;
 
 // Couleurs principales
 const colors = {
@@ -45,6 +28,8 @@ const globalStyles = {
     fontFamily: "Ubuntu, sans-serif",
     backgroundColor: colors.background.default,
     minHeight: "100vh",
+    display: "flex",
+    flexDirection: "column",
   },
   "::selection": {
     backgroundColor: `${colors.red}33`,
@@ -64,20 +49,7 @@ const globalStyles = {
       backgroundColor: colors.pink,
     },
   },
-  // Animations globales
-  "@keyframes fadeInUp": {
-    "0%": { opacity: 0, transform: "translateY(30px)" },
-    "100%": { opacity: 1, transform: "translateY(0)" },
-  },
-  "@keyframes fadeInLeft": {
-    "0%": { opacity: 0, transform: "translateX(-30px)" },
-    "100%": { opacity: 1, transform: "translateX(0)" },
-  },
-  "@keyframes pulse": {
-    "0%, 100%": { opacity: 1 },
-    "50%": { opacity: 0.7 },
-  },
-  // Classes utilitaires pour animations
+  // Classes utilitaires pour animations (éviter la redéfinition des keyframes)
   ".fade-in-up": {
     animation: "fadeInUp 0.6s ease-out",
   },
@@ -108,8 +80,6 @@ const StyledContent = styled(Box)({
   flex: 1,
   display: "flex",
   flexDirection: "column",
-  background: `linear-gradient(135deg, ${colors.navy} 0%, ${colors.lightNavy} 100%)`,
-  backdropFilter: "blur(20px)",
 });
 
 const StyledFab = styled(Fab)({
@@ -127,14 +97,14 @@ const StyledFab = styled(Fab)({
 const Layout = ({
   children,
   showSidebar = true,
-  sidebarVariant = "responsive", // 'responsive', 'permanent', 'temporary'
-  headerVariant = "default", // 'default', 'minimal', 'transparent'
-  footerVariant = "default", // 'default', 'minimal', 'hidden'
+  sidebarVariant = "responsive",
+  headerVariant = "default",
+  footerVariant = "default",
   backgroundPattern = false,
   containerMaxWidth = "xl",
 }) => {
   const [sidebarOpen, setSidebarOpen] = useState(
-    sidebarVariant === "permanent" ? true : false
+    sidebarVariant === "permanent"
   );
   const [showScrollTop, setShowScrollTop] = useState(false);
 
@@ -161,8 +131,8 @@ const Layout = ({
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const drawerWidth = 280;
-  const headerHeight = 80;
+  const drawerWidth = 500;
+  const headerHeight = 70; // Aligné avec Navbar.jsx (70px pour md et plus)
 
   // Détermination de la variante de sidebar
   const getSidebarVariant = () => {
@@ -186,15 +156,12 @@ const Layout = ({
   };
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh" }}>
+    <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
       <CssBaseline />
       <GlobalStyles styles={globalStyles} />
 
       {/* Header */}
-      <Header
-        onToggleSidebar={handleToggleSidebar}
-        variant={headerVariant}
-      />
+      <Navbar onToggleSidebar={handleToggleSidebar} variant={headerVariant} />
 
       {/* Sidebar */}
       {showSidebar && (
@@ -202,6 +169,7 @@ const Layout = ({
           open={sidebarOpen}
           onClose={handleCloseSidebar}
           variant={getSidebarVariant()}
+          drawerWidth={drawerWidth}
         />
       )}
 
@@ -222,31 +190,41 @@ const Layout = ({
                 ? `${drawerWidth}px`
                 : 0,
           },
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
         }}
       >
         <StyledContent
           sx={{
             marginTop: `${headerHeight}px`,
             ...getBackgroundStyles(),
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
           }}
         >
           {/* Content Area */}
           <Box
             sx={{
               flex: 1,
-              p: { xs: 2, sm: 3, md: 4 },
+              p: { xs: 2, sm: 3, md: 2 },
               maxWidth: containerMaxWidth,
               width: "100%",
               mx: "auto",
-              animation: `${fadeInUp} 0.8s ease-out`,
+              animation: "fadeInUp 0.8s ease-out",
             }}
           >
             {children}
           </Box>
-
-          {/* Footer */}
-          {footerVariant !== "hidden" && <Footer variant={footerVariant} />}
         </StyledContent>
+
+        {/* Footer */}
+        {footerVariant !== "hidden" && (
+          <Box sx={{ width: "100%" }}>
+            <Footer variant={footerVariant} />
+          </Box>
+        )}
       </StyledMain>
 
       {/* Bouton Scroll to Top */}
@@ -254,7 +232,7 @@ const Layout = ({
         <StyledFab
           onClick={handleScrollToTop}
           size="medium"
-          aria-label="retour en haut"
+          aria-label="Retour en haut"
           sx={{
             position: "fixed",
             bottom: { xs: 16, sm: 24 },
@@ -279,7 +257,7 @@ const Layout = ({
             backgroundColor: `${colors.navy}80`,
             backdropFilter: "blur(4px)",
             zIndex: 1100,
-            animation: `${pulse} 2s ease-in-out infinite`,
+            animation: "pulse 2s ease-in-out infinite",
           }}
           onClick={handleCloseSidebar}
         />

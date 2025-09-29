@@ -1,13 +1,14 @@
-// controllers/course/QuizController.js
 const createError = require("http-errors");
 const Quiz = require("../../models/course/Quiz");
+const Cours = require("../../models/course/Cours");
+const Question = require("../../models/course/Question"); // Add this
+const mongoose = require("mongoose");
 
 class QuizService {
   static async create(data) {
     const quiz = new Quiz(data);
     await quiz.save();
-    // Ajouter au cours (innovation)
-    const Cours = mongoose.model("Cours");
+    // Ajouter au cours
     await Cours.findByIdAndUpdate(data.cours, { $push: { quizzes: quiz._id } });
     return quiz;
   }
@@ -31,19 +32,17 @@ class QuizService {
   static async delete(id) {
     const quiz = await Quiz.findByIdAndDelete(id);
     if (!quiz) throw createError(404, "Quiz non trouvé");
-    // Innovation: Supprimer les questions associées
-    const Question = mongoose.model("Question");
+    // Supprimer les questions associées
     await Question.deleteMany({ quiz: id });
     return quiz;
   }
 
-  // Innovation: Méthode pour soumettre et corriger un quiz
   static async soumettre(id, reponses, utilisateurId) {
     const quiz = await Quiz.findById(id);
     if (!quiz) throw createError(404, "Quiz non trouvé");
     const resultat = await quiz.corriger(reponses);
     // Mettre à jour progression
-    const Progression = mongoose.model("Progression");
+    const Progression = require("../../models/course/Progression"); // Explicit import
     await Progression.updateOne(
       { utilisateur: utilisateurId, cours: quiz.cours },
       { $inc: { avancement: resultat.valide ? 20 : 10 } }
@@ -93,10 +92,13 @@ module.exports = {
       next(err);
     }
   },
-  // Innovation: Route pour soumettre un quiz (ajouter dans router si nécessaire)
   soumettre: async (req, res, next) => {
     try {
-      const resultat = await QuizService.soumettre(req.params.id, req.body.reponses, req.user.id);
+      const resultat = await QuizService.soumettre(
+        req.params.id,
+        req.body.reponses,
+        req.user.id
+      );
       res.json(resultat);
     } catch (err) {
       next(err);

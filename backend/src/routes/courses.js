@@ -13,7 +13,7 @@ const uploadMiddleware = require("../middleware/upload");
 const { RoleUtilisateur } = require("../models/user/User");
 const createError = require("http-errors");
 
-// Routes pour Domaine (must come before /:id to avoid conflict)
+// Routes pour Domaine (before dynamic :id routes to avoid conflicts)
 router.get("/domaine", DomaineController.getAll); // Public access
 router.post(
   "/domaine",
@@ -37,30 +37,13 @@ router.delete(
   DomaineController.delete
 );
 
-// Route for domain statistics
-router.get(
-  "/domaine/:id/stats",
-  authMiddleware,
-  authorizationMiddleware([RoleUtilisateur.ADMIN]),
-  async (req, res, next) => {
-    try {
-      const Domaine = require("../models/course/Domaine");
-      const domaine = await Domaine.findById(req.params.id);
-      if (!domaine) throw createError(404, "Domaine non trouvé");
-      // Implement getStatistiques if needed or remove this route
-      res.json({ message: "Stats not implemented" });
-    } catch (err) {
-      next(err);
-    }
-  }
-);
-
 // Routes pour Cours
 router.get("/", CoursController.getAll); // Public access
 router.post(
   "/",
   authMiddleware,
   authorizationMiddleware([RoleUtilisateur.ADMIN]),
+  uploadMiddleware.single("thumbnail"),
   validationMiddleware(courseValidator.create),
   CoursController.create
 );
@@ -69,6 +52,7 @@ router.put(
   "/:id",
   authMiddleware,
   authorizationMiddleware([RoleUtilisateur.ADMIN]),
+  uploadMiddleware.single("thumbnail"),
   validationMiddleware(courseValidator.update),
   CoursController.update
 );
@@ -84,7 +68,7 @@ router.post(
   "/contenu",
   authMiddleware,
   authorizationMiddleware([RoleUtilisateur.ADMIN]),
-  uploadMiddleware,
+  uploadMiddleware.single("file"),
   validationMiddleware(courseValidator.createContenu),
   ContenuController.create
 );
@@ -93,7 +77,7 @@ router.put(
   "/contenu/:id",
   authMiddleware,
   authorizationMiddleware([RoleUtilisateur.ADMIN]),
-  uploadMiddleware,
+  uploadMiddleware.single("file"),
   validationMiddleware(courseValidator.updateContenu),
   ContenuController.update
 );
@@ -132,6 +116,7 @@ router.post(
   "/quiz/:id/soumettre",
   authMiddleware,
   authorizationMiddleware([RoleUtilisateur.LEARNER]),
+  validationMiddleware(courseValidator.submitQuiz),
   QuizController.soumettre
 );
 

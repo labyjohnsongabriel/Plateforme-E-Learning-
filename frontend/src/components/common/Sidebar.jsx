@@ -1,4 +1,3 @@
-// src/components/Sidebar.jsx - Barre latérale professionnelle avec animations et style cohérent
 import React from "react";
 import {
   Drawer,
@@ -29,18 +28,13 @@ import {
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
-// Animations sophistiquées
+// Animations
 const fadeInLeft = keyframes`
   from { opacity: 0; transform: translateX(-20px); }
   to { opacity: 1; transform: translateX(0); }
 `;
 
-const floatingAnimation = keyframes`
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-`;
-
-// Couleurs principales
+// Couleurs
 const colors = {
   navy: "#010b40",
   lightNavy: "#1a237e",
@@ -74,43 +68,63 @@ const Sidebar = ({ open, onClose, variant = "persistent" }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Navigation items based on user role
+  // Obtenir les initiales de l'utilisateur
+  const getUserInitials = () => {
+    if (user?.prenom && user?.nom) {
+      return `${user.prenom[0]}${user.nom[0]}`.toUpperCase();
+    } else if (user?.firstName && user?.lastName) {
+      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+    }
+    return "U";
+  };
+
+  // Obtenir le nom complet de l'utilisateur
+  const getUserFullName = () => {
+    if (user?.prenom && user?.nom) {
+      return `${user.prenom} ${user.nom}`;
+    } else if (user?.firstName && user?.lastName) {
+      return `${user.firstName} ${user.lastName}`;
+    }
+    return "Utilisateur";
+  };
+
+  // Navigation items basés sur le rôle
   const getNavigationItems = () => {
     const baseItems = [
       {
         text: "Tableau de bord",
         icon: <DashboardIcon />,
-        path: `/${user?.role}/dashboard`,
+        path: `/${user?.role?.toLowerCase()}/dashboard`,
         roles: ["learner", "instructor", "admin"],
       },
       {
         text: "Mes Cours",
         icon: <CourseIcon />,
-        path: `/${user?.role}/courses`,
+        path: `/${user?.role?.toLowerCase()}/courses`,
         roles: ["learner"],
       },
       {
         text: "Gestion des Cours",
         icon: <ContentIcon />,
-        path: `/${user?.role}/courses`,
+        path: `/${user?.role?.toLowerCase()}/courses`,
         roles: ["instructor", "admin"],
       },
       {
         text: "Ma Progression",
         icon: <ProgressIcon />,
-        path: `/${user?.role}/progress`,
+        path: `/${user?.role?.toLowerCase()}/progress`,
         roles: ["learner"],
       },
       {
         text: "Analytiques",
         icon: <AnalyticsIcon />,
-        path: `/${user?.role}/analytics`,
+        path: `/${user?.role?.toLowerCase()}/analytics`,
         roles: ["instructor", "admin"],
       },
       {
         text: "Mes Certificats",
         icon: <CertificateIcon />,
-        path: `/${user?.role}/certificates`,
+        path: `/${user?.role?.toLowerCase()}/certificates`,
         roles: ["learner", "instructor"],
       },
       {
@@ -121,20 +135,22 @@ const Sidebar = ({ open, onClose, variant = "persistent" }) => {
       },
     ];
 
-    return baseItems.filter((item) => item.roles.includes(user?.role));
+    return baseItems.filter((item) =>
+      item.roles.includes(user?.role?.toLowerCase())
+    );
   };
 
   const commonItems = [
     {
       text: "Mon Profil",
       icon: <ProfileIcon />,
-      path: `/${user?.role}/profile`,
+      path: `/${user?.role?.toLowerCase()}/profile`,
       roles: ["learner", "instructor", "admin"],
     },
     {
       text: "Paramètres",
       icon: <SettingsIcon />,
-      path: `/${user?.role}/settings`,
+      path: `/${user?.role?.toLowerCase()}/settings`,
       roles: ["learner", "instructor", "admin"],
     },
   ];
@@ -147,11 +163,12 @@ const Sidebar = ({ open, onClose, variant = "persistent" }) => {
 
   const handleNavigation = (path) => {
     navigate(path);
-    onClose();
+    if (onClose) onClose();
   };
 
   const handleLogout = () => {
     logout();
+    navigate("/login");
   };
 
   const navigationItems = getNavigationItems();
@@ -162,7 +179,7 @@ const Sidebar = ({ open, onClose, variant = "persistent" }) => {
       open={open}
       onClose={onClose}
       ModalProps={{
-        keepMounted: true, // Better open performance on mobile
+        keepMounted: true,
       }}
     >
       <Fade in timeout={800}>
@@ -189,7 +206,7 @@ const Sidebar = ({ open, onClose, variant = "persistent" }) => {
               Youth Computing
             </Typography>
             <Chip
-              label={user?.role.toUpperCase()}
+              label={user?.role?.toUpperCase() || "UTILISATEUR"}
               size="small"
               sx={{
                 background: `linear-gradient(135deg, ${colors.red}, ${colors.pink})`,
@@ -216,7 +233,7 @@ const Sidebar = ({ open, onClose, variant = "persistent" }) => {
                 fontSize: "1.2rem",
               }}
             >
-              {user?.prenom} {user?.nom}
+              {getUserFullName()}
             </Typography>
             <Typography
               variant="body2"
@@ -227,10 +244,10 @@ const Sidebar = ({ open, onClose, variant = "persistent" }) => {
                 mt: 0.5,
               }}
             >
-              {user?.email}
+              {user?.email || "email@exemple.com"}
             </Typography>
             <Chip
-              label={`Niveau ${user?.level || "N/A"}`}
+              label={`Niveau ${user?.level || "1"}`}
               size="small"
               variant="outlined"
               sx={{
@@ -244,7 +261,7 @@ const Sidebar = ({ open, onClose, variant = "persistent" }) => {
           </Box>
 
           {/* Main Navigation */}
-          <List sx={{ flex: 1, p: 2 }}>
+          <List sx={{ flex: 1, p: 2, overflowY: "auto" }}>
             {navigationItems.map((item) => (
               <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
                 <ListItemButton

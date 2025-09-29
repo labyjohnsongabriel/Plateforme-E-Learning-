@@ -184,3 +184,50 @@
 {"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-28T16:33:05.931Z"}
 {"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T17:12:10.872Z"}
 {"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T17:12:11.190Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T18:48:38.731Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T18:48:38.849Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T18:50:40.874Z"}
+{"level":"error","message":"Error: Cast to ObjectId failed for value \"domaine\" (type string) at path \"_id\" for model \"Cours\"","timestamp":"2025-09-28T18:50:40.889Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-29T03:19:09.767Z"}
+{"level":"info","message":"MongoDB connected successfully","timestamp":"2025-09-29T03:19:09.776Z"}
+{"level":"info","message":"MongoDB connected via config/database.js","timestamp":"2025-09-29T03:19:09.779Z"}
+{"level":"info","message":"🚀 Server running on port 3000","timestamp":"2025-09-29T03:19:09.823Z"}
+{"level":"error","message":"Error fetching courses: Cannot populate path `domaineId` because it is not in your schema. Set the `strictPopulate` option to false to override.","timestamp":"2025-09-29T03:21:17.698Z"}
+{"level":"error","message":"Error: Cannot populate path `domaineId` because it is not in your schema. Set the `strictPopulate` option to false to override.","timestamp":"2025-09-29T03:21:17.705Z"}
+{"level":"error","message":"Error fetching courses: Cannot populate path `domaineId` because it is not in your schema. Set the `strictPopulate` option to false to override.","timestamp":"2025-09-29T03:21:17.820Z"}
+{"level":"error","message":"Error: Cannot populate path `domaineId` because it is not in your schema. Set the `strictPopulate` option to false to override.","timestamp":"2025-09-29T03:21:17.823Z"}
+{"level":"error","message":"Error fetching courses: Cannot populate path `domaineId` because it is not in your schema. Set the `strictPopulate` option to false to override.","timestamp":"2025-09-29T03:21:47.328Z"}
+{"level":"error","message":"Error: Cannot populate path `domaineId` because it is not in your schema. Set the `strictPopulate` option to false to override.","timestamp":"2025-09-29T03:21:47.339Z"}
+{"level":"error","message":"Error fetching courses: Cannot populate path `domaineId` because it is not in your schema. Set the `strictPopulate` option to false to override.","timestamp":"2025-09-29T03:21:47.397Z"}
+{"level":"error","message":"Error: Cannot populate path `domaineId` because it is not in your schema. Set the `strictPopulate` option to false to override.","timestamp":"2025-09-29T03:21:47.411Z"}
+{"level":"error","message":"Error fetching courses: Cannot populate path `domaineId` because it is not in your schema. Set the `strictPopulate` option to false to override.","timestamp":"2025-09-29T03:41:39.601Z"}
+{"level":"error","message":"Error: Cannot populate path `domaineId` because it is not in your schema. Set the `strictPopulate` option to false to override.","timestamp":"2025-09-29T03:41:39.684Z"}
+{"level":"warn","message":"Mongoose disconnected from DB","timestamp":"2025-09-29T03:42:17.280Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-29T03:42:38.061Z"}
+{"level":"info","message":"MongoDB connected successfully","timestamp":"2025-09-29T03:42:38.068Z"}
+{"level":"info","message":"MongoDB connected via config/database.js","timestamp":"2025-09-29T03:42:38.069Z"}
+{"level":"info","message":"🚀 Server running on port 3000","timestamp":"2025-09-29T03:42:38.100Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-29T04:57:17.016Z"}
+{"level":"info","message":"MongoDB connected successfully","timestamp":"2025-09-29T04:57:17.027Z"}
+{"level":"info","message":"MongoDB connected via config/database.js","timestamp":"2025-09-29T04:57:17.029Z"}
+{"level":"info","message":"🚀 Server running on port 3000","timestamp":"2025-09-29T04:57:17.043Z"}
+{"level":"warn","message":"Mongoose disconnected from DB","timestamp":"2025-09-29T10:15:27.605Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-29T10:15:38.476Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-29T12:05:22.880Z"}
+{"level":"info","message":"MongoDB connected successfully","timestamp":"2025-09-29T12:05:22.887Z"}
+{"level":"info","message":"MongoDB connected via config/database.js","timestamp":"2025-09-29T12:05:22.888Z"}
+{"level":"info","message":"🚀 Server running on port 3000","timestamp":"2025-09-29T12:05:22.895Z"}
+{"level":"warn","message":"Mongoose disconnected from DB","timestamp":"2025-09-29T14:15:47.576Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-29T14:15:58.691Z"}
+{"level":"warn","message":"Mongoose disconnected from DB","timestamp":"2025-09-29T15:06:06.520Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-29T15:06:16.539Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-29T18:25:46.555Z"}
+{"level":"info","message":"MongoDB connected successfully","timestamp":"2025-09-29T18:25:46.561Z"}
+{"level":"info","message":"MongoDB connected via config/database.js","timestamp":"2025-09-29T18:25:46.562Z"}
+{"level":"info","message":"🚀 Server running on port 3000","timestamp":"2025-09-29T18:25:46.566Z"}
+{"level":"warn","message":"Mongoose disconnected from DB","timestamp":"2025-09-29T18:28:00.545Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-09-29T18:29:31.845Z"}
+{"level":"info","message":"MongoDB connected successfully","timestamp":"2025-09-29T18:29:31.861Z"}
+{"level":"info","message":"MongoDB connected via config/database.js","timestamp":"2025-09-29T18:29:31.862Z"}
+{"level":"info","message":"🚀 Server running on port 3000","timestamp":"2025-09-29T18:29:31.869Z"}
+{"level":"warn","message":"Mongoose disconnected from DB","timestamp":"2025-09-29T18:37:54.215Z"}

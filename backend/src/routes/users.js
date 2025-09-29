@@ -5,6 +5,7 @@ const CoursController = require("../controllers/course/CoursController");
 const ContenuController = require("../controllers/course/ContenuController");
 const QuizController = require("../controllers/course/QuizController");
 const DomaineController = require("../controllers/course/DomaineController");
+const Domaine = require("../models/course/Domaine"); // Déplacé ici
 const authMiddleware = require("../middleware/auth");
 const authorizationMiddleware = require("../middleware/authorization");
 const validationMiddleware = require("../middleware/validation");
@@ -13,7 +14,7 @@ const uploadMiddleware = require("../middleware/upload");
 const { RoleUtilisateur } = require("../models/user/User");
 const createError = require("http-errors");
 
-// Routes pour Domaine (moved before dynamic :id routes to avoid conflicts)
+// Routes pour Domaine
 router.post(
   "/domaine",
   authMiddleware,
@@ -44,7 +45,6 @@ router.get(
   authorizationMiddleware([RoleUtilisateur.ADMIN]),
   async (req, res, next) => {
     try {
-      const Domaine = require("../models/course/Domaine");
       const domaine = await Domaine.findById(req.params.id);
       if (!domaine) throw createError(404, "Domaine non trouvé");
       const stats = await domaine.getStatistiques();
@@ -79,7 +79,10 @@ router.delete(
   CoursController.delete
 );
 
-// Routes pour Contenu
+
+
+
+{/*
 router.post(
   "/contenu",
   authMiddleware,
@@ -87,16 +90,18 @@ router.post(
   uploadMiddleware,
   validationMiddleware(courseValidator.createContenu),
   ContenuController.create
-);
+);*/}
+
 router.get("/contenu/:id", authMiddleware, ContenuController.getById);
-router.put(
+
+{/*router.put(
   "/contenu/:id",
   authMiddleware,
   authorizationMiddleware([RoleUtilisateur.ADMIN]),
   uploadMiddleware,
   validationMiddleware(courseValidator.updateContenu),
   ContenuController.update
-);
+);*/}
 router.delete(
   "/contenu/:id",
   authMiddleware,

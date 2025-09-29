@@ -1,4 +1,3 @@
-// backend/controllers/course/CoursController.js
 const createError = require("http-errors");
 const Cours = require("../../models/course/Cours");
 const Domaine = require("../../models/course/Domaine");
@@ -9,6 +8,10 @@ const logger = require("../../utils/logger");
 class CoursService {
   static async create(data, createurId) {
     try {
+      // Verify domaineId exists
+      const domaine = await Domaine.findById(data.domaineId);
+      if (!domaine) throw createError(400, "Domaine non trouvé");
+
       const cours = new Cours({
         ...data,
         createur: createurId,
@@ -29,7 +32,7 @@ class CoursService {
   static async getAll(page = 1, limit = 10) {
     try {
       const courses = await Cours.find()
-        .populate("domaineId") // Only populate domaineId
+        .populate("domaineId") // Populating domaineId (now matches schema)
         .limit(limit * 1)
         .skip((page - 1) * limit)
         .lean();
@@ -41,7 +44,7 @@ class CoursService {
       };
     } catch (err) {
       logger.error(`Error fetching courses: ${err.message}`);
-      throw err;
+      throw createError(500, `Error fetching courses: ${err.message}`);
     }
   }
 
@@ -58,6 +61,12 @@ class CoursService {
 
   static async update(id, data) {
     try {
+      // Verify domaineId exists if provided
+      if (data.domaineId) {
+        const domaine = await Domaine.findById(data.domaineId);
+        if (!domaine) throw createError(400, "Domaine non trouvé");
+      }
+
       const cours = await Cours.findByIdAndUpdate(
         id,
         { ...data, domaineId: data.domaineId },

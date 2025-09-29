@@ -305,7 +305,7 @@ function App() {
                     <Route path="profile" element={<Profile />} />
                   </Route>
 
-                  {/* Routes protégées - Admin */}
+
                   <Route
                     path="/admin"
                     element={
