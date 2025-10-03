@@ -42,7 +42,7 @@ const AdminDashboard = () => {
   const { user, isLoading: authLoading, logout } = useAuth();
   const { addNotification } = useNotifications();
   const navigate = useNavigate();
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
   useEffect(() => {
     if (authLoading) return;
@@ -51,7 +51,7 @@ const AdminDashboard = () => {
       addNotification('Veuillez vous connecter.', 'error');
       return;
     }
-    if (user.role !== 'admin') {
+    if (user.role !== 'ADMIN') {
       navigate('/student/dashboard');
       addNotification('Accès réservé aux administrateurs.', 'error');
     }

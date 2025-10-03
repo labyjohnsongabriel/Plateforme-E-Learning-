@@ -1,0 +1,42 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+// backend/routes/courses.js
+const express = require("express");
+const router = express.Router();
+const CoursController = require("../controllers/course/CoursController");
+const ContenuController = require("../controllers/course/ContenuController");
+const QuizController = require("../controllers/course/QuizController");
+const DomaineController = require("../controllers/course/DomaineController");
+const authMiddleware = require("../middleware/auth");
+const authorizationMiddleware = require("../middleware/authorization");
+const validationMiddleware = require("../middleware/validation");
+const courseValidator = require("../validators/courseValidator");
+const uploadMiddleware = require("../middleware/upload");
+const { RoleUtilisateur } = require("../models/user/User");
+const createError = require("http-errors");
+// Routes pour Domaine (before dynamic :id routes to avoid conflicts)
+router.get("/domaine", DomaineController.getAll); // Public access
+router.post("/domaine", authMiddleware, authorizationMiddleware([RoleUtilisateur.ADMIN]), validationMiddleware(courseValidator.createDomaine), DomaineController.create);
+router.get("/domaine/:id", DomaineController.getById);
+router.put("/domaine/:id", authMiddleware, authorizationMiddleware([RoleUtilisateur.ADMIN]), validationMiddleware(courseValidator.updateDomaine), DomaineController.update);
+router.delete("/domaine/:id", authMiddleware, authorizationMiddleware([RoleUtilisateur.ADMIN]), DomaineController.delete);
+// Routes pour Cours
+router.get("/", CoursController.getAll); // Public access
+router.post("/", authMiddleware, authorizationMiddleware([RoleUtilisateur.ADMIN]), uploadMiddleware.single("thumbnail"), validationMiddleware(courseValidator.create), CoursController.create);
+router.get("/:id", CoursController.getById); // Public access
+router.put("/:id", authMiddleware, authorizationMiddleware([RoleUtilisateur.ADMIN]), uploadMiddleware.single("thumbnail"), validationMiddleware(courseValidator.update), CoursController.update);
+router.delete("/:id", authMiddleware, authorizationMiddleware([RoleUtilisateur.ADMIN]), CoursController.delete);
+// Routes pour Contenu
+router.post("/contenu", authMiddleware, authorizationMiddleware([RoleUtilisateur.ADMIN]), uploadMiddleware.single("file"), validationMiddleware(courseValidator.createContenu), ContenuController.create);
+router.get("/contenu/:id", authMiddleware, ContenuController.getById);
+router.put("/contenu/:id", authMiddleware, authorizationMiddleware([RoleUtilisateur.ADMIN]), uploadMiddleware.single("file"), validationMiddleware(courseValidator.updateContenu), ContenuController.update);
+router.delete("/contenu/:id", authMiddleware, authorizationMiddleware([RoleUtilisateur.ADMIN]), ContenuController.delete);
+// Routes pour Quiz
+router.post("/quiz", authMiddleware, authorizationMiddleware([RoleUtilisateur.ADMIN]), validationMiddleware(courseValidator.createQuiz), QuizController.create);
+router.get("/quiz/:id", authMiddleware, QuizController.getById);
+router.put("/quiz/:id", authMiddleware, authorizationMiddleware([RoleUtilisateur.ADMIN]), validationMiddleware(courseValidator.updateQuiz), QuizController.update);
+router.delete("/quiz/:id", authMiddleware, authorizationMiddleware([RoleUtilisateur.ADMIN]), QuizController.delete);
+// Route for learners to submit quiz answers
+router.post("/quiz/:id/soumettre", authMiddleware, authorizationMiddleware([RoleUtilisateur.LEARNER]), validationMiddleware(courseValidator.submitQuiz), QuizController.soumettre);
+module.exports = router;
+//# sourceMappingURL=courses.js.map

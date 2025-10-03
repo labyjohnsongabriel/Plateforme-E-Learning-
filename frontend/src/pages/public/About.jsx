@@ -23,7 +23,7 @@ import {
   Users,
   Target,
   Award,
-  Globe,
+  Globe,  
   Heart,
   Lightbulb,
   TrendingUp,

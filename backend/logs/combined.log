@@ -231,3 +231,45 @@
 {"level":"info","message":"MongoDB connected via config/database.js","timestamp":"2025-09-29T18:29:31.862Z"}
 {"level":"info","message":"🚀 Server running on port 3000","timestamp":"2025-09-29T18:29:31.869Z"}
 {"level":"warn","message":"Mongoose disconnected from DB","timestamp":"2025-09-29T18:37:54.215Z"}
+{"level":"warn","message":"Mongoose disconnected from DB","timestamp":"2025-10-02T18:51:10.087Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-10-02T18:56:01.166Z"}
+{"level":"info","message":"MongoDB connected successfully","timestamp":"2025-10-02T18:56:01.173Z"}
+{"level":"info","message":"MongoDB connected via config/database.js","timestamp":"2025-10-02T18:56:01.174Z"}
+{"level":"info","message":"🚀 Server running on port 3000","timestamp":"2025-10-02T18:56:01.180Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-02T18:57:20.279Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-02T18:57:20.803Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-02T18:57:21.069Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-02T18:57:30.987Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-02T18:57:30.996Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-02T18:57:31.085Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-02T18:59:43.754Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-02T18:59:43.807Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-02T18:59:44.089Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-02T19:01:04.494Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-02T19:01:04.533Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-10-03T04:12:59.131Z"}
+{"level":"info","message":"MongoDB connected successfully","timestamp":"2025-10-03T04:12:59.162Z"}
+{"level":"info","message":"MongoDB connected via config/database.js","timestamp":"2025-10-03T04:12:59.169Z"}
+{"level":"info","message":"🚀 Server running on port 3000","timestamp":"2025-10-03T04:12:59.188Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-03T04:15:16.238Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-03T04:15:16.682Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-03T04:15:16.943Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-10-03T04:32:54.088Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-10-03T04:37:40.116Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-10-03T04:40:34.745Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-10-03T04:54:21.107Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-10-03T04:55:04.084Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-10-03T04:55:35.915Z"}
+{"level":"info","message":"MongoDB connected successfully","timestamp":"2025-10-03T04:55:35.921Z"}
+{"level":"info","message":"MongoDB connected via config/database.js","timestamp":"2025-10-03T04:55:35.922Z"}
+{"level":"info","message":"🚀 Server running on port 3001","timestamp":"2025-10-03T04:55:35.927Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-03T04:56:32.836Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-10-03T05:30:35.525Z"}
+{"level":"info","message":"MongoDB connected successfully","timestamp":"2025-10-03T05:30:35.533Z"}
+{"level":"info","message":"MongoDB connected via config/database.js","timestamp":"2025-10-03T05:30:35.534Z"}
+{"level":"info","message":"🚀 Server running on port 3001","timestamp":"2025-10-03T05:30:35.539Z"}
+{"level":"error","message":"Error: User validation failed: role: `enseignant` is not a valid enum value for path `role`.","timestamp":"2025-10-03T06:41:32.739Z"}
+{"level":"info","message":"Mongoose connected to DB","timestamp":"2025-10-03T15:09:59.549Z"}
+{"level":"info","message":"MongoDB connected successfully","timestamp":"2025-10-03T15:09:59.554Z"}
+{"level":"info","message":"MongoDB connected via config/database.js","timestamp":"2025-10-03T15:09:59.555Z"}
+{"level":"info","message":"🚀 Server running on port 3001","timestamp":"2025-10-03T15:09:59.563Z"}

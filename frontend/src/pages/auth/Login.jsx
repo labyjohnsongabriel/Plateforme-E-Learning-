@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import {
   Box,
   Container,
@@ -18,7 +18,7 @@ import {
 import { styled, keyframes } from "@mui/material/styles";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
-import axios from "axios";
+import { AuthContext } from "../../context/AuthContext";
 
 // Couleurs principales
 const colors = {
@@ -47,7 +47,7 @@ const LoginCard = styled(Card)(({ theme }) => ({
   border: `1px solid ${colors.fuschia}33`,
   borderRadius: "16px",
   padding: theme.spacing(4),
-  width: "150%",
+  width: "140%", // Adjusted from 150% to prevent overflow
   maxWidth: 500,
   transition: "all 0.3s ease",
   animation: `${fadeInUp} 0.6s ease-out`,
@@ -81,12 +81,12 @@ const StyledButton = styled(Button)(({ theme }) => ({
 }));
 
 const Login = () => {
+  const { login, isLoading, error: authError } = useContext(AuthContext);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [localError, setLocalError] = useState("");
   const navigate = useNavigate();
 
   const validateForm = () => {
@@ -94,19 +94,19 @@ const Login = () => {
     const trimmedPassword = password.trim();
 
     if (!trimmedEmail) {
-      setError("L'email est requis");
+      setLocalError("L'email est requis");
       return false;
     }
     if (!/\S+@\S+\.\S+/.test(trimmedEmail)) {
-      setError("Veuillez entrer un email valide");
+      setLocalError("Veuillez entrer un email valide");
       return false;
     }
     if (!trimmedPassword) {
-      setError("Le mot de passe est requis");
+      setLocalError("Le mot de passe est requis");
       return false;
     }
     if (trimmedPassword.length < 6) {
-      setError("Le mot de passe doit contenir au moins 6 caractères");
+      setLocalError("Le mot de passe doit contenir au moins 6 caractères");
       return false;
     }
     return true;
@@ -114,41 +114,20 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+    setLocalError("");
     if (!validateForm()) return;
 
-    setIsLoading(true);
     try {
-      const response = await axios.post(
-        "http://localhost:3000/api/auth/login",
-        {
-          email: email.trim(),
-          password: password.trim(),
-          rememberMe,
-        }
-      );
-      localStorage.setItem("token", response.data.token);
-      navigate("/student/dashboard");
+      await login(email.trim(), password.trim(), rememberMe);
     } catch (err) {
-      if (err.response) {
-        switch (err.response.status) {
-          case 400:
-            setError("Veuillez vérifier vos informations");
-            break;
-          case 401:
-            setError("Email ou mot de passe incorrect");
-            break;
-          case 500:
-            setError("Erreur serveur, veuillez réessayer plus tard");
-            break;
-          default:
-            setError(err.response.data.message || "Une erreur s'est produite");
-        }
-      } else {
-        setError("Impossible de se connecter au serveur");
-      }
-    } finally {
-      setIsLoading(false);
+      console.error("Login failed:", err);
+      // Error is handled by AuthContext's Snackbar
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      handleSubmit(e);
     }
   };
 
@@ -163,7 +142,6 @@ const Login = () => {
         fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
       }}
     >
-      {/* Background Decorations */}
       <Box
         sx={{
           position: "absolute",
@@ -201,7 +179,6 @@ const Login = () => {
             gap: { xs: 4, md: 2 },
           }}
         >
-          {/* Image Section */}
           <Box
             sx={{
               flex: { md: "0 0 50%", lg: "0 0 45%", xl: "0 0 40%" },
@@ -218,7 +195,6 @@ const Login = () => {
             />
           </Box>
 
-          {/* Form Section */}
           <Box
             sx={{
               flex: { md: "0 0 45%", lg: "0 0 35%", xl: "0 0 30%" },
@@ -228,183 +204,186 @@ const Login = () => {
           >
             <Fade in timeout={800}>
               <LoginCard elevation={0}>
-                <Stack spacing={3} alignItems="center">
-                  <Typography
-                    variant="h5"
-                    sx={{
-                      fontWeight: 600,
-                      color: colors.white,
-                      textAlign: "center",
-                      fontSize: { xs: "1.6rem", md: "2rem" },
-                    }}
-                  >
-                    Connexion
-                  </Typography>
-
-                  {error && (
-                    <Alert severity="error" sx={{ width: "100%" }}>
-                      {error}
-                    </Alert>
-                  )}
-
-                  <TextField
-                    name="email"
-                    label="Email"
-                    variant="outlined"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    fullWidth
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Mail size={20} color={colors.fuschia} />
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        "& fieldset": { borderColor: `${colors.fuschia}4d` },
-                        "&:hover fieldset": { borderColor: colors.fuschia },
-                        "&.Mui-focused fieldset": {
-                          borderColor: colors.fuschia,
-                        },
-                        borderRadius: "8px",
+                <form onSubmit={handleSubmit}>
+                  <Stack spacing={3} alignItems="center">
+                    <Typography
+                      variant="h5"
+                      sx={{
+                        fontWeight: 600,
                         color: colors.white,
-                        fontSize: "1.1rem",
-                      },
-                      "& .MuiInputLabel-root": {
-                        color: `${colors.white}b3`,
-                        "&.Mui-focused": { color: colors.fuschia },
-                        fontSize: "1.1rem",
-                      },
-                      "& .MuiInputBase-input": { color: colors.white },
-                      mb: 2,
-                    }}
-                  />
+                        textAlign: "center",
+                        fontSize: { xs: "1.6rem", md: "2rem" },
+                      }}
+                    >
+                      Connexion
+                    </Typography>
 
-                  <TextField
-                    name="password"
-                    label="Mot de passe"
-                    type={showPassword ? "text" : "password"}
-                    variant="outlined"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    fullWidth
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Lock size={20} color={colors.fuschia} />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            onClick={() => setShowPassword(!showPassword)}
-                            sx={{ color: `${colors.white}b3` }}
-                          >
-                            {showPassword ? (
-                              <EyeOff size={20} />
-                            ) : (
-                              <Eye size={20} />
-                            )}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        "& fieldset": { borderColor: `${colors.fuschia}4d` },
-                        "&:hover fieldset": { borderColor: colors.fuschia },
-                        "&.Mui-focused fieldset": {
-                          borderColor: colors.fuschia,
+                    {(localError || authError) && (
+                      <Alert severity="error" sx={{ width: "100%" }}>
+                        {localError || authError}
+                      </Alert>
+                    )}
+
+                    <TextField
+                      name="email"
+                      label="Email"
+                      variant="outlined"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      required
+                      fullWidth
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Mail size={20} color={colors.fuschia} />
+                          </InputAdornment>
+                        ),
+                      }}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          "& fieldset": { borderColor: `${colors.fuschia}4d` },
+                          "&:hover fieldset": { borderColor: colors.fuschia },
+                          "&.Mui-focused fieldset": {
+                            borderColor: colors.fuschia,
+                          },
+                          borderRadius: "8px",
+                          color: colors.white,
+                          fontSize: "1.1rem",
                         },
-                        borderRadius: "8px",
-                        color: colors.white,
-                        fontSize: "1.1rem",
-                      },
-                      "& .MuiInputLabel-root": {
-                        color: `${colors.white}b3`,
-                        "&.Mui-focused": { color: colors.fuschia },
-                        fontSize: "1.1rem",
-                      },
-                      "& .MuiInputBase-input": { color: colors.white },
-                      mb: 2,
-                    }}
-                  />
-
-                  <Stack
-                    direction="row"
-                    justifyContent="space-between"
-                    alignItems="center"
-                    sx={{ width: "100%", mb: 2 }}
-                  >
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={rememberMe}
-                          onChange={(e) => setRememberMe(e.target.checked)}
-                          sx={{
-                            color: `${colors.fuschia}80`,
-                            "&.Mui-checked": { color: colors.fuschia },
-                          }}
-                        />
-                      }
-                      label="Se souvenir de moi"
-                      sx={{ color: colors.white }}
+                        "& .MuiInputLabel-root": {
+                          color: `${colors.white}b3`,
+                          "&.Mui-focused": { color: colors.fuschia },
+                          fontSize: "1.1rem",
+                        },
+                        "& .MuiInputBase-input": { color: colors.white },
+                        mb: 2,
+                      }}
                     />
+
+                    <TextField
+                      name="password"
+                      label="Mot de passe"
+                      type={showPassword ? "text" : "password"}
+                      variant="outlined"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      required
+                      fullWidth
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Lock size={20} color={colors.fuschia} />
+                          </InputAdornment>
+                        ),
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              onClick={() => setShowPassword(!showPassword)}
+                              sx={{ color: `${colors.white}b3` }}
+                            >
+                              {showPassword ? (
+                                <EyeOff size={20} />
+                              ) : (
+                                <Eye size={20} />
+                              )}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          "& fieldset": { borderColor: `${colors.fuschia}4d` },
+                          "&:hover fieldset": { borderColor: colors.fuschia },
+                          "&.Mui-focused fieldset": {
+                            borderColor: colors.fuschia,
+                          },
+                          borderRadius: "8px",
+                          color: colors.white,
+                          fontSize: "1.1rem",
+                        },
+                        "& .MuiInputLabel-root": {
+                          color: `${colors.white}b3`,
+                          "&.Mui-focused": { color: colors.fuschia },
+                          fontSize: "1.1rem",
+                        },
+                        "& .MuiInputBase-input": { color: colors.white },
+                        mb: 2,
+                      }}
+                    />
+
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      alignItems="center"
+                      sx={{ width: "100%", mb: 2 }}
+                    >
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={rememberMe}
+                            onChange={(e) => setRememberMe(e.target.checked)}
+                            sx={{
+                              color: `${colors.fuschia}80`,
+                              "&.Mui-checked": { color: colors.fuschia },
+                            }}
+                          />
+                        }
+                        label="Se souvenir de moi"
+                        sx={{ color: colors.white }}
+                      />
+                      <Typography
+                        component={Link}
+                        to="/forgot-password"
+                        sx={{
+                          color: colors.lightFuschia,
+                          fontSize: "0.9rem",
+                          textDecoration: "none",
+                          "&:hover": {
+                            color: colors.fuschia,
+                            textDecoration: "underline",
+                          },
+                        }}
+                      >
+                        Mot de passe oublié ?
+                      </Typography>
+                    </Stack>
+
+                    <StyledButton
+                      type="submit"
+                      variant="contained"
+                      fullWidth
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <CircularProgress
+                          size={20}
+                          sx={{ color: colors.white }}
+                        />
+                      ) : (
+                        "Se connecter"
+                      )}
+                    </StyledButton>
+
                     <Typography
                       component={Link}
-                      to="/forgot-password"
+                      to="/register"
                       sx={{
                         color: colors.lightFuschia,
                         fontSize: "0.9rem",
                         textDecoration: "none",
+                        textAlign: "center",
                         "&:hover": {
                           color: colors.fuschia,
                           textDecoration: "underline",
                         },
                       }}
                     >
-                      Mot de passe oublié ?
+                      Pas de compte ? S'inscrire
                     </Typography>
                   </Stack>
-
-                  <StyledButton
-                    type="submit"
-                    variant="contained"
-                    onClick={handleSubmit}
-                    fullWidth
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <CircularProgress
-                        size={20}
-                        sx={{ color: colors.white }}
-                      />
-                    ) : (
-                      "Se connecter"
-                    )}
-                  </StyledButton>
-
-                  <Typography
-                    component={Link}
-                    to="/register"
-                    sx={{
-                      color: colors.lightFuschia,
-                      fontSize: "0.9rem",
-                      textDecoration: "none",
-                      textAlign: "center",
-                      "&:hover": {
-                        color: colors.fuschia,
-                        textDecoration: "underline",
-                      },
-                    }}
-                  >
-                    Pas de compte ? S'inscrire
-                  </Typography>
-                </Stack>
+                </form>
               </LoginCard>
             </Fade>
           </Box>

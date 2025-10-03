@@ -57,7 +57,7 @@ const Settings = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
-  const API_BASE_URL = "http://localhost:3000/api";
+  const API_BASE_URL = "http://localhost:3001/api";
   const token = localStorage.getItem("token");
 
   const handleSave = async () => {

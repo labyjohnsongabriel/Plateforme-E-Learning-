@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+ // frontend/src/components/Navbar.jsx
 import {
   AppBar,
   Toolbar,
@@ -42,7 +42,9 @@ import {
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useNotifications } from "../../context/NotificationContext";
 import axios from "axios";
+import React, { useState, useEffect, useCallback } from "react";
 
 function HideOnScroll({ children }) {
   const trigger = useScrollTrigger();
@@ -58,51 +60,24 @@ const Navbar = ({ onToggleSidebar }) => {
   const [profileAnchor, setProfileAnchor] = useState(null);
   const [mobileMenuAnchor, setMobileMenuAnchor] = useState(null);
   const [scrolled, setScrolled] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [profileData, setProfileData] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [error, setError] = useState("");
 
   const { user, logout } = useAuth() || { user: null, logout: () => {} };
+  const {
+    notifications,
+    unreadCount,
+    fetchNotifications,
+    isLoading: loadingNotifications,
+    error: notificationsError,
+  } = useNotifications();
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
-  // Default avatar placeholder
-  const defaultAvatar = "/images/default-avatar.png"; // Add a default avatar image in your public folder
-
-  // Configuration Axios
-  const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-
-  // Intercepteur pour ajouter le token
-  api.interceptors.request.use((config) => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  });
-
-  // Handle token expiration or invalid token
-  api.interceptors.response.use(
-    (response) => response,
-    (error) => {
-      if (error.response?.status === 401) {
-        setError("Session expirée. Veuillez vous reconnecter.");
-        logout();
-        navigate("/login");
-      }
-      return Promise.reject(error);
-    }
-  );
+  const defaultAvatar = "/images/default-avatar.png";
 
   useEffect(() => {
     const handleScroll = () => {
@@ -113,62 +88,55 @@ const Navbar = ({ onToggleSidebar }) => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Charger les notifications
-  const fetchNotifications = useCallback(async () => {
-    if (!user) return;
-
-    setLoadingNotifications(true);
-    try {
-      const response = await api.get("/notifications");
-      const data = response.data.data || [];
-      setNotifications(data);
-      setUnreadCount(data.filter((n) => !n.lu).length);
-    } catch (error) {
-      console.error("Erreur lors du chargement des notifications:", error);
-      setNotifications([]);
-      setUnreadCount(0);
-      setError("Impossible de charger les notifications");
-    } finally {
-      setLoadingNotifications(false);
-    }
-  }, [user]);
-
-  // Charger le profil
   const fetchProfile = useCallback(async () => {
-    if (!user) return;
+    if (!user || !user.token) {
+      console.log("No user or token, skipping profile fetch");
+      setProfileData(null);
+      return;
+    }
 
     setLoadingProfile(true);
     try {
-      const response = await api.get("/auth/profile");
+      const response = await axios.get("/api/auth/profile", {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
       setProfileData(response.data.data || response.data);
     } catch (error) {
       console.error("Erreur lors du chargement du profil:", error);
-      setError("Impossible de charger les données du profil");
+      let errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "Impossible de charger les données du profil";
+      if (error.response?.status === 401) {
+        errorMessage = "Session expirée, veuillez vous reconnecter";
+        logout();
+        navigate("/login");
+      }
+      setError(errorMessage);
       setProfileData(null);
     } finally {
       setLoadingProfile(false);
     }
-  }, [user]);
+  }, [user, logout, navigate]);
 
   useEffect(() => {
-    if (user) {
+    if (user && user.token) {
       fetchProfile();
       fetchNotifications();
-      // Polling des notifications uniquement si la page est visible
       const interval = setInterval(() => {
         if (document.visibilityState === "visible") {
           fetchNotifications();
         }
       }, 30000);
       return () => clearInterval(interval);
+    } else {
+      setProfileData(null);
     }
   }, [user, fetchNotifications, fetchProfile]);
 
   const handleNotificationOpen = (event) => {
     setNotificationAnchor(event.currentTarget);
-    if (!notifications.length) {
-      fetchNotifications();
-    }
+    fetchNotifications();
   };
 
   const handleProfileOpen = (event) => {
@@ -183,7 +151,7 @@ const Navbar = ({ onToggleSidebar }) => {
     setNotificationAnchor(null);
     setProfileAnchor(null);
     setMobileMenuAnchor(null);
-    setError(""); // Clear errors on menu close
+    setError("");
   };
 
   const handleLogout = () => {
@@ -202,8 +170,14 @@ const Navbar = ({ onToggleSidebar }) => {
   const handleMarkAsRead = async (notificationId, e) => {
     e.stopPropagation();
     try {
-      await api.put(`/notifications/${notificationId}/read`);
-      await fetchNotifications();
+      await axios.put(
+        `/api/notifications/${notificationId}/read`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${user.token}` },
+        }
+      );
+      fetchNotifications();
     } catch (error) {
       console.error("Erreur lors du marquage comme lu:", error);
       setError("Impossible de marquer la notification comme lue");
@@ -213,8 +187,10 @@ const Navbar = ({ onToggleSidebar }) => {
   const handleDeleteNotification = async (notificationId, e) => {
     e.stopPropagation();
     try {
-      await api.delete(`/notifications/${notificationId}`);
-      await fetchNotifications();
+      await axios.delete(`/api/notifications/${notificationId}`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      fetchNotifications();
     } catch (error) {
       console.error("Erreur lors de la suppression:", error);
       setError("Impossible de supprimer la notification");
@@ -253,7 +229,7 @@ const Navbar = ({ onToggleSidebar }) => {
     const ROLES = {
       ALL: "all",
       LEARNER: "ETUDIANT",
-      INSTRUCTOR: "INSTRUCTEUR", // Align with backend role
+      INSTRUCTOR: "ENSEIGNANT",
       ADMIN: "ADMIN",
     };
 
@@ -368,7 +344,6 @@ const Navbar = ({ onToggleSidebar }) => {
             px: { xs: 1, sm: 2, md: 3 },
           }}
         >
-          {/* Error Alert */}
           {error && (
             <Alert
               severity="error"
@@ -385,8 +360,23 @@ const Navbar = ({ onToggleSidebar }) => {
               {error}
             </Alert>
           )}
+          {notificationsError && (
+            <Alert
+              severity="error"
+              onClose={() => setError("")}
+              sx={{
+                position: "absolute",
+                top: 80,
+                left: "50%",
+                transform: "translateX(-50%)",
+                zIndex: 2000,
+                maxWidth: "90%",
+              }}
+            >
+              {notificationsError}
+            </Alert>
+          )}
 
-          {/* Section Gauche */}
           <Box
             sx={{
               display: "flex",
@@ -447,7 +437,6 @@ const Navbar = ({ onToggleSidebar }) => {
               </Typography>
             </Box>
 
-            {/* Navigation Desktop */}
             <Box sx={{ display: { xs: "none", md: "flex" }, gap: 0.5, ml: 2 }}>
               {navItems.map((item) => (
                 <Button
@@ -480,7 +469,6 @@ const Navbar = ({ onToggleSidebar }) => {
             </Box>
           </Box>
 
-          {/* Section Droite */}
           <Box
             sx={{
               display: "flex",
@@ -548,7 +536,6 @@ const Navbar = ({ onToggleSidebar }) => {
               <AccountCircle />
             </IconButton>
 
-            {/* Profil Desktop */}
             <Box
               sx={{
                 display: { xs: "none", md: "flex" },
@@ -576,7 +563,7 @@ const Navbar = ({ onToggleSidebar }) => {
                   border: `2px solid ${alpha("#fff", 0.3)}`,
                 }}
                 src={profileData?.avatar || user?.avatar || defaultAvatar}
-                imgProps={{ onError: () => getUserInitials() }} // Fallback to initials on image error
+                imgProps={{ onError: () => getUserInitials() }}
               >
                 {getUserInitials()}
               </Avatar>
@@ -599,7 +586,6 @@ const Navbar = ({ onToggleSidebar }) => {
             </Box>
           </Box>
 
-          {/* Menu Notifications Amélioré */}
           <Menu
             anchorEl={notificationAnchor}
             open={Boolean(notificationAnchor)}
@@ -820,7 +806,6 @@ const Navbar = ({ onToggleSidebar }) => {
             )}
           </Menu>
 
-          {/* Menu Profil Desktop Amélioré */}
           <Menu
             anchorEl={profileAnchor}
             open={Boolean(profileAnchor)}
@@ -994,7 +979,6 @@ const Navbar = ({ onToggleSidebar }) => {
             </Box>
           </Menu>
 
-          {/* Menu Mobile Amélioré */}
           <Menu
             anchorEl={mobileMenuAnchor}
             open={Boolean(mobileMenuAnchor)}

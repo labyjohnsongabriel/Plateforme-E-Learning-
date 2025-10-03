@@ -11,7 +11,7 @@ import { CourseProvider } from "./context/CourseContext";
 import { NotificationProvider } from "./context/NotificationContext";
 
 // Layout Components
-import Layout from "./components/common/Layout";
+import Layout, { DashboardLayout } from "./components/common/Layout";
 import LoadingScreen from "./components/common/Loading";
 
 // Auth Pages
@@ -268,7 +268,7 @@ function App() {
                     path="/student"
                     element={
                       <ProtectedRoute requiredRole="student">
-                        <Layout />
+                        <DashboardLayout />
                       </ProtectedRoute>
                     }
                   >
@@ -290,7 +290,7 @@ function App() {
                     path="/instructor"
                     element={
                       <ProtectedRoute requiredRole="instructor">
-                        <Layout />
+                        <DashboardLayout />
                       </ProtectedRoute>
                     }
                   >
@@ -305,12 +305,12 @@ function App() {
                     <Route path="profile" element={<Profile />} />
                   </Route>
 
-
+                  {/* Routes protégées - Admin */}
                   <Route
                     path="/admin"
                     element={
                       <ProtectedRoute requiredRole="admin">
-                        <Layout />
+                        <DashboardLayout />
                       </ProtectedRoute>
                     }
                   >

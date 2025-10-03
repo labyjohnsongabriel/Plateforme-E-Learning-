@@ -61,3 +61,25 @@
 {"level":"error","message":"Error: Cannot populate path `domaineId` because it is not in your schema. Set the `strictPopulate` option to false to override.","timestamp":"2025-09-29T03:21:47.411Z"}
 {"level":"error","message":"Error fetching courses: Cannot populate path `domaineId` because it is not in your schema. Set the `strictPopulate` option to false to override.","timestamp":"2025-09-29T03:41:39.601Z"}
 {"level":"error","message":"Error: Cannot populate path `domaineId` because it is not in your schema. Set the `strictPopulate` option to false to override.","timestamp":"2025-09-29T03:41:39.684Z"}
+{"level":"error","message":"MongoDB connection error: connect ECONNREFUSED 127.0.0.1:27017","timestamp":"2025-10-02T18:51:10.100Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-02T18:57:20.279Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-02T18:57:20.803Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-02T18:57:21.069Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-02T18:57:30.987Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-02T18:57:30.996Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-02T18:57:31.085Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-02T18:59:43.754Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-02T18:59:43.807Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-02T18:59:44.089Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-02T19:01:04.494Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-02T19:01:04.533Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-03T04:15:16.238Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-03T04:15:16.682Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-03T04:15:16.943Z"}
+{"level":"error","message":"Uncaught Exception: listen EADDRINUSE: address already in use :::3000","timestamp":"2025-10-03T04:32:54.414Z"}
+{"level":"error","message":"Uncaught Exception: listen EADDRINUSE: address already in use :::3000","timestamp":"2025-10-03T04:37:40.661Z"}
+{"level":"error","message":"Uncaught Exception: listen EADDRINUSE: address already in use :::3000","timestamp":"2025-10-03T04:40:34.785Z"}
+{"level":"error","message":"Uncaught Exception: listen EADDRINUSE: address already in use :::3000","timestamp":"2025-10-03T04:54:21.137Z"}
+{"level":"error","message":"Uncaught Exception: listen EADDRINUSE: address already in use :::3000","timestamp":"2025-10-03T04:55:04.096Z"}
+{"level":"error","message":"Error: User.findById is not a function","timestamp":"2025-10-03T04:56:32.836Z"}
+{"level":"error","message":"Error: User validation failed: role: `enseignant` is not a valid enum value for path `role`.","timestamp":"2025-10-03T06:41:32.739Z"}

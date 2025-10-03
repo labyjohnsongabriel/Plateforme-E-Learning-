@@ -1,4 +1,4 @@
-import React, { forwardRef, useState } from "react";
+import React, { useState, forwardRef } from 'react';
 import {
   TextField,
   InputAdornment,
@@ -6,433 +6,304 @@ import {
   FormControl,
   FormLabel,
   FormHelperText,
-  OutlinedInput,
-  InputLabel,
   Box,
-  alpha,
-} from "@mui/material";
-import {
-  Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon,
-  Search as SearchIcon,
-  Clear as ClearIcon,
-  Email as EmailIcon,
-  Person as PersonIcon,
-  Lock as LockIcon,
-  Phone as PhoneIcon,
-} from "@mui/icons-material";
-import { colors, gradients, shadows } from "../../utils/colors";
+  Typography,
+} from '@mui/material';
+import { styled } from '@mui/material/styles';
+import { Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
+import '../../styles/variables.css';
 
-const Input = forwardRef(
-  (
-    {
-      label,
-      variant = "outlined",
-      size = "medium",
-      error,
-      helperText,
-      fullWidth = true,
-      required = false,
-      disabled = false,
-      type = "text",
-      startIcon,
-      endIcon,
-      onClear,
-      showPasswordToggle = false,
-      animated = true,
-      youthComputingStyle = false,
-      ...props
+// Styled TextField avec notre design system
+const StyledTextField = styled(TextField)(({ theme, variant, error, success }) => {
+  const baseStyles = {
+    '& .MuiOutlinedInput-root': {
+      borderRadius: 'var(--radius-xl)',
+      backgroundColor: 'var(--white)',
+      fontFamily: 'var(--font-secondary)',
+      fontSize: 'var(--text-base)',
+      transition: 'all var(--transition-fast)',
+      '& fieldset': {
+        borderColor: 'var(--gray-300)',
+        borderWidth: '2px',
+      },
+      '&:hover fieldset': {
+        borderColor: 'var(--gray-400)',
+      },
+      '&.Mui-focused fieldset': {
+        borderColor: success ? 'var(--success)' : error ? 'var(--error)' : 'var(--secondary-red)',
+        borderWidth: '2px',
+      },
+      '&.Mui-error fieldset': {
+        borderColor: 'var(--error)',
+      },
     },
-    ref
-  ) => {
-    const [showPassword, setShowPassword] = useState(false);
-    const [focused, setFocused] = useState(false);
-
-    const handleClickShowPassword = () => {
-      setShowPassword(!showPassword);
-    };
-
-    const getInputType = () => {
-      if (type === "password" && showPasswordToggle) {
-        return showPassword ? "text" : "password";
-      }
-      return type;
-    };
-
-    const getYouthComputingStyles = () => {
-      if (!youthComputingStyle) return {};
-
-      return {
-        "& .MuiOutlinedInput-root": {
-          borderRadius: 3,
-          fontFamily: "Century Gothic, sans-serif",
-          backgroundColor: alpha("#ffffff", 0.8),
-          backdropFilter: "blur(10px)",
-          border: `2px solid ${alpha(colors.primary.main, 0.1)}`,
-          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          "&:hover": {
-            borderColor: alpha(colors.primary.main, 0.3),
-            backgroundColor: "#ffffff",
-            transform: animated ? "translateY(-2px)" : "none",
-            boxShadow: animated ? shadows.card : "none",
-          },
-          "&.Mui-focused": {
-            borderColor: colors.primary.main,
-            backgroundColor: "#ffffff",
-            transform: animated ? "translateY(-2px)" : "none",
-            boxShadow: `0 8px 32px ${alpha(colors.primary.main, 0.15)}`,
-            "& fieldset": {
-              borderWidth: "0px !important",
-            },
-          },
-          "&.Mui-error": {
-            borderColor: colors.error.main,
-            "&:hover": {
-              borderColor: colors.error.dark,
-            },
-          },
-          "& fieldset": {
-            border: "none",
-          },
-        },
-      };
-    };
-
-    const commonProps = {
-      fullWidth,
-      disabled,
-      required,
-      error: !!error,
-      size,
-      variant,
-      inputRef: ref,
-      onFocus: (e) => {
-        setFocused(true);
-        props.onFocus?.(e);
+    '& .MuiInputLabel-root': {
+      fontFamily: 'var(--font-primary)',
+      fontWeight: 'var(--font-medium)',
+      fontSize: 'var(--text-base)',
+      color: 'var(--gray-600)',
+      '&.Mui-focused': {
+        color: success ? 'var(--success)' : error ? 'var(--error)' : 'var(--secondary-red)',
       },
-      onBlur: (e) => {
-        setFocused(false);
-        props.onBlur?.(e);
+      '&.Mui-error': {
+        color: 'var(--error)',
       },
-      sx: {
-        "& .MuiOutlinedInput-root": {
-          borderRadius: 2,
-          fontFamily: "Century Gothic, sans-serif",
-          transition: "all 0.3s ease",
-          "&:hover fieldset": {
-            borderColor: colors.primary.main,
-          },
-          "&.Mui-focused fieldset": {
-            borderColor: colors.primary.main,
-            borderWidth: 2,
-          },
-          "&.Mui-error fieldset": {
-            borderColor: colors.error.main,
-          },
-        },
-        "& .MuiInputLabel-root": {
-          fontFamily: "Ubuntu, sans-serif",
-          fontWeight: 500,
-          "&.Mui-focused": {
-            color: colors.primary.main,
-          },
-          "&.Mui-error": {
-            color: colors.error.main,
-          },
-        },
-        "& .MuiFormHelperText-root": {
-          fontFamily: "Century Gothic, sans-serif",
-          "&.Mui-error": {
-            color: colors.error.main,
-          },
-        },
-        ...getYouthComputingStyles(),
-        ...props.sx,
+    },
+    '& .MuiInputBase-input': {
+      padding: 'var(--space-3) var(--space-4)',
+      '&::placeholder': {
+        color: 'var(--gray-500)',
+        opacity: 1,
       },
-      ...props,
-    };
+    },
+    '& .MuiFormHelperText-root': {
+      fontFamily: 'var(--font-secondary)',
+      fontSize: 'var(--text-sm)',
+      marginTop: 'var(--space-2)',
+      marginLeft: 'var(--space-1)',
+    },
+  };
 
-    const renderEndAdornment = () => {
-      const adornments = [];
+  const variantStyles = {
+    outlined: {
+      ...baseStyles,
+    },
+    filled: {
+      '& .MuiFilledInput-root': {
+        borderRadius: 'var(--radius-xl)',
+        backgroundColor: 'var(--gray-100)',
+        border: '2px solid transparent',
+        transition: 'all var(--transition-fast)',
+        '&:hover': {
+          backgroundColor: 'var(--gray-200)',
+        },
+        '&.Mui-focused': {
+          backgroundColor: 'var(--white)',
+          borderColor: success ? 'var(--success)' : error ? 'var(--error)' : 'var(--secondary-red)',
+        },
+        '&::before, &::after': {
+          display: 'none',
+        },
+      },
+    },
+    glass: {
+      '& .MuiOutlinedInput-root': {
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        backdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255, 255, 255, 0.2)',
+        '& fieldset': {
+          border: 'none',
+        },
+        '&:hover': {
+          backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        },
+        '&.Mui-focused': {
+          backgroundColor: 'rgba(255, 255, 255, 0.2)',
+          borderColor: success ? 'var(--success)' : error ? 'var(--error)' : 'var(--secondary-red)',
+        },
+      },
+      '& .MuiInputLabel-root': {
+        color: 'rgba(255, 255, 255, 0.8)',
+        '&.Mui-focused': {
+          color: 'var(--white)',
+        },
+      },
+      '& .MuiInputBase-input': {
+        color: 'var(--white)',
+        '&::placeholder': {
+          color: 'rgba(255, 255, 255, 0.6)',
+        },
+      },
+    },
+  };
 
-      if (onClear && props.value) {
-        adornments.push(
-          <InputAdornment position="end" key="clear">
-            <IconButton
-              aria-label="clear input"
-              onClick={onClear}
-              edge="end"
-              size="small"
-              sx={{
-                color: colors.grey[500],
-                "&:hover": {
-                  color: colors.error.main,
-                  backgroundColor: alpha(colors.error.main, 0.1),
-                },
-              }}
-            >
-              <ClearIcon fontSize="small" />
-            </IconButton>
-          </InputAdornment>
-        );
-      }
+  const statusStyles = {
+    success: {
+      '& .MuiOutlinedInput-root': {
+        '& fieldset': {
+          borderColor: 'var(--success)',
+        },
+        '&:hover fieldset': {
+          borderColor: 'var(--success)',
+        },
+        '&.Mui-focused fieldset': {
+          borderColor: 'var(--success)',
+          boxShadow: '0 0 0 3px rgba(76, 175, 80, 0.1)',
+        },
+      },
+      '& .MuiInputLabel-root': {
+        color: 'var(--success)',
+        '&.Mui-focused': {
+          color: 'var(--success)',
+        },
+      },
+    },
+    error: {
+      '& .MuiOutlinedInput-root': {
+        '& fieldset': {
+          borderColor: 'var(--error)',
+        },
+        '&:hover fieldset': {
+          borderColor: 'var(--error)',
+        },
+        '&.Mui-focused fieldset': {
+          borderColor: 'var(--error)',
+          boxShadow: '0 0 0 3px rgba(244, 67, 54, 0.1)',
+        },
+      },
+    },
+  };
 
-      if (showPasswordToggle && type === "password") {
-        adornments.push(
-          <InputAdornment position="end" key="password">
-            <IconButton
-              aria-label="toggle password visibility"
-              onClick={handleClickShowPassword}
-              edge="end"
-              size="small"
-              sx={{
-                color: colors.grey[500],
-                "&:hover": {
-                  color: colors.primary.main,
-                  backgroundColor: alpha(colors.primary.main, 0.1),
-                },
-              }}
-            >
-              {showPassword ? (
-                <VisibilityOffIcon fontSize="small" />
-              ) : (
-                <VisibilityIcon fontSize="small" />
-              )}
-            </IconButton>
-          </InputAdornment>
-        );
-      }
+  const currentVariant = variant || 'outlined';
 
-      if (endIcon) {
-        adornments.push(
-          <InputAdornment position="end" key="end-icon">
-            {endIcon}
-          </InputAdornment>
-        );
-      }
+  return {
+    ...variantStyles[currentVariant],
+    ...(success && statusStyles.success),
+    ...(error && statusStyles.error),
+  };
+});
 
-      return adornments.length > 0 ? adornments : null;
-    };
+const StyledFormLabel = styled(FormLabel)({
+  fontFamily: 'var(--font-primary)',
+  fontWeight: 'var(--font-medium)',
+  fontSize: 'var(--text-sm)',
+  color: 'var(--primary-navy)',
+  marginBottom: 'var(--space-2)',
+  display: 'block',
+});
 
-    const renderStartAdornment = () => {
-      return startIcon ? (
+const StyledFormHelperText = styled(FormHelperText)(({ error, success }) => ({
+  fontFamily: 'var(--font-secondary)',
+  fontSize: 'var(--text-sm)',
+  marginTop: 'var(--space-2)',
+  marginLeft: 'var(--space-1)',
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--space-1)',
+  color: success ? 'var(--success)' : error ? 'var(--error)' : 'var(--gray-600)',
+}));
+
+const Input = forwardRef(({
+  label,
+  helperText,
+  error = false,
+  success = false,
+  required = false,
+  type = 'text',
+  variant = 'outlined',
+  size = 'medium',
+  fullWidth = true,
+  startIcon,
+  endIcon,
+  showPasswordToggle = false,
+  ...props
+}, ref) => {
+  const [showPassword, setShowPassword] = useState(false);
+  const [focused, setFocused] = useState(false);
+
+  const handleTogglePassword = () => {
+    setShowPassword(!showPassword);
+  };
+
+  const inputType = type === 'password' && showPassword ? 'text' : type;
+
+  const startAdornment = startIcon ? (
         <InputAdornment position="start">
-          <Box sx={{ color: focused ? colors.primary.main : colors.grey[500] }}>
+      <Box sx={{ color: 'var(--gray-500)', display: 'flex', alignItems: 'center' }}>
             {startIcon}
           </Box>
         </InputAdornment>
       ) : null;
-    };
 
-    if (youthComputingStyle) {
-      return (
-        <FormControl fullWidth={fullWidth} error={!!error} variant={variant}>
-          {label && (
-            <InputLabel
-              shrink
-              required={required}
+  const endAdornment = (startIcon || endIcon || (type === 'password' && showPasswordToggle)) ? (
+    <InputAdornment position="end">
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        {endIcon && (
+          <Box sx={{ color: 'var(--gray-500)', display: 'flex', alignItems: 'center' }}>
+            {endIcon}
+          </Box>
+        )}
+        {type === 'password' && showPasswordToggle && (
+          <IconButton
+            onClick={handleTogglePassword}
+            edge="end"
+            size="small"
               sx={{
-                fontFamily: "Ubuntu, sans-serif",
-                fontWeight: 600,
-                fontSize: "1rem",
-                color: colors.text.primary,
-                backgroundColor: "white",
-                px: 1,
-                ml: -0.5,
-                "&.Mui-focused": {
-                  color: colors.primary.main,
-                },
-                "&.Mui-error": {
-                  color: colors.error.main,
+              color: 'var(--gray-500)',
+              '&:hover': {
+                color: 'var(--secondary-red)',
+                backgroundColor: 'var(--secondary-red-50)',
                 },
               }}
             >
-              {label}
-            </InputLabel>
-          )}
-          <OutlinedInput
-            type={getInputType()}
-            startAdornment={renderStartAdornment()}
-            endAdornment={renderEndAdornment()}
-            {...commonProps}
-          />
-          {helperText && (
-            <FormHelperText
-              sx={{
-                ml: 0,
-                fontFamily: "Century Gothic, sans-serif",
-                fontSize: "0.75rem",
-              }}
-            >
-              {helperText}
-            </FormHelperText>
-          )}
-        </FormControl>
-      );
-    }
+            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+          </IconButton>
+        )}
+        {success && (
+          <CheckCircle size={20} color="var(--success)" />
+        )}
+        {error && (
+          <AlertCircle size={20} color="var(--error)" />
+        )}
+      </Box>
+    </InputAdornment>
+  ) : null;
 
     return (
-      <TextField
-        label={label}
-        type={getInputType()}
-        InputProps={{
-          startAdornment: renderStartAdornment(),
-          endAdornment: renderEndAdornment(),
+    <FormControl fullWidth={fullWidth} error={error}>
+      {label && (
+        <StyledFormLabel required={required}>
+          {label}
+        </StyledFormLabel>
+      )}
+
+      <StyledTextField
+        ref={ref}
+        type={inputType}
+        variant={variant}
+        size={size}
+        fullWidth={fullWidth}
+        error={error}
+        success={success}
+        onFocus={(e) => {
+          setFocused(true);
+          props.onFocus?.(e);
         }}
-        helperText={helperText}
-        {...commonProps}
-      />
-    );
-  }
-);
-
-// Composants spécialisés Youth Computing
-export const YCSearchInput = (props) => (
-  <Input
-    startIcon={<SearchIcon />}
-    placeholder="Rechercher des cours, instructeurs..."
-    youthComputingStyle
-    animated
-    {...props}
-  />
-);
-
-export const YCPasswordInput = (props) => (
-  <Input
-    type="password"
-    startIcon={<LockIcon />}
-    showPasswordToggle
-    youthComputingStyle
-    animated
-    {...props}
-  />
-);
-
-export const YCEmailInput = (props) => (
-  <Input
-    type="email"
-    startIcon={<EmailIcon />}
-    placeholder="exemple@email.com"
-    youthComputingStyle
-    animated
-    {...props}
-  />
-);
-
-export const YCNameInput = (props) => (
-  <Input
-    type="text"
-    startIcon={<PersonIcon />}
-    youthComputingStyle
-    animated
-    {...props}
-  />
-);
-
-export const YCPhoneInput = (props) => (
-  <Input
-    type="tel"
-    startIcon={<PhoneIcon />}
-    placeholder="+241 XX XX XX XX"
-    youthComputingStyle
-    animated
-    {...props}
-  />
-);
-
-// Input avec gradient Youth Computing pour les formulaires spéciaux
-export const YCGradientInput = ({ label, ...props }) => (
-  <Box sx={{ position: "relative" }}>
-    <Input
-      label={label}
-      youthComputingStyle
-      animated
+        onBlur={(e) => {
+          setFocused(false);
+          props.onBlur?.(e);
+        }}
+        InputProps={{
+          startAdornment,
+          endAdornment,
+        }}
       sx={{
-        "& .MuiOutlinedInput-root": {
-          background: `linear-gradient(135deg, ${alpha(
-            "#ffffff",
-            0.9
-          )} 0%, ${alpha("#ffffff", 0.7)} 100%)`,
-          backdropFilter: "blur(20px)",
-          "&:hover": {
-            background: "#ffffff",
-          },
-          "&.Mui-focused": {
-            background: "#ffffff",
-            "&::before": {
-              content: '""',
-              position: "absolute",
-              top: -2,
-              left: -2,
-              right: -2,
-              bottom: -2,
-              background: gradients.primaryToSecondary,
-              borderRadius: "inherit",
-              zIndex: -1,
-            },
+          '& .MuiOutlinedInput-root': {
+            '&.Mui-focused fieldset': {
+              boxShadow: focused ? (
+                success ? '0 0 0 3px rgba(76, 175, 80, 0.1)' :
+                  error ? '0 0 0 3px rgba(244, 67, 54, 0.1)' :
+                    '0 0 0 3px var(--secondary-red-100)'
+              ) : 'none',
           },
         },
       }}
       {...props}
     />
-  </Box>
-);
 
-Input.displayName = "Input";
+      {helperText && (
+        <StyledFormHelperText error={error} success={success}>
+          {error && <AlertCircle size={16} />}
+          {success && <CheckCircle size={16} />}
+          <Typography component="span" sx={{ fontSize: 'inherit' }}>
+            {helperText}
+          </Typography>
+        </StyledFormHelperText>
+      )}
+    </FormControl>
+  );
+});
+
+Input.displayName = 'Input';
 
 export default Input;
-
-// Input de recherche avancée pour le catalogue
-export const YCAdvancedSearchInput = ({
-  onFilterClick,
-  showFilters = false,
-  filterCount = 0,
-  ...props
-}) => (
-  <Box sx={{ position: "relative" }}>
-    <YCSearchInput
-      endIcon={
-        <IconButton
-          onClick={onFilterClick}
-          size="small"
-          sx={{
-            color: showFilters ? colors.primary.main : colors.grey[500],
-            backgroundColor: showFilters
-              ? alpha(colors.primary.main, 0.1)
-              : "transparent",
-            "&:hover": {
-              backgroundColor: alpha(colors.primary.main, 0.15),
-              color: colors.primary.main,
-            },
-          }}
-        >
-          <Box sx={{ position: "relative" }}>
-            🔍
-            {filterCount > 0 && (
-              <Box
-                sx={{
-                  position: "absolute",
-                  top: -8,
-                  right: -8,
-                  width: 16,
-                  height: 16,
-                  borderRadius: "50%",
-                  backgroundColor: colors.secondary.main,
-                  color: "white",
-                  fontSize: "0.7rem",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: "bold",
-                }}
-              >
-                {filterCount}
-              </Box>
-            )}
-          </Box>
-        </IconButton>
-      }
-      {...props}
-    />
-  </Box>
-);

@@ -41,14 +41,32 @@ const StyledFooter = styled(Box)(({ theme, variant }) => ({
   background: "linear-gradient(135deg, #010b40 0%, #1a237e 50%, #010b40 100%)",
   backgroundSize: "200% 200%",
   animation: `${gradientAnimation} 15s ease infinite`,
+
   color: "#ffffff",
   width: "100%",
   position: "relative",
   overflow: "hidden",
-  minHeight: variant === "minimal" ? "300px" : "450px",
-  maxHeight: variant === "minimal" ? "300px" : "450px",
   display: "flex",
   flexDirection: "column",
+  alignItems: "center",
+  padding: theme.spacing(2, 0), // Responsive padding
+
+  // Responsive height
+  minHeight: variant === "minimal" ? "200px" : "300px",
+  maxHeight: variant === "minimal" ? "250px" : "400px",
+
+  [theme.breakpoints.down("sm")]: {
+    minHeight: variant === "minimal" ? "150px" : "250px",
+    maxHeight: variant === "minimal" ? "200px" : "350px",
+    padding: theme.spacing(1, 0),
+  },
+  [theme.breakpoints.up("md")]: {
+    minHeight: variant === "minimal" ? "200px" : "300px",
+    maxHeight: variant === "minimal" ? "250px" : "400px",
+    padding: theme.spacing(2, 0),
+  },
+
+  // Background overlays
   "&::before": {
     content: '""',
     position: "absolute",
@@ -66,13 +84,13 @@ const StyledFooter = styled(Box)(({ theme, variant }) => ({
   "&::after": {
     content: '""',
     position: "absolute",
-    top: "-2  px",
+    top: "-2px", // Fixed syntax error
     left: 0,
     right: 0,
     height: "2px",
     background:
       "linear-gradient(90deg, transparent, #f13544, #ff6b74, #f13544, transparent)",
-    backgroundSize: "200% 100%",
+    backgroundSize: "200% 200%",
     animation: `${gradientAnimation} 3s ease infinite`,
   },
 }));
@@ -184,11 +202,31 @@ const SectionTitle = styled(Typography)({
 const Footer = ({ variant = "default" }) => {
   const socialLinks = useMemo(
     () => [
-      { icon: <Facebook />, url: "https://facebook.com/youthcomputing", label: "Facebook" },
-      { icon: <Twitter />, url: "https://twitter.com/youthcomputing", label: "Twitter" },
-      { icon: <LinkedIn />, url: "https://linkedin.com/company/youthcomputing", label: "LinkedIn" },
-      { icon: <Instagram />, url: "https://instagram.com/youthcomputing", label: "Instagram" },
-      { icon: <YouTube />, url: "https://youtube.com/@youthcomputing", label: "YouTube" },
+      {
+        icon: <Facebook />,
+        url: "https://facebook.com/youthcomputing",
+        label: "Facebook",
+      },
+      {
+        icon: <Twitter />,
+        url: "https://twitter.com/youthcomputing",
+        label: "Twitter",
+      },
+      {
+        icon: <LinkedIn />,
+        url: "https://linkedin.com/company/youthcomputing",
+        label: "LinkedIn",
+      },
+      {
+        icon: <Instagram />,
+        url: "https://instagram.com/youthcomputing",
+        label: "Instagram",
+      },
+      {
+        icon: <YouTube />,
+        url: "https://youtube.com/@youthcomputing",
+        label: "YouTube",
+      },
     ],
     []
   );
@@ -206,8 +244,14 @@ const Footer = ({ variant = "default" }) => {
 
   const categoryLinks = useMemo(
     () => [
-      { label: "Informatique & Programmation", href: "/catalog?category=informatique" },
-      { label: "Communication Digitale", href: "/catalog?category=communication" },
+      {
+        label: "Informatique & Programmation",
+        href: "/catalog?category=informatique",
+      },
+      {
+        label: "Communication Digitale",
+        href: "/catalog?category=communication",
+      },
       { label: "Design & Multimédia", href: "/catalog?category=multimedia" },
       { label: "Bureautique Avancée", href: "/catalog?category=bureautique" },
     ],
@@ -218,7 +262,11 @@ const Footer = ({ variant = "default" }) => {
     () => [
       { icon: <Email />, label: "Email", value: "contact@youthcomputing.com" },
       { icon: <Phone />, label: "Téléphone", value: "+33 1 23 45 67 89" },
-      { icon: <LocationOn />, label: "Adresse", value: "123 Rue de l'Éducation, 75000 Paris" },
+      {
+        icon: <LocationOn />,
+        label: "Adresse",
+        value: "123 Rue de l'Éducation, 75000 Paris",
+      },
     ],
     []
   );
@@ -230,7 +278,7 @@ const Footer = ({ variant = "default" }) => {
         sx={{
           position: "relative",
           zIndex: 1,
-          py: variant === "minimal" ? 3 : 4,
+          py: variant === "minimal" ? 2 : 4,
           height: "100%",
           display: "flex",
           flexDirection: "column",
@@ -238,11 +286,13 @@ const Footer = ({ variant = "default" }) => {
         }}
       >
         {/* Section Principale */}
-        <Grid container spacing={3}>
+        <Grid container spacing={2}>
           {/* Logo et Description */}
           <Grid item xs={12} md={3}>
             <Box sx={{ animation: `${fadeInUp} 0.6s ease-out` }}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2 }}>
+              <Box
+                sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2 }}
+              >
                 <StyledAvatar sx={{ width: 48, height: 48 }}>
                   <SchoolIcon sx={{ fontSize: 28 }} />
                 </StyledAvatar>
@@ -252,7 +302,8 @@ const Footer = ({ variant = "default" }) => {
                     sx={{
                       fontFamily: "Ubuntu, sans-serif",
                       fontWeight: 700,
-                      background: "linear-gradient(45deg, #ffffff 30%, #ff6b74 90%)",
+                      background:
+                        "linear-gradient(45deg, #ffffff 30%, #ff6b74 90%)",
                       backgroundClip: "text",
                       WebkitBackgroundClip: "text",
                       WebkitTextFillColor: "transparent",
@@ -264,9 +315,14 @@ const Footer = ({ variant = "default" }) => {
               </Box>
               <Typography
                 variant="body2"
-                sx={{ color: "rgba(255, 255, 255, 0.7)", mb: 2, fontSize: "0.85rem" }}
+                sx={{
+                  color: "rgba(255, 255, 255, 0.7)",
+                  mb: 2,
+                  fontSize: "0.85rem",
+                }}
               >
-                Plateforme d'apprentissage pour maîtriser les compétences numériques de demain.
+                Plateforme d'apprentissage pour maîtriser les compétences
+                numériques de demain.
               </Typography>
               {variant !== "minimal" && (
                 <Stack direction="row" spacing={1}>
@@ -288,7 +344,7 @@ const Footer = ({ variant = "default" }) => {
           </Grid>
 
           {/* Liens Rapides */}
-          <Grid item xs={12} sm={4} md={3}>
+          <Grid item xs={12} sm={6} md={3}>
             <SectionTitle>Liens Rapides</SectionTitle>
             <Stack spacing={0.5}>
               {quickLinks.map((link) => (
@@ -302,11 +358,15 @@ const Footer = ({ variant = "default" }) => {
 
           {/* Catégories */}
           {variant !== "minimal" && (
-            <Grid item xs={12} sm={4} md={3}>
+            <Grid item xs={12} sm={6} md={3}>
               <SectionTitle>Catégories</SectionTitle>
               <Stack spacing={0.5}>
                 {categoryLinks.map((link) => (
-                  <AnimatedLink key={link.href} href={link.href} underline="none">
+                  <AnimatedLink
+                    key={link.href}
+                    href={link.href}
+                    underline="none"
+                  >
                     {link.label}
                     <ArrowForward className="arrow-icon" />
                   </AnimatedLink>
@@ -316,17 +376,23 @@ const Footer = ({ variant = "default" }) => {
           )}
 
           {/* Contact */}
-          <Grid item xs={12} sm={4} md={3}>
+          <Grid item xs={12} md={3}>
             <SectionTitle>Contact</SectionTitle>
             <Stack spacing={1.5}>
               {contactInfo.map((info) => (
                 <InfoCard key={info.label}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                    <Box sx={{ color: "#f13544", display: "flex" }}>{info.icon}</Box>
+                    <Box sx={{ color: "#f13544", display: "flex" }}>
+                      {info.icon}
+                    </Box>
                     <Box sx={{ minWidth: 0 }}>
                       <Typography
                         variant="caption"
-                        sx={{ color: "rgba(255, 255, 255, 0.6)", display: "block", fontSize: "0.7rem" }}
+                        sx={{
+                          color: "rgba(255, 255, 255, 0.6)",
+                          display: "block",
+                          fontSize: "0.7rem",
+                        }}
                       >
                         {info.label}
                       </Typography>
@@ -363,14 +429,26 @@ const Footer = ({ variant = "default" }) => {
               gap: 1,
             }}
           >
-            <Typography variant="body2" sx={{ color: "rgba(255, 255, 255, 0.7)", fontSize: "0.8rem" }}>
-              &copy; {new Date().getFullYear()} Youth Computing. Tous droits réservés.
+            <Typography
+              variant="body2"
+              sx={{ color: "rgba(255, 255, 255, 0.7)", fontSize: "0.8rem" }}
+            >
+              &copy; {new Date().getFullYear()} Youth Computing. Tous droits
+              réservés.
             </Typography>
             <Box sx={{ display: "flex", gap: 2 }}>
-              <AnimatedLink href="/privacy" underline="none" sx={{ fontSize: "0.8rem" }}>
+              <AnimatedLink
+                href="/privacy"
+                underline="none"
+                sx={{ fontSize: "0.8rem" }}
+              >
                 Politique de confidentialité
               </AnimatedLink>
-              <AnimatedLink href="/terms" underline="none" sx={{ fontSize: "0.8rem" }}>
+              <AnimatedLink
+                href="/terms"
+                underline="none"
+                sx={{ fontSize: "0.8rem" }}
+              >
                 Conditions d'utilisation
               </AnimatedLink>
             </Box>

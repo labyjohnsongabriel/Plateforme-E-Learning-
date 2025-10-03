@@ -1,17 +1,26 @@
-// Unauthorized.jsx - Page 401
-import React from 'react';
-import { colors } from "../../utils/colors";
+// frontend/src/pages/Unauthorized.jsx
+import React from "react";
+import { Typography, Button } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 
-const Unauthorized = ({ theme = 'light' }) => {
-  const bg = theme === 'dark' ? colors.globalGradientDark : colors.globalGradientLight;
-
+const Unauthorized = () => {
+  const navigate = useNavigate();
   return (
-    <div style={{ background: bg, minHeight: '100vh', padding: '32px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: theme === 'dark' ? colors.textDark : colors.textLight }}>
-      <div>
-        <h1>401 - Accès Non Autorisé</h1>
-        <p>Vous n'avez pas les permissions nécessaires pour accéder à cette page.</p>
-        <a href="/login" style={{ background: colors.primary, color: 'white', padding: '10px', textDecoration: 'none' }}>Se connecter</a>
-      </div>
+    <div style={{ padding: "20px", textAlign: "center" }}>
+      <Typography variant="h4" color="error">
+        Accès non autorisé
+      </Typography>
+      <Typography variant="body1" sx={{ mt: 2 }}>
+        Vous n'avez pas les permissions nécessaires pour accéder à cette page.
+      </Typography>
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={() => navigate("/")}
+        sx={{ mt: 2 }}
+      >
+        Retour à l'accueil
+      </Button>
     </div>
   );
 };
