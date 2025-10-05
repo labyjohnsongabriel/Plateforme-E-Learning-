@@ -1,0 +1,22 @@
+import Joi from 'joi';
+export declare const register: Joi.ObjectSchema<any>;
+export declare const login: Joi.ObjectSchema<any>;
+export declare const update: Joi.ObjectSchema<any>;
+export declare const changePassword: Joi.ObjectSchema<any>;
+export declare const resetPassword: Joi.ObjectSchema<any>;
+export declare const setNewPassword: Joi.ObjectSchema<any>;
+export declare const deleteSchema: Joi.ObjectSchema<any>;
+export declare const getById: Joi.ObjectSchema<any>;
+export declare const getAll: Joi.ObjectSchema<any>;
+export declare const search: Joi.ObjectSchema<any>;
+export declare const filter: Joi.ObjectSchema<any>;
+export declare const sort: Joi.ObjectSchema<any>;
+export declare const getProfile: Joi.ObjectSchema<any>;
+export declare const updateProfile: Joi.ObjectSchema<any>;
+export declare const changeProfilePicture: Joi.ObjectSchema<any>;
+export declare const deleteProfile: Joi.ObjectSchema<any>;
+export declare const getUserStatistics: Joi.ObjectSchema<any>;
+export declare const getActiveUsers: Joi.ObjectSchema<any>;
+export declare const getInactiveUsers: Joi.ObjectSchema<any>;
+export declare const getNewUsers: Joi.ObjectSchema<any>;
+//# sourceMappingURL=authValidator.d.ts.map
