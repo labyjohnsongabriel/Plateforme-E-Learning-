@@ -1,52 +1,56 @@
-// backend/routes/courses.js
-const express = require("express");
-const router = express.Router();
-const CoursController = require("../controllers/course/CoursController");
-const ContenuController = require("../controllers/course/ContenuController");
-const QuizController = require("../controllers/course/QuizController");
-const DomaineController = require("../controllers/course/DomaineController");
-const Domaine = require("../models/course/Domaine"); // Déplacé ici
-const authMiddleware = require("../middleware/auth");
-const authorizationMiddleware = require("../middleware/authorization");
-const validationMiddleware = require("../middleware/validation");
-const courseValidator = require("../validators/courseValidator");
-const uploadMiddleware = require("../middleware/upload");
-const { RoleUtilisateur } = require("../models/user/User");
-const createError = require("http-errors");
+import { Router, Request, Response, NextFunction } from 'express';
+import CoursController from '../controllers/course/CoursController';
+import ContenuController from '../controllers/course/ContenuController';
+import QuizController from '../controllers/course/QuizController';
+import DomaineController from '../controllers/course/DomaineController';
+import Domaine from '../models/course/Domaine';
+import authMiddleware from '../middleware/auth';
+import authorize from '../middleware/authorization';
+import validate from '../middleware/validation';
+import * as courseValidator from '../validators/courseValidator';
+import upload from '../middleware/upload';
+import { RoleUtilisateur } from '../types';
+import createError from 'http-errors';
+
+const router: Router = Router();
 
 // Routes pour Domaine
 router.post(
-  "/domaine",
+  '/domaine',
   authMiddleware,
-  authorizationMiddleware([RoleUtilisateur.ADMIN]),
-  validationMiddleware(courseValidator.createDomaine),
+  authorize([RoleUtilisateur.ADMIN]),
+  validate(courseValidator.createDomaine),
   DomaineController.create
 );
-router.get("/domaine", DomaineController.getAll); // Public access for domain catalog
-router.get("/domaine/:id", DomaineController.getById);
+
+router.get('/domaine', DomaineController.getAll);
+
+router.get('/domaine/:id', DomaineController.getById);
+
 router.put(
-  "/domaine/:id",
+  '/domaine/:id',
   authMiddleware,
-  authorizationMiddleware([RoleUtilisateur.ADMIN]),
-  validationMiddleware(courseValidator.updateDomaine),
+  authorize([RoleUtilisateur.ADMIN]),
+  validate(courseValidator.updateDomaine),
   DomaineController.update
 );
+
 router.delete(
-  "/domaine/:id",
+  '/domaine/:id',
   authMiddleware,
-  authorizationMiddleware([RoleUtilisateur.ADMIN]),
+  authorize([RoleUtilisateur.ADMIN]),
   DomaineController.delete
 );
 
 // Route for domain statistics
 router.get(
-  "/domaine/:id/stats",
+  '/domaine/:id/stats',
   authMiddleware,
-  authorizationMiddleware([RoleUtilisateur.ADMIN]),
-  async (req, res, next) => {
+  authorize([RoleUtilisateur.ADMIN]),
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const domaine = await Domaine.findById(req.params.id);
-      if (!domaine) throw createError(404, "Domaine non trouvé");
+      if (!domaine) throw createError(404, 'Domaine non trouvé');
       const stats = await domaine.getStatistiques();
       res.json(stats);
     } catch (err) {
@@ -57,87 +61,74 @@ router.get(
 
 // Routes pour Cours
 router.post(
-  "/",
+  '/',
   authMiddleware,
-  authorizationMiddleware([RoleUtilisateur.ADMIN]),
-  validationMiddleware(courseValidator.create),
+  authorize([RoleUtilisateur.ADMIN]),
+  validate(courseValidator.create),
   CoursController.create
 );
-router.get("/", CoursController.getAll); // Public access for course catalog
-router.get("/:id", CoursController.getById); // Public access for course details
+
+router.get('/', CoursController.getAll);
+
+router.get('/:id', CoursController.getById);
+
 router.put(
-  "/:id",
+  '/:id',
   authMiddleware,
-  authorizationMiddleware([RoleUtilisateur.ADMIN]),
-  validationMiddleware(courseValidator.update),
+  authorize([RoleUtilisateur.ADMIN]),
+  validate(courseValidator.update),
   CoursController.update
 );
+
 router.delete(
-  "/:id",
+  '/:id',
   authMiddleware,
-  authorizationMiddleware([RoleUtilisateur.ADMIN]),
+  authorize([RoleUtilisateur.ADMIN]),
   CoursController.delete
 );
 
+// Routes pour Contenu
+router.get('/contenu/:id', authMiddleware, ContenuController.getById);
 
-
-
-{/*
-router.post(
-  "/contenu",
-  authMiddleware,
-  authorizationMiddleware([RoleUtilisateur.ADMIN]),
-  uploadMiddleware,
-  validationMiddleware(courseValidator.createContenu),
-  ContenuController.create
-);*/}
-
-router.get("/contenu/:id", authMiddleware, ContenuController.getById);
-
-{/*router.put(
-  "/contenu/:id",
-  authMiddleware,
-  authorizationMiddleware([RoleUtilisateur.ADMIN]),
-  uploadMiddleware,
-  validationMiddleware(courseValidator.updateContenu),
-  ContenuController.update
-);*/}
 router.delete(
-  "/contenu/:id",
+  '/contenu/:id',
   authMiddleware,
-  authorizationMiddleware([RoleUtilisateur.ADMIN]),
+  authorize([RoleUtilisateur.ADMIN]),
   ContenuController.delete
 );
 
 // Routes pour Quiz
 router.post(
-  "/quiz",
+  '/quiz',
   authMiddleware,
-  authorizationMiddleware([RoleUtilisateur.ADMIN]),
-  validationMiddleware(courseValidator.createQuiz),
+  authorize([RoleUtilisateur.ADMIN]),
+  validate(courseValidator.createQuiz),
   QuizController.create
 );
-router.get("/quiz/:id", authMiddleware, QuizController.getById);
+
+router.get('/quiz/:id', authMiddleware, QuizController.getById);
+
 router.put(
-  "/quiz/:id",
+  '/quiz/:id',
   authMiddleware,
-  authorizationMiddleware([RoleUtilisateur.ADMIN]),
-  validationMiddleware(courseValidator.updateQuiz),
+  authorize([RoleUtilisateur.ADMIN]),
+  validate(courseValidator.updateQuiz),
   QuizController.update
 );
+
 router.delete(
-  "/quiz/:id",
+  '/quiz/:id',
   authMiddleware,
-  authorizationMiddleware([RoleUtilisateur.ADMIN]),
+  authorize([RoleUtilisateur.ADMIN]),
   QuizController.delete
 );
 
 // Route for learners to submit quiz answers
 router.post(
-  "/quiz/:id/soumettre",
+  '/quiz/:id/soumettre',
   authMiddleware,
-  authorizationMiddleware([RoleUtilisateur.LEARNER]),
+  authorize([RoleUtilisateur.ETUDIANT]),
   QuizController.soumettre
 );
 
-module.exports = router;
+export default router;

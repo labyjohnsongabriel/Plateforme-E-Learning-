@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import createError from 'http-errors';
 import mongoose from 'mongoose';
-import { Certificat } from '../../models/learning/Certificat';
+import Certificat, { ICertificat } from '../../models/learning/Certificat';
 import { User } from '../../models/user/User';
-import { Cours } from '../../models/course/Cours';
+import Cours, { ICours } from '../../models/course/Cours';
 import fs from 'fs';
 import path from 'path';
 import PDFDocument from 'pdfkit';
@@ -70,7 +70,8 @@ class CertificatController {
     try {
       const existingCert = await Certificat.findOne({ apprenant: apprenantId, cours: coursId });
       if (existingCert) {
-        return existingCert;
+        // CORRECTION : Plus besoin de conversion, les types sont maintenant compatibles
+        return existingCert as CertificatDocument;
       }
 
       const user = await User.findById(apprenantId);
@@ -118,7 +119,8 @@ class CertificatController {
       });
       await newCert.save();
 
-      return newCert;
+      // CORRECTION : Plus besoin de conversion, les types sont maintenant compatibles
+      return newCert as CertificatDocument;
     } catch (err) {
       console.error('Erreur lors de la génération du certificat:', (err as Error).message);
       throw err;

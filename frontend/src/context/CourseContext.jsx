@@ -1,42 +1,31 @@
-// frontend/src/context/CourseContext.jsx
-import React, { createContext, useState, useEffect, useCallback } from "react";
-import {
-  Backdrop,
-  CircularProgress,
-  Alert,
-  Snackbar,
-  Typography,
-} from "@mui/material";
-import axios from "axios";
-import { useAuth } from "./AuthContext";
-import { useNavigate } from "react-router-dom";
+import React, { createContext, useState, useEffect, useCallback } from 'react';
+import { Backdrop, CircularProgress, Alert, Snackbar, Typography } from '@mui/material';
+import axios from 'axios';
+import { useAuth } from './AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 // Role constants for frontend consistency
 const Roles = {
-  STUDENT: "student",
-  INSTRUCTOR: "instructor",
-  ADMIN: "admin",
+  STUDENT: 'student',
+  INSTRUCTOR: 'instructor',
+  ADMIN: 'admin',
 };
 
 /**
  * CourseContext for managing courses in the e-learning platform
- * @type {Object}
- * @property {Array} courses - Array of course objects
- * @property {Function} fetchCourses - Fetch courses from API
- * @property {Function} addCourse - Add a new course
- * @property {Function} updateCourse - Update an existing course
- * @property {Function} deleteCourse - Delete a course
- * @property {boolean} isLoading - Whether a course operation is in progress
- * @property {string|null} error - Error message, if any
  */
 export const CourseContext = createContext({
   courses: [],
+  domaines: [],
   fetchCourses: async () => {},
+  fetchDomaines: async () => {},
   addCourse: async () => {},
   updateCourse: async () => {},
   deleteCourse: async () => {},
   isLoading: false,
+  isDomainesLoading: false,
   error: null,
+  isAuthLoading: false,
 });
 
 /**
@@ -46,20 +35,59 @@ export const CourseContext = createContext({
  */
 export const CourseProvider = ({ children }) => {
   const [courses, setCourses] = useState([]);
+  const [domaines, setDomaines] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDomainesLoading, setIsDomainesLoading] = useState(false);
   const [error, setError] = useState(null);
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const navigate = useNavigate();
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+
+  /**
+   * Fetch domaines from the API
+   */
+  const fetchDomaines = useCallback(async () => {
+    if (!user?.token) {
+      console.log('No user or token, skipping domaines fetch');
+      setDomaines([]);
+      return;
+    }
+
+    setIsDomainesLoading(true);
+    setError(null);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/courses/domaine`, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${user.token}`,
+        },
+        validateStatus: (status) => status < 500,
+      });
+
+      if (response.status >= 200 && response.status < 300) {
+        const data = Array.isArray(response.data) ? response.data : [];
+        setDomaines(data);
+      } else {
+        throw new Error(`Unexpected status code: ${response.status}`);
+      }
+    } catch (err) {
+      console.error('Fetch domaines error:', err);
+      const errorMessage = handleApiError(err, navigate);
+      setError(errorMessage);
+      setDomaines([]);
+    } finally {
+      setIsDomainesLoading(false);
+    }
+  }, [user, navigate, API_BASE_URL]);
 
   /**
    * Fetch courses from the API
    */
   const fetchCourses = useCallback(async () => {
-    if (!user || !user.token || user.role === Roles.STUDENT) {
-      console.log("No user, token, or student role, skipping courses fetch");
+    if (!user?.token || user.role === Roles.ETUDIANT) {
+      console.log('No user, token, or student role, skipping courses fetch');
       setCourses([]);
-      localStorage.setItem("courses", JSON.stringify([]));
+      localStorage.setItem('courses', JSON.stringify([]));
       return;
     }
 
@@ -68,94 +96,109 @@ export const CourseProvider = ({ children }) => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/courses`, {
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${user.token}`,
         },
-        validateStatus: (status) => status < 500,
         params: { role: user.role },
+        validateStatus: (status) => status < 500,
       });
 
-      console.log("Courses response:", response.data, "Status:", response.status);
-      if (response.headers["content-type"].includes("application/json")) {
+      if (response.status >= 200 && response.status < 300) {
         const data = Array.isArray(response.data)
           ? response.data
-          : Array.isArray(response.data.data)
-          ? response.data.data
-          : [];
+          : Array.isArray(response.data?.data)
+            ? response.data.data
+            : [];
         setCourses(data);
-        localStorage.setItem("courses", JSON.stringify(data));
+        localStorage.setItem('courses', JSON.stringify(data));
       } else {
-        throw new Error("Réponse serveur non-JSON");
+        throw new Error(`Unexpected status code: ${response.status}`);
       }
     } catch (err) {
-      console.error("Fetch courses error:", err);
-      let errorMessage;
-      if (err.response) {
-        switch (err.response.status) {
-          case 401:
-            errorMessage = "Session expirée, veuillez vous reconnecter";
-            navigate("/login");
-            break;
-          case 403:
-            errorMessage = "Accès non autorisé aux cours pour ce rôle";
-            setCourses([]);
-            localStorage.setItem("courses", JSON.stringify([]));
-            break;
-          case 404:
-            errorMessage = "Service de cours non disponible";
-            break;
-          default:
-            errorMessage =
-              err.response.data?.message ||
-              "Erreur lors du chargement des cours";
-        }
-      } else {
-        errorMessage = "Impossible de se connecter au serveur";
-      }
+      console.error('Fetch courses error:', err);
+      const errorMessage = handleApiError(err, navigate);
       setError(errorMessage);
       setCourses([]);
-      localStorage.setItem("courses", JSON.stringify([]));
+      localStorage.setItem('courses', JSON.stringify([]));
     } finally {
       setIsLoading(false);
     }
   }, [user, navigate, API_BASE_URL]);
 
-  // Fetch courses from localStorage or API only when user is authenticated
+  /**
+   * Handle API errors consistently
+   */
+  const handleApiError = (err, navigate) => {
+    if (err.response) {
+      switch (err.response.status) {
+        case 401:
+          navigate('/login');
+          return 'Session expirée, veuillez vous reconnecter';
+        case 403:
+          setCourses([]);
+          localStorage.setItem('courses', JSON.stringify([]));
+          return 'Accès non autorisé';
+        case 404:
+          return 'Service non disponible';
+        default:
+          return err.response.data?.message || 'Erreur serveur';
+      }
+    }
+    return 'Impossible de se connecter au serveur';
+  };
+
+  /**
+   * Initialize courses and domaines
+   */
   useEffect(() => {
-    if (!user || !user.token) {
-      console.log("No user or token, skipping initial courses fetch");
-      setCourses([]);
-      localStorage.setItem("courses", JSON.stringify([]));
+    if (isAuthLoading) {
+      console.log('Authentication still loading, waiting...');
       return;
     }
 
-    const storedCourses = localStorage.getItem("courses");
+    if (!user?.token) {
+      console.log('No user or token, resetting courses and domaines');
+      setCourses([]);
+      setDomaines([]);
+      localStorage.setItem('courses', JSON.stringify([]));
+      setError('Veuillez vous connecter pour voir les cours et domaines');
+      return;
+    }
+
+    // Load courses from localStorage
+    const storedCourses = localStorage.getItem('courses');
     if (storedCourses) {
       try {
-        setCourses(JSON.parse(storedCourses));
+        const parsedCourses = JSON.parse(storedCourses);
+        if (Array.isArray(parsedCourses)) {
+          setCourses(parsedCourses);
+        } else {
+          console.warn('Stored courses is not an array, clearing localStorage');
+          localStorage.removeItem('courses');
+        }
       } catch (err) {
-        console.error("Failed to parse stored courses:", err);
-        localStorage.removeItem("courses");
+        console.error('Failed to parse stored courses:', err);
+        localStorage.removeItem('courses');
       }
     }
-    fetchCourses();
-  }, [user, fetchCourses]);
+
+    // Fetch data for non-student roles
+    if (user.role !== Roles.ETUDIANT) {
+      fetchCourses();
+      fetchDomaines();
+    }
+  }, [user, isAuthLoading, fetchCourses, fetchDomaines]);
 
   /**
    * Add a new course
-   * @param {Object} course - Course data (e.g., title, description, instructorId)
    */
   const addCourse = useCallback(
     async (course) => {
-      if (!user || !user.token || user.role !== Roles.INSTRUCTOR) {
-        setError(
-          "Vous devez être connecté et avoir le rôle d'instructeur pour ajouter un cours"
-        );
-        if (user?.role !== Roles.INSTRUCTOR) {
-          navigate("/unauthorized");
-        } else {
-          navigate("/login");
-        }
+      if (!user?.token || ![Roles.ENSEIGNANT, Roles.ADMIN].includes(user.role)) {
+        const errorMessage =
+          "Vous devez être connecté et avoir le rôle d'instructeur ou d'administrateur";
+        setError(errorMessage);
+        navigate(user?.role ? '/unauthorized' : '/login');
         return;
       }
 
@@ -163,57 +206,38 @@ export const CourseProvider = ({ children }) => {
       setError(null);
       const newCourse = {
         ...course,
-        id: crypto.randomUUID(),
+        _id: crypto.randomUUID(),
         createdAt: new Date().toISOString(),
+        createur: user._id,
       };
 
       try {
-        // Optimistic update
         setCourses((prev) => {
           const updatedCourses = [...prev, newCourse];
-          localStorage.setItem("courses", JSON.stringify(updatedCourses));
+          localStorage.setItem('courses', JSON.stringify(updatedCourses));
           return updatedCourses;
         });
 
         const response = await axios.post(`${API_BASE_URL}/api/courses`, newCourse, {
           headers: {
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
             Authorization: `Bearer ${user.token}`,
           },
         });
 
         const savedCourse = response.data.data || response.data;
         setCourses((prev) => {
-          const updatedCourses = prev.map((c) =>
-            c.id === newCourse.id ? savedCourse : c
-          );
-          localStorage.setItem("courses", JSON.stringify(updatedCourses));
+          const updatedCourses = prev.map((c) => (c._id === newCourse._id ? savedCourse : c));
+          localStorage.setItem('courses', JSON.stringify(updatedCourses));
           return updatedCourses;
         });
       } catch (err) {
-        console.error("Add course error:", err);
-        let errorMessage;
-        if (err.response) {
-          switch (err.response.status) {
-            case 401:
-              errorMessage = "Session expirée, veuillez vous reconnecter";
-              navigate("/login");
-              break;
-            case 403:
-              errorMessage = "Accès non autorisé pour ajouter un cours";
-              navigate("/unauthorized");
-              break;
-            default:
-              errorMessage =
-                err.response.data?.message || "Erreur lors de l'ajout du cours";
-          }
-        } else {
-          errorMessage = "Impossible de se connecter au serveur";
-        }
+        console.error('Add course error:', err);
+        const errorMessage = handleApiError(err, navigate);
         setError(errorMessage);
         setCourses((prev) => {
-          const updatedCourses = prev.filter((c) => c.id !== newCourse.id);
-          localStorage.setItem("courses", JSON.stringify(updatedCourses));
+          const updatedCourses = prev.filter((c) => c._id !== newCourse._id);
+          localStorage.setItem('courses', JSON.stringify(updatedCourses));
           return updatedCourses;
         });
       } finally {
@@ -225,75 +249,46 @@ export const CourseProvider = ({ children }) => {
 
   /**
    * Update an existing course
-   * @param {string} id - Course ID
-   * @param {Object} updates - Course data to update (e.g., title, description)
    */
   const updateCourse = useCallback(
     async (id, updates) => {
-      if (!user || !user.token || user.role !== Roles.INSTRUCTOR) {
-        setError(
-          "Vous devez être connecté et avoir le rôle d'instructeur pour modifier un cours"
-        );
-        if (user?.role !== Roles.INSTRUCTOR) {
-          navigate("/unauthorized");
-        } else {
-          navigate("/login");
-        }
+      if (!user?.token || ![Roles.ENSEIGNANT, Roles.ADMIN].includes(user.role)) {
+        const errorMessage =
+          "Vous devez être connecté et avoir le rôle d'instructeur ou d'administrateur";
+        setError(errorMessage);
+        navigate(user?.role ? '/unauthorized' : '/login');
         return;
       }
 
       setIsLoading(true);
       setError(null);
       try {
-        // Optimistic update
         setCourses((prev) => {
-          const updatedCourses = prev.map((c) =>
-            c.id === id ? { ...c, ...updates } : c
-          );
-          localStorage.setItem("courses", JSON.stringify(updatedCourses));
+          const updatedCourses = prev.map((c) => (c._id === id ? { ...c, ...updates } : c));
+          localStorage.setItem('courses', JSON.stringify(updatedCourses));
           return updatedCourses;
         });
 
-        const response = await axios.patch(`${API_BASE_URL}/api/courses/${id}`, updates, {
+        const response = await axios.put(`${API_BASE_URL}/api/courses/${id}`, updates, {
           headers: {
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
             Authorization: `Bearer ${user.token}`,
           },
         });
 
         const updatedCourse = response.data.data || response.data;
         setCourses((prev) => {
-          const updatedCourses = prev.map((c) =>
-            c.id === id ? updatedCourse : c
-          );
-          localStorage.setItem("courses", JSON.stringify(updatedCourses));
+          const updatedCourses = prev.map((c) => (c._id === id ? updatedCourse : c));
+          localStorage.setItem('courses', JSON.stringify(updatedCourses));
           return updatedCourses;
         });
       } catch (err) {
-        console.error("Update course error:", err);
-        let errorMessage;
-        if (err.response) {
-          switch (err.response.status) {
-            case 401:
-              errorMessage = "Session expirée, veuillez vous reconnecter";
-              navigate("/login");
-              break;
-            case 403:
-              errorMessage = "Accès non autorisé pour modifier un cours";
-              navigate("/unauthorized");
-              break;
-            default:
-              errorMessage =
-                err.response.data?.message ||
-                "Erreur lors de la mise à jour du cours";
-          }
-        } else {
-          errorMessage = "Impossible de se connecter au serveur";
-        }
+        console.error('Update course error:', err);
+        const errorMessage = handleApiError(err, navigate);
         setError(errorMessage);
         setCourses((prev) => {
-          const updatedCourses = prev.map((c) => (c.id === id ? { ...c } : c));
-          localStorage.setItem("courses", JSON.stringify(updatedCourses));
+          const updatedCourses = prev.map((c) => (c._id === id ? { ...c } : c));
+          localStorage.setItem('courses', JSON.stringify(updatedCourses));
           return updatedCourses;
         });
       } finally {
@@ -305,63 +300,39 @@ export const CourseProvider = ({ children }) => {
 
   /**
    * Delete a course
-   * @param {string} id - Course ID
    */
   const deleteCourse = useCallback(
     async (id) => {
-      if (!user || !user.token || user.role !== Roles.INSTRUCTOR) {
-        setError(
-          "Vous devez être connecté et avoir le rôle d'instructeur pour supprimer un cours"
-        );
-        if (user?.role !== Roles.INSTRUCTOR) {
-          navigate("/unauthorized");
-        } else {
-          navigate("/login");
-        }
+      if (!user?.token || ![Roles.ENSEIGNANT, Roles.ADMIN].includes(user.role)) {
+        const errorMessage =
+          "Vous devez être connecté et avoir le rôle d'instructeur ou d'administrateur";
+        setError(errorMessage);
+        navigate(user?.role ? '/unauthorized' : '/login');
         return;
       }
 
       setIsLoading(true);
       setError(null);
       try {
-        // Optimistic update
         setCourses((prev) => {
-          const updatedCourses = prev.filter((c) => c.id !== id);
-          localStorage.setItem("courses", JSON.stringify(updatedCourses));
+          const updatedCourses = prev.filter((c) => c._id !== id);
+          localStorage.setItem('courses', JSON.stringify(updatedCourses));
           return updatedCourses;
         });
 
         const response = await axios.delete(`${API_BASE_URL}/api/courses/${id}`, {
           headers: {
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
             Authorization: `Bearer ${user.token}`,
           },
         });
 
         if (response.status !== 204 && response.status !== 200) {
-          throw new Error("Erreur lors de la suppression du cours");
+          throw new Error('Erreur lors de la suppression du cours');
         }
       } catch (err) {
-        console.error("Delete course error:", err);
-        let errorMessage;
-        if (err.response) {
-          switch (err.response.status) {
-            case 401:
-              errorMessage = "Session expirée, veuillez vous reconnecter";
-              navigate("/login");
-              break;
-            case 403:
-              errorMessage = "Accès non autorisé pour supprimer un cours";
-              navigate("/unauthorized");
-              break;
-            default:
-              errorMessage =
-                err.response.data?.message ||
-                "Erreur lors de la suppression du cours";
-          }
-        } else {
-          errorMessage = "Impossible de se connecter au serveur";
-        }
+        console.error('Delete course error:', err);
+        const errorMessage = handleApiError(err, navigate);
         setError(errorMessage);
         fetchCourses();
       } finally {
@@ -373,55 +344,60 @@ export const CourseProvider = ({ children }) => {
 
   const contextValue = {
     courses,
+    domaines,
     fetchCourses,
+    fetchDomaines,
     addCourse,
     updateCourse,
     deleteCourse,
     isLoading,
+    isDomainesLoading,
     error,
+    isAuthLoading,
   };
 
   return (
     <CourseContext.Provider value={contextValue}>
       {children}
       <Backdrop
-        open={isLoading}
+        open={isLoading || isAuthLoading || isDomainesLoading}
         sx={{
           zIndex: 9999,
-          color: "#fff",
-          display: "flex",
-          flexDirection: "column",
-          background: "linear-gradient(135deg, #010b40 0%, #1a237e 100%)",
+          color: '#fff',
+          display: 'flex',
+          flexDirection: 'column',
+          background: 'linear-gradient(135deg, #010b40 0%, #1a237e 100%)',
         }}
       >
         <img
-          src="/assets/images/Youth Computing.png"
-          alt="Youth Computing Logo"
-          style={{ width: "100px", height: "100px", marginBottom: "20px" }}
+          src='/assets/images/Youth Computing.png'
+          alt='Youth Computing Logo'
+          style={{ width: '100px', height: '100px', marginBottom: '20px' }}
         />
         <CircularProgress
-          color="inherit"
+          color='inherit'
           size={40}
           thickness={5}
-          sx={{ "& .MuiCircularProgress-circle": { strokeLinecap: "round" } }}
+          sx={{ '& .MuiCircularProgress-circle': { strokeLinecap: 'round' } }}
         />
-        <Typography
-          variant="h6"
-          sx={{ mt: 2, fontFamily: "Ubuntu, sans-serif", fontWeight: 500 }}
-        >
-          Chargement des cours...
+        <Typography variant='h6' sx={{ mt: 2, fontFamily: 'Ubuntu, sans-serif', fontWeight: 500 }}>
+          {isAuthLoading
+            ? "Vérification de l'authentification..."
+            : isDomainesLoading
+              ? 'Chargement des domaines...'
+              : 'Chargement des cours...'}
         </Typography>
       </Backdrop>
       <Snackbar
         open={!!error}
         autoHideDuration={6000}
         onClose={() => setError(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
         <Alert
-          severity="error"
+          severity='error'
           onClose={() => setError(null)}
-          sx={{ width: "100%", maxWidth: "600px" }}
+          sx={{ width: '100%', maxWidth: '600px' }}
         >
           {error}
         </Alert>

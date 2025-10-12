@@ -1,103 +1,120 @@
-// backend/server.js
-require("dotenv").config({ path: ".env" }); // Explicitly specify .env path
-const http = require("http");
-const express = require("express");
-const cors = require("cors");
-const { Server } = require("socket.io");
-const { connect } = require("./src/config/database");
-const { init: initSocket } = require("./src/utils/socket");
-const logger = require("./src/utils/logger");
+import dotenv from 'dotenv';
+dotenv.config();
 
-// Create Express app
-const app = express();
-const server = http.createServer(app);
+import express, { Express, Request, Response, NextFunction } from 'express';
+import cors from 'cors';
+import http from 'http';
+import { Server, Socket } from 'socket.io';
+import logger from './src/utils/logger';
 
-// Apply CORS middleware
+import config from './src/config/config';
+import connect from './src/config/database';
+import { init as initSocket } from './src/utils/socket';
+import apprenantRoutes from './src/routes/apprenant';
+import courseRoutes from './src/routes/courses';
+import notificationRoutes from './src/routes/notifications';
+import authRoutes from './src/routes/auth';
+import userRoutes from './src/routes/users';
+import instructeurRoutes from './src/routes/instructeur';
+import adminRoutes from './src/routes/admin';
+import learningRoutes from './src/routes/learning';
+import indexRoutes from './src/routes/index';
+import statsRoutes from './src/routes/stats';
+
+const app: Express = express();
+const server: http.Server = http.createServer(app);
+
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:3000"], // Support both frontend ports
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    origin: ['http://localhost:5173', 'http://localhost:3000'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
   })
 );
-
-// Middleware to parse JSON
 app.use(express.json());
 
-// Routes
-app.use("/api/courses", require("./src/routes/courses"));
-app.use("/api/notifications", require("./src/routes/notifications"));
-app.use("/api/apprenant", require("./src/routes/apprenant"));
-app.use("/api/auth", require("./src/routes/auth"));
-app.use("/api/users", require("./src/routes/users"));
-app.use("/api/instructeurs", require("./src/routes/instructeur"));
-app.use("/api/admin", require("./src/routes/admin"));
-app.use("/api/learning", require("./src/routes/learning"));
-app.use("/api/index", require("./src/routes/index"));
-app.use("/api/stats", require("./src/routes/stats"));
+app.use('/api/courses', courseRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/apprenant' , apprenantRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/instructeurs', instructeurRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/learning', learningRoutes);
+app.use('/api/index', indexRoutes);
+app.use('/api/stats', statsRoutes);
 
-// Test route to verify server is running
-app.get("/api/test", (req, res) => {
-  res.json({ message: "Server is running correctly" });
+app.get('/api/test', (req: Request, res: Response) => {
+  res.json({ message: '✅ Server is running correctly' });
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  logger.error(`Error: ${err.message}`);
-  res
-    .status(err.status || 500)
-    .json({ message: "Server error", error: err.message });
+// Global error handler
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  logger.error(`❌ Error: ${err.message}`, {
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+    body: req.body,
+    query: req.query,
+    headers: req.headers,
+  });
+  res.status((err as any).status || 500).json({
+    errors: [{
+      type: 'server',
+      msg: err.message || 'Erreur serveur interne',
+      path: '',
+      location: 'server',
+    }],
+  });
 });
 
-// Initialize Socket.IO
-const io = initSocket(server);
+const io: Server = initSocket(server);
 
-io.on("connection", (socket) => {
-  logger.info(`User connected: ${socket.id}`);
-  socket.on("join", (userId) => {
+io.on('connection', (socket: Socket) => {
+  logger.info(`🔗 User connected: ${socket.id}`);
+
+  socket.on('join', (userId: string) => {
     socket.join(userId);
-    logger.info(`User ${userId} joined room`);
+    logger.info(`👥 User ${userId} joined room`);
   });
-  socket.on("disconnect", () => {
-    logger.info(`User disconnected: ${socket.id}`);
+
+  socket.on('disconnect', () => {
+    logger.info(`❌ User disconnected: ${socket.id}`);
   });
 });
 
-// Start scheduled jobs
-require("./src/jobs/certificateJob");
-require("./src/jobs/notificationJob");
-require("./src/jobs/cleanupJob");
+import './src/jobs/certificateJob';
+import './src/jobs/notificationJob';
+import './src/jobs/cleanupJob';
 
-// Function to attempt starting the server on a given port
-const startServer = async (port) => {
+const startServer = async (port: number): Promise<void> => {
   try {
-    await connect(); // MongoDB connection
+    await connect();
     server.listen(port, () => {
       logger.info(`🚀 Server running on port ${port}`);
+      logger.info(`🔑 JWT_SECRET = ${process.env.JWT_SECRET ? '✅ défini' : '❌ non défini'}`);
+      logger.info(`📦 Mongo URI = ${process.env.MONGODB_URI}`);
     });
-  } catch (err) {
-    if (err.code === "EADDRINUSE") {
-      logger.warn(`Port ${port} is in use, trying port ${port + 1}`);
-      startServer(port + 1); // Try the next port
+  } catch (err: any) {
+    if (err.code === 'EADDRINUSE') {
+      logger.warn(`⚠️ Port ${port} is in use, trying port ${port + 1}`);
+      await startServer(port + 1);
     } else {
-      logger.error(`❌ Server startup error: ${err.message}`);
+      logger.error(`❌ Server startup error: ${err.message}`, { stack: err.stack });
       process.exit(1);
     }
   }
 };
 
-// Start server on the specified port or default to 3000
-const port = process.env.PORT || 3000;
-startServer(port);
+startServer(config.PORT || 3001);
 
-// Handle uncaught exceptions and rejections
-process.on("uncaughtException", (err) => {
-  logger.error(`Uncaught Exception: ${err.message}`);
+process.on('uncaughtException', (err: Error) => {
+  logger.error(`💥 Uncaught Exception: ${err.message}`, { stack: err.stack });
   process.exit(1);
 });
 
-process.on("unhandledRejection", (err) => {
-  logger.error(`Unhandled Rejection: ${err.message}`);
+process.on('unhandledRejection', (err: any) => {
+  logger.error(`⚠️ Unhandled Rejection: ${err?.message || err}`, { stack: err?.stack });
   process.exit(1);
 });

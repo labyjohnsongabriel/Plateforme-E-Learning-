@@ -4,16 +4,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
 const http_errors_1 = __importDefault(require("http-errors"));
-const mongoose_1 = __importDefault(require("mongoose"));
-const Certificat_1 = require("../../models/learning/Certificat");
+const Certificat_1 = __importDefault(require("../../models/learning/Certificat"));
 const User_1 = require("../../models/user/User");
-const Cours_1 = require("../../models/course/Cours");
+const Cours_1 = __importDefault(require("../../models/course/Cours"));
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const pdfkit_1 = __importDefault(require("pdfkit"));
-const types_1 = require("../../types");
 /**
  * Contrôleur pour gérer les certificats.
  */
@@ -31,7 +28,7 @@ CertificatController.getByUser = async (req, res, next) => {
         if (!req.user || !req.user.id) {
             throw (0, http_errors_1.default)(401, 'Utilisateur non authentifié');
         }
-        const certs = await Certificat_1.Certificat.find({ apprenant: req.user.id }).populate('cours', 'titre niveau');
+        const certs = await Certificat_1.default.find({ apprenant: req.user.id }).populate('cours', 'titre niveau');
         res.json(certs.length ? certs : []);
     }
     catch (err) {
@@ -50,7 +47,7 @@ CertificatController.download = async (req, res, next) => {
         if (!req.user || !req.user.id) {
             throw (0, http_errors_1.default)(401, 'Utilisateur non authentifié');
         }
-        const cert = await Certificat_1.Certificat.findOne({ _id: req.params.id, apprenant: req.user.id });
+        const cert = await Certificat_1.default.findOne({ _id: req.params.id, apprenant: req.user.id });
         if (!cert) {
             throw (0, http_errors_1.default)(404, 'Certificat non trouvé ou non autorisé');
         }
@@ -73,12 +70,13 @@ CertificatController.download = async (req, res, next) => {
  */
 CertificatController.generateCertificate = async (apprenantId, coursId) => {
     try {
-        const existingCert = await Certificat_1.Certificat.findOne({ apprenant: apprenantId, cours: coursId });
+        const existingCert = await Certificat_1.default.findOne({ apprenant: apprenantId, cours: coursId });
         if (existingCert) {
+            // CORRECTION : Plus besoin de conversion, les types sont maintenant compatibles
             return existingCert;
         }
         const user = await User_1.User.findById(apprenantId);
-        const cours = await Cours_1.Cours.findById(coursId);
+        const cours = await Cours_1.default.findById(coursId);
         if (!user || !cours) {
             throw new Error('Utilisateur ou cours non trouvé');
         }
@@ -111,13 +109,14 @@ CertificatController.generateCertificate = async (apprenantId, coursId) => {
         doc.text('Signature : _______________________', 150, 380, { align: 'center' });
         doc.end();
         const url = `/certificates/${filename}`;
-        const newCert = new Certificat_1.Certificat({
+        const newCert = new Certificat_1.default({
             apprenant: apprenantId,
             cours: coursId,
             dateEmission: new Date(),
             urlCertificat: url,
         });
         await newCert.save();
+        // CORRECTION : Plus besoin de conversion, les types sont maintenant compatibles
         return newCert;
     }
     catch (err) {

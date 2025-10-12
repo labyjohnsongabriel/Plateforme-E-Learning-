@@ -1,1 +1,1 @@
-{"version":3,"file":"QuizService.d.ts","sourceRoot":"","sources":["../../../src/services/course/QuizService.ts"],"names":[],"mappings":""}
+{"version":3,"file":"QuizService.d.ts","sourceRoot":"","sources":["../../../src/services/course/QuizService.ts"],"names":[],"mappings":"AAAA,OAAa,EAAE,KAAK,EAAE,MAAM,0BAA0B,CAAC;AAGvD,UAAU,QAAQ;IAChB,CAAC,GAAG,EAAE,MAAM,GAAG,GAAG,CAAC;CACpB;AAGD,eAAO,MAAM,MAAM,GAAU,MAAM,QAAQ,KAAG,OAAO,CAAC,KAAK,CAI1D,CAAC"}

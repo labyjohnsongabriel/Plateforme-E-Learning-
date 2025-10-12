@@ -1,88 +1,171 @@
-const User = require("../../models/user/User");
-const Cours = require("../../models/course/Cours");
-const Progression = require("../../models/learning/Progression");
-const Certificat = require("../../models/learning/Certificat");
-const Inscription = require("../../models/learning/Inscription");
+import createError from 'http-errors';
+import { Types, FlattenMaps } from 'mongoose';
+import { User, IUser, RoleUtilisateur } from '../../models/user/User';
+import Course, { ICours } from '../../models/course/Cours';
+import ProgressionModel, { IProgression } from '../../models/learning/Progression';
+import CertificatModel, { ICertificat } from '../../models/learning/Certificat';
+import InscriptionModel, { IInscription } from '../../models/learning/Inscription';
 
+// Interface pour les statistiques globales, aligned with AdminDashboard.jsx
+interface GlobalStats {
+  totalUsers: number;
+  totalCourses: number;
+  completionRate: number;
+  usersByRole: Record<RoleUtilisateur, number>;
+  recentActivities: { description: string; date: string }[];
+  coursesData: { newUsers: number; completed: number }[];
+}
 
+// Interface pour les statistiques d’un utilisateur
+interface UserStats {
+  user: { nom: string; prenom: string; role: RoleUtilisateur };
+  enrollments: number;
+  progressions: number;
+  completions: number;
+  certificates: number;
+  averageProgress: number;
+}
 
-exports.getGlobalStats = async () => {
+// Interface pour les statistiques d’un cours
+interface CourseStats {
+  cours: { titre: string; niveau: string; domaine: string };
+  enrollments: number;
+  completions: number;
+  certificates: number;
+}
+
+// Interface pour aggregation results
+interface RoleAggregationResult {
+  role: RoleUtilisateur | null;
+  count: number;
+}
+
+interface MonthAggregationResult {
+  _id: string;
+  newUsers: number;
+}
+
+// Interface pour populated inscription
+interface PopulatedInscription extends Omit<FlattenMaps<IInscription>, 'apprenant' | 'cours'> {
+  apprenant?: { nom: string; prenom: string };
+  cours?: { titre: string };
+}
+
+// --- Statistiques globales ---
+export const getGlobalStats = async (): Promise<GlobalStats> => {
   try {
+    console.log('Fetching global stats from database');
     const [
-      usersCount,
-      adminsCount,
-      coursesCount,
-      completionsCount,
-      certificatesCount,
-      enrollmentsCount,
+      totalUsers,
+      totalCourses,
+      totalInscriptions,
+      completedInscriptions,
+      recentInscriptions,
+      usersByRole,
+      newUsersByMonth,
     ] = await Promise.all([
-      User.countDocuments({ role: "APPRENANT" }), // Apprenants seulement
-      User.countDocuments({ role: "ADMINISTRATEUR" }),
-      Cours.countDocuments(),
-      Progression.countDocuments({ pourcentage: 100 }),
-      Certificat.countDocuments(),
-      Inscription.countDocuments(),
-    ]);
-
-    // Stats par domaine (agrégation)
-    const coursesByDomain = await Cours.aggregate([
-      { $group: { _id: "$domaine", count: { $sum: 1 } } },
-    ]);
-
-    // Complétions par niveau
-    const completionsByLevel = await Progression.aggregate([
-      { $match: { pourcentage: 100 } },
-      {
-        $lookup: {
-          from: "cours",
-          localField: "cours",
-          foreignField: "_id",
-          as: "coursDetails",
+      User.countDocuments(),
+      Course.countDocuments(),
+      InscriptionModel.countDocuments(),
+      ProgressionModel.countDocuments({ pourcentage: 100 }),
+      InscriptionModel.find()
+        .sort({ dateInscription: -1 })
+        .limit(5)
+        .populate<{ apprenant: { nom: string; prenom: string } }>('apprenant', 'nom prenom')
+        .populate<{ cours: { titre: string } }>('cours', 'titre')
+        .lean(),
+      User.aggregate<RoleAggregationResult>([
+        { $match: { role: { $in: Object.values(RoleUtilisateur) } } }, // Filter valid roles
+        { $group: { _id: '$role', count: { $sum: 1 } } },
+        { $project: { _id: 0, role: '$_id', count: 1 } },
+      ]),
+      User.aggregate<MonthAggregationResult>([
+        {
+          $match: {
+            createdAt: { $gte: new Date(new Date().setMonth(new Date().getMonth() - 6)) },
+          },
         },
-      },
-      { $unwind: "$coursDetails" },
-      { $group: { _id: "$coursDetails.niveau", count: { $sum: 1 } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+            newUsers: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
     ]);
+
+    const completionRate = totalInscriptions > 0 ? Math.round((completedInscriptions / totalInscriptions) * 100) : 0;
+
+    const recentActivities = recentInscriptions.map((ins: PopulatedInscription) => ({
+      description: `${ins.apprenant?.nom || 'Utilisateur'} ${ins.apprenant?.prenom || ''} s'est inscrit au cours "${ins.cours?.titre || 'Inconnu'}"`,
+      date: ins.dateInscription.toISOString(),
+    }));
+
+    console.log('usersByRole raw data:', usersByRole);
+    const usersByRoleMap = usersByRole.reduce<Record<RoleUtilisateur, number>>(
+      (acc: Record<RoleUtilisateur, number>, { role, count }: RoleAggregationResult) => {
+        if (!role) {
+          console.warn('Skipping invalid role entry:', { role, count });
+          return acc;
+        }
+        return {
+          ...acc,
+          [role]: count,
+        };
+      },
+      {
+        [RoleUtilisateur.ETUDIANT]: 0,
+        [RoleUtilisateur.ENSEIGNANT]: 0,
+        [RoleUtilisateur.ADMIN]: 0,
+      }
+    );
+
+    const coursesData = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'].map((_, i: number) => {
+      const date = new Date();
+      date.setMonth(date.getMonth() - 5 + i);
+      const monthKey = date.toISOString().slice(0, 7); // YYYY-MM
+      const found = newUsersByMonth.find((r: MonthAggregationResult) => r._id === monthKey);
+      return {
+        newUsers: found ? found.newUsers : 0,
+        completed: 0, // Replace with actual completion logic if available
+      };
+    });
 
     return {
-      usersCount,
-      adminsCount,
-      coursesCount,
-      completionsCount,
-      certificatesCount,
-      enrollmentsCount,
-      coursesByDomain: coursesByDomain.reduce(
-        (acc, item) => ({ ...acc, [item._id]: item.count }),
-        {}
-      ),
-      completionsByLevel: completionsByLevel.reduce(
-        (acc, item) => ({ ...acc, [item._id]: item.count }),
-        {}
-      ),
+      totalUsers,
+      totalCourses,
+      completionRate,
+      usersByRole: usersByRoleMap,
+      recentActivities,
+      coursesData,
     };
-  } catch (err) {
-    console.error("Erreur lors de la récupération des stats globales:", err);
-    throw err;
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    console.error('Error in getGlobalStats:', errorMessage, err instanceof Error ? err.stack : '');
+    throw createError(500, `Erreur lors de la récupération des statistiques globales: ${errorMessage}`);
   }
 };
 
-exports.getUserStats = async (userId) => {
+// --- Statistiques pour un utilisateur ---
+export const getUserStats = async (userId: string | Types.ObjectId): Promise<UserStats> => {
   try {
+    console.log(`Fetching stats for user: ${userId}`);
     const user = await User.findById(userId);
-    if (!user) throw new Error("Utilisateur non trouvé");
+    if (!user) {
+      throw createError(404, 'Utilisateur non trouvé');
+    }
 
-    const [enrollments, progressions, completions, certificates] =
-      await Promise.all([
-        Inscription.countDocuments({ apprenant: userId }),
-        Progression.countDocuments({ apprenant: userId }),
-        Progression.countDocuments({ apprenant: userId, pourcentage: 100 }),
-        Certificat.countDocuments({ apprenant: userId }),
-      ]);
+    const [enrollments, progressions, completions, certificates] = await Promise.all([
+      InscriptionModel.countDocuments({ apprenant: userId }),
+      ProgressionModel.countDocuments({ apprenant: userId }),
+      ProgressionModel.countDocuments({ apprenant: userId, pourcentage: 100 }),
+      CertificatModel.countDocuments({ apprenant: userId }),
+    ]);
 
-    // Progrès moyen
-    const averageProgress = await Progression.aggregate([
-      { $match: { apprenant: userId } },
-      { $group: { _id: null, avg: { $avg: "$pourcentage" } } },
+    const averageProgressResult = await ProgressionModel.aggregate<{ avg: number }>([
+      { $match: { apprenant: new Types.ObjectId(userId) } },
+      { $group: { _id: null, avg: { $avg: '$pourcentage' } } },
     ]);
 
     return {
@@ -91,55 +174,76 @@ exports.getUserStats = async (userId) => {
       progressions,
       completions,
       certificates,
-      averageProgress: averageProgress[0]?.avg || 0,
+      averageProgress: averageProgressResult[0]?.avg || 0,
     };
-  } catch (err) {
-    throw err;
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    console.error('Error in getUserStats:', errorMessage, err instanceof Error ? err.stack : '');
+    throw createError(500, `Erreur lors de la récupération des statistiques utilisateur: ${errorMessage}`);
   }
 };
 
-exports.getCourseStats = async (coursId) => {
+// --- Statistiques pour un cours ---
+export const getCourseStats = async (coursId: string | Types.ObjectId): Promise<CourseStats> => {
   try {
-    const cours = await Cours.findById(coursId);
-    if (!cours) throw new Error("Cours non trouvé");
+    console.log(`Fetching stats for course: ${coursId}`);
+    const cours = await Course.findById(coursId).populate<{ domaineId: { nom: string } }>('domaineId', 'nom');
+    if (!cours) {
+      throw createError(404, 'Cours non trouvé');
+    }
 
     const [enrollments, completions, certificates] = await Promise.all([
-      Inscription.countDocuments({ cours: coursId }),
-      Progression.countDocuments({ cours: coursId, pourcentage: 100 }),
-      Certificat.countDocuments({ cours: coursId }),
+      InscriptionModel.countDocuments({ cours: coursId }),
+      ProgressionModel.countDocuments({ cours: coursId, pourcentage: 100 }),
+      CertificatModel.countDocuments({ cours: coursId }),
     ]);
 
     return {
       cours: {
         titre: cours.titre,
         niveau: cours.niveau,
-        domaine: cours.domaine,
+        domaine: cours.domaineId?.nom || 'Inconnu',
       },
       enrollments,
       completions,
       certificates,
     };
-  } catch (err) {
-    throw err;
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    console.error('Error in getCourseStats:', errorMessage, err instanceof Error ? err.stack : '');
+    throw createError(500, `Erreur lors de la récupération des statistiques du cours: ${errorMessage}`);
   }
 };
 
-// Pour tableau de bord : Liste des utilisateurs récents ou actifs
-exports.getRecentUsers = async (limit = 10) => {
-  return await User.find({ role: "APPRENANT" })
-    .sort({ dateInscription: -1 })
-    .limit(limit)
-    .select("nom prenom email dateInscription");
+// --- Utilisateurs récents ---
+export const getRecentUsers = async (limit: number = 10): Promise<Partial<IUser>[]> => {
+  try {
+    console.log(`Fetching recent users, limit: ${limit}`);
+    return await User.find({ role: RoleUtilisateur.ETUDIANT })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .select('nom prenom email createdAt');
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    console.error('Error in getRecentUsers:', errorMessage, err instanceof Error ? err.stack : '');
+    throw createError(500, `Erreur lors de la récupération des utilisateurs récents: ${errorMessage}`);
+  }
 };
 
-// Stats avancées : Taux de complétion global
-exports.getCompletionRate = async () => {
-  const [totalEnrollments, totalCompletions] = await Promise.all([
-    Inscription.countDocuments(),
-    Progression.countDocuments({ pourcentage: 100 }),
-  ]);
-  return {
-    rate:
-      totalEnrollments > 0 ? (totalCompletions / totalEnrollments) * 100 : 0,
-  };
+// --- Taux global de complétion ---
+export const getCompletionRate = async (): Promise<{ rate: number }> => {
+  try {
+    console.log('Fetching global completion rate');
+    const [totalEnrollments, totalCompletions] = await Promise.all([
+      InscriptionModel.countDocuments(),
+      ProgressionModel.countDocuments({ pourcentage: 100 }),
+    ]);
+    return {
+      rate: totalEnrollments > 0 ? Math.round((totalCompletions / totalEnrollments) * 100) : 0,
+    };
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    console.error('Error in getCompletionRate:', errorMessage, err instanceof Error ? err.stack : '');
+    throw createError(500, `Erreur lors de la récupération du taux de complétion: ${errorMessage}`);
+  }
 };

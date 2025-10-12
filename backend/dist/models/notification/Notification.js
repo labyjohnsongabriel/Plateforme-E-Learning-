@@ -1,21 +1,30 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-// src/models/notification/Notification.js
-const mongoose = require("mongoose");
-const notificationSchema = new mongoose.Schema({
+exports.NotificationType = void 0;
+const mongoose_1 = require("mongoose");
+// Enum for notification types
+var NotificationType;
+(function (NotificationType) {
+    NotificationType["RAPPEL_COURS"] = "RAPPEL_COURS";
+    NotificationType["CERTIFICAT"] = "CERTIFICAT";
+    NotificationType["PROGRESSION"] = "PROGRESSION";
+})(NotificationType || (exports.NotificationType = NotificationType = {}));
+// Define the schema
+const notificationSchema = new mongoose_1.Schema({
     utilisateur: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: 'User',
         required: true,
     },
     message: { type: String, required: true },
     type: {
         type: String,
-        enum: ["RAPPEL_COURS", "CERTIFICAT", "PROGRESSION"],
+        enum: Object.values(NotificationType),
         required: true,
     },
     dateEnvoi: { type: Date, default: Date.now },
     lu: { type: Boolean, default: false },
 }, { timestamps: true });
-module.exports = mongoose.model("Notification", notificationSchema);
+// Export the model
+exports.default = (0, mongoose_1.model)('Notification', notificationSchema);
 //# sourceMappingURL=Notification.js.map

@@ -1,7 +1,12 @@
-const User = require("./User");
+// src/models/user/Administrateur.ts
+import { Schema } from 'mongoose';
+import { User, IUser } from './User';
 
-const administrateurSchema = new mongoose.Schema({
-  // No specific fields, but can add admin-specific like logs
-});
+// Interface pour le document Administrateur
+interface IAdministrateur extends IUser {}
 
-module.exports = User.discriminator("administrateur", administrateurSchema);
+// Schéma pour le discriminateur Administrateur
+const administrateurSchema = new Schema<IAdministrateur>({});
+
+// Discriminateur pour Administrateur
+export const Administrateur = User.discriminator<IAdministrateur>('Administrateur', administrateurSchema);

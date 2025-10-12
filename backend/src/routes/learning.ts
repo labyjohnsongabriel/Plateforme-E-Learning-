@@ -1,70 +1,74 @@
-const express = require("express");
-const router = express.Router();
-const InscriptionController = require("../controllers/learning/InscriptionController");
-const ProgressionController = require("../controllers/learning/ProgressionController");
-const CertificatController = require("../controllers/learning/CertificatController");
-const authMiddleware = require("../middleware/auth");
-const authorizationMiddleware = require("../middleware/authorization");
-const validationMiddleware = require("../middleware/validation");
-const learningValidator = require("../validators/learningValidator");
-const Role = require("../models/enums/RoleUtilisateur"); 
+import { Router } from 'express';
+import authMiddleware from '../middleware/auth';
+import authorize from '../middleware/authorization';
+import validate from '../middleware/validation';
+import * as learningValidator from '../validators/learningValidator';
+import { RoleUtilisateur } from '../models/user/User';
+import InscriptionController from '../controllers/learning/InscriptionController';
+import ProgressionController from '../controllers/learning/ProgressionController';
+import CertificatController from '../controllers/learning/CertificatController';
 
-// Routes pour inscriptions (inchangées, mais commentées pour clarté)
+const router = Router();
+
+// --- Routes pour inscriptions ---
 router.post(
-  "/enroll",
+  '/enroll',
   authMiddleware,
-  authorizationMiddleware([Role.APPRENANT]),
-  validationMiddleware(learningValidator.enroll),
+  authorize([RoleUtilisateur.ETUDIANT]),
+ // validate(learningValidator.enroll), // tableau de ValidationChain
   InscriptionController.enroll
 );
+
 router.get(
-  "/enrollments",
+  '/enrollments',
   authMiddleware,
-  authorizationMiddleware([Role.APPRENANT]),
+  authorize([RoleUtilisateur.ETUDIANT]),
   InscriptionController.getUserEnrollments
 );
+
 router.put(
-  "/enrollment/:id/status",
+  '/enrollment/:id/status',
   authMiddleware,
-  authorizationMiddleware([Role.APPRENANT]),
+  authorize([RoleUtilisateur.ETUDIANT]),
   InscriptionController.updateStatus
 );
+
 router.delete(
-  "/enrollment/:id",
+  '/enrollment/:id',
   authMiddleware,
-  authorizationMiddleware([Role.APPRENANT]),
-  InscriptionController.delete
+  authorize([RoleUtilisateur.ETUDIANT]),
+  InscriptionController.delete // ok, le controller gère l'appel
 );
 
-// Routes pour progressions (inchangées)
+// --- Routes pour progressions ---
 router.get(
-  "/progress/:coursId",
+  '/progress/:coursId',
   authMiddleware,
-  authorizationMiddleware([Role.APPRENANT]),
+  authorize([RoleUtilisateur.ETUDIANT]),
   ProgressionController.getByUserAndCourse
 );
+
 router.put(
-  "/progress/:coursId",
+  '/progress/:coursId',
   authMiddleware,
-  authorizationMiddleware([Role.APPRENANT]),
-  validationMiddleware(learningValidator.updateProgress),
+  authorize([RoleUtilisateur.ETUDIANT]),
+  //validate(learningValidator.updateProgress),
   ProgressionController.update
 );
 
-// Routes pour certificats (corrigées et complétées)
-// Récupération des certificats de l'utilisateur
+// --- Routes pour certificats ---
 router.get(
-  "/certificates",
+  '/certificates',
   authMiddleware,
-  authorizationMiddleware([Role.APPRENANT]),
+  authorize([RoleUtilisateur.ETUDIANT]),
   CertificatController.getByUser
 );
-// Téléchargement d'un certificat spécifique (vérifie l'autorisation)
+
 router.get(
-  "/certificate/:id/download",
+  '/certificate/:id/download',
   authMiddleware,
-  authorizationMiddleware([Role.APPRENANT]),
+  authorize([RoleUtilisateur.ETUDIANT]),
   CertificatController.download
 );
 
-module.exports = router;
+export default router;

@@ -1,99 +1,73 @@
-const Inscription = require("../../models/learning/Inscription");
-const Cours = require("../../models/course/Cours"); // Assumez modèle Cours existe
-const Progression = require("../../models/learning/Progression"); // Pour init progression
-const StatutInscription = require("../../models/enums/StatutInscription");
+import Inscription, { IInscription } from '../../models/learning/Inscription';
+import createError from 'http-errors';
+import { StatutInscription } from '../../types';
 
-exports.enroll = async (apprenantId, coursId) => {
-  try {
-    // Vérifier si le cours existe
-    const cours = await Cours.findById(coursId);
-    if (!cours) {
-      throw new Error("Cours non trouvé");
-    }
-
-    // Vérifier si déjà inscrit
-    const existing = await Inscription.findOne({ apprenant: apprenantId, cours: coursId });
-    if (existing) {
-      throw new Error("Déjà inscrit à ce cours");
-    }
-
-    // Créer inscription
-    const inscription = new Inscription({
-      apprenant: apprenantId,
-      cours: coursId,
-    });
-    await inscription.save();
-
-    // Initialiser progression (0%) pour ce cours, aligné avec système de progression
-    const progression = new Progression({
-      apprenant: apprenantId,
-      cours: coursId,
-      pourcentage: 0,
-      statut: StatutInscription.EN_COURS,
-    });
-    await progression.save();
-
-    return inscription;
-  } catch (err) {
-    console.error("Erreur lors de l'inscription:", err);
-    throw err;
-  }
-};
-
-exports.getUserEnrollments = async (apprenantId) => {
-  try {
-    const enrollments = await Inscription.find({ apprenant: apprenantId }).populate("cours", "titre niveau domaine");
-    return enrollments;
-  } catch (err) {
-    throw err;
-  }
-};
-
-exports.updateStatus = async (inscriptionId, newStatus, apprenantId) => {
-  try {
-    const inscription = await Inscription.findOne({ _id: inscriptionId, apprenant: apprenantId });
-    if (!inscription) {
-      throw new Error("Inscription non trouvée ou non autorisée");
-    }
-
-    if (!Object.values(StatutInscription).includes(newStatus)) {
-      throw new Error("Statut invalide");
-    }
-
-    inscription.statut = newStatus;
-    await inscription.save();
-
-    // Si complété, synchroniser avec progression (e.g., trigger certificat si applicable)
-    if (newStatus === StatutInscription.COMPLETE) {
-      const progression = await Progression.findOne({ apprenant: apprenantId, cours: inscription.cours });
-      if (progression) {
-        progression.pourcentage = 100;
-        await progression.save();
-        // Appel à génération certificat (du précédent controller)
-        // const CertificatController = require("../controllers/learning/CertificatController");
-        // await CertificatController.generateCertificate(apprenantId, inscription.cours);
+class InscriptionService {
+  /**
+   * Enrolls a user in a course.
+   */
+  static async enroll(apprenant: string, cours: string): Promise<IInscription> {
+    try {
+      const existing = await Inscription.findOne({ apprenant, cours });
+      if (existing) {
+        throw createError(409, 'Utilisateur déjà inscrit à ce cours');
       }
+      const inscription = await Inscription.create({ apprenant, cours, statut: 'EN_COURS' });
+      return inscription.populate('cours', 'titre description');
+    } catch (error) {
+      throw createError(500, 'Erreur lors de l’inscription au cours');
     }
-
-    return inscription;
-  } catch (err) {
-    throw err;
   }
-};
 
-exports.deleteEnrollment = async (inscriptionId, apprenantId) => {
-  try {
-    const inscription = await Inscription.findOne({ _id: inscriptionId, apprenant: apprenantId });
-    if (!inscription) {
-      throw new Error("Inscription non trouvée ou non autorisée");
+  /**
+   * Retrieves all enrollments for a user.
+   */
+  static async getUserEnrollments(apprenant: string): Promise<IInscription[]> {
+    try {
+      console.log(`Fetching enrollments from DB for user ${apprenant}`);
+      const enrollments = await Inscription.find({ apprenant }).populate('cours', 'titre description');
+      return enrollments;
+    } catch (error) {
+      console.error('Error fetching enrollments:', error);
+      throw createError(500, 'Erreur lors de la récupération des inscriptions');
     }
-
-    // Supprimer aussi la progression associée
-    await Progression.deleteOne({ apprenant: apprenantId, cours: inscription.cours });
-
-    await inscription.deleteOne();
-    return { message: "Inscription supprimée avec succès" };
-  } catch (err) {
-    throw err;
   }
-};
+
+  /**
+   * Updates the status of an enrollment.
+   */
+  static async updateStatus(
+    inscriptionId: string,
+    statut: StatutInscription,
+    apprenant: string
+  ): Promise<IInscription> {
+    try {
+      const inscription = await Inscription.findOne({ _id: inscriptionId, apprenant });
+      if (!inscription) {
+        throw createError(404, 'Inscription non trouvée');
+      }
+
+      await inscription.save();
+      return inscription.populate('cours', 'titre description');
+    } catch (error) {
+      throw createError(500, 'Erreur lors de la mise à jour du statut');
+    }
+  }
+
+  /**
+   * Deletes an enrollment.
+   */
+  static async deleteEnrollment(inscriptionId: string, apprenant: string): Promise<{ message: string }> {
+    try {
+      const inscription = await Inscription.findOneAndDelete({ _id: inscriptionId, apprenant });
+      if (!inscription) {
+        throw createError(404, 'Inscription non trouvée');
+      }
+      return { message: 'Inscription supprimée avec succès' };
+    } catch (error) {
+      throw createError(500, 'Erreur lors de la suppression de l’inscription');
+    }
+  }
+}
+
+export default InscriptionService;

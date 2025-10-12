@@ -1,8 +1,12 @@
-const Contenu = require("./Contenu");
+// src/models/learning/Video.ts
+import { Schema } from 'mongoose';
+import Contenu, { IVideo } from './Contenu';
 
-const contenuVideoSchema = new mongoose.Schema({
+// Schéma pour le discriminateur Vidéo
+const contenuVideoSchema = new Schema<IVideo>({
   urlVideo: { type: String, required: true },
-  duree: Number,
+  duree: { type: Number, required: false },
 });
 
-module.exports = Contenu.discriminator("video", contenuVideoSchema);
+// Discriminateur pour Vidéo
+export default Contenu.discriminator<IVideo>('Video', contenuVideoSchema);

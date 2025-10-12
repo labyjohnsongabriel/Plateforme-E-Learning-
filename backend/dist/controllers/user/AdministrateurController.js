@@ -1,22 +1,72 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
-const StatisticsService = require("../../services/report/StatisticsService");
-const UserService = require("../../services/user/UserService"); // Pour gestion users
-//const CoursService = require("../../services/learning/CoursService"); // Pour gestion cours
-// Stats globales
-exports.getGlobalStats = async (req, res, next) => {
+const http_errors_1 = __importDefault(require("http-errors"));
+const StatisticsService = __importStar(require("../../services/report/StatisticsService"));
+const UserService = __importStar(require("../../services/user/UserService"));
+const CoursService_1 = require("../../services/learning/CoursService");
+const types_1 = require("../../types");
+/**
+ * Contrôleur pour gérer les fonctionnalités administratives.
+ */
+class AdministrateurController {
+}
+_a = AdministrateurController;
+/** Récupère les statistiques globales */
+AdministrateurController.getGlobalStats = async (req, res, next) => {
     try {
+        if (!req.user || req.user.role !== types_1.RoleUtilisateur.ADMIN) {
+            throw (0, http_errors_1.default)(403, 'Accès réservé aux administrateurs');
+        }
         const stats = await StatisticsService.getGlobalStats();
         res.json(stats);
     }
     catch (err) {
-        console.error("Erreur controller getGlobalStats:", err);
         next(err);
     }
 };
-// Stats par utilisateur (pour admin visualisant un user)
-exports.getUserStats = async (req, res, next) => {
+/** Récupère les statistiques d’un utilisateur */
+AdministrateurController.getUserStats = async (req, res, next) => {
     try {
+        if (!req.user || req.user.role !== types_1.RoleUtilisateur.ADMIN) {
+            throw (0, http_errors_1.default)(403, 'Accès réservé aux administrateurs');
+        }
         const stats = await StatisticsService.getUserStats(req.params.userId);
         res.json(stats);
     }
@@ -24,9 +74,12 @@ exports.getUserStats = async (req, res, next) => {
         next(err);
     }
 };
-// Stats par cours
-exports.getCourseStats = async (req, res, next) => {
+/** Récupère les statistiques d’un cours */
+AdministrateurController.getCourseStats = async (req, res, next) => {
     try {
+        if (!req.user || req.user.role !== types_1.RoleUtilisateur.ADMIN) {
+            throw (0, http_errors_1.default)(403, 'Accès réservé aux administrateurs');
+        }
         const stats = await StatisticsService.getCourseStats(req.params.coursId);
         res.json(stats);
     }
@@ -34,69 +87,112 @@ exports.getCourseStats = async (req, res, next) => {
         next(err);
     }
 };
-// Gestion utilisateurs (CRUD pour admin)
-exports.getAllUsers = async (req, res, next) => {
+/** Liste tous les utilisateurs */
+AdministrateurController.getAllUsers = async (req, res, next) => {
     try {
-        const users = await UserService.getAllUsers(); // Implémentez dans UserService
+        if (!req.user || req.user.role !== types_1.RoleUtilisateur.ADMIN) {
+            throw (0, http_errors_1.default)(403, 'Accès réservé aux administrateurs');
+        }
+        const users = await UserService.getAllUsers();
         res.json(users);
     }
     catch (err) {
         next(err);
     }
 };
-exports.updateUser = async (req, res, next) => {
+/** Met à jour un utilisateur */
+AdministrateurController.updateUser = async (req, res, next) => {
     try {
-        const updated = await UserService.updateUser(req.params.userId, req.body); // e.g., changer role
+        if (!req.user || req.user.role !== types_1.RoleUtilisateur.ADMIN) {
+            throw (0, http_errors_1.default)(403, 'Accès réservé aux administrateurs');
+        }
+        const updated = await UserService.updateUser(req.params.userId, req.body);
         res.json(updated);
     }
     catch (err) {
         next(err);
     }
 };
-exports.deleteUser = async (req, res, next) => {
+/** Supprime un utilisateur */
+AdministrateurController.deleteUser = async (req, res, next) => {
     try {
+        if (!req.user || req.user.role !== types_1.RoleUtilisateur.ADMIN) {
+            throw (0, http_errors_1.default)(403, 'Accès réservé aux administrateurs');
+        }
         await UserService.deleteUser(req.params.userId);
-        res.json({ message: "Utilisateur supprimé" });
+        res.json({ message: 'Utilisateur supprimé avec succès' });
     }
     catch (err) {
         next(err);
     }
 };
-// Gestion cours (CRUD pour admin)
-exports.createCourse = async (req, res, next) => {
+/** Crée un cours */
+AdministrateurController.createCourse = async (req, res, next) => {
     try {
-        const course = await CoursService.createCourse(req.body, req.user.id); // createur = admin
+        if (!req.user || req.user.role !== types_1.RoleUtilisateur.ADMIN) {
+            throw (0, http_errors_1.default)(403, 'Accès réservé aux administrateurs');
+        }
+        const { titre, description, duree, domaineId, niveau, contenu, quizzes } = req.body;
+        if (!titre || !duree || !domaineId || !niveau) {
+            throw (0, http_errors_1.default)(400, 'Les champs titre, duree, domaineId et niveau sont requis');
+        }
+        const course = await CoursService_1.CoursService.createCourse({
+            titre,
+            description: description ?? '',
+            duree,
+            domaineId,
+            niveau,
+            contenu: contenu ?? [],
+            quizzes: quizzes ?? [],
+            statutApprobation: 'APPROVED',
+            estPublie: false,
+        }, req.user.id);
         res.status(201).json(course);
     }
     catch (err) {
         next(err);
     }
 };
-exports.getAllCourses = async (req, res, next) => {
+/** Liste tous les cours */
+AdministrateurController.getAllCourses = async (req, res, next) => {
     try {
-        const courses = await CoursService.getAllCourses();
+        if (!req.user || req.user.role !== types_1.RoleUtilisateur.ADMIN) {
+            throw (0, http_errors_1.default)(403, 'Accès réservé aux administrateurs');
+        }
+        const courses = await CoursService_1.CoursService.getAllCourses();
         res.json(courses);
     }
     catch (err) {
         next(err);
     }
 };
-exports.updateCourse = async (req, res, next) => {
+/** Met à jour un cours */
+AdministrateurController.updateCourse = async (req, res, next) => {
     try {
-        const updated = await CoursService.updateCourse(req.params.coursId, req.body);
+        if (!req.user || req.user.role !== types_1.RoleUtilisateur.ADMIN) {
+            throw (0, http_errors_1.default)(403, 'Accès réservé aux administrateurs');
+        }
+        const { coursId } = req.params;
+        const updateData = { ...req.body, coursId };
+        const updated = await CoursService_1.CoursService.updateCourse(coursId, updateData);
         res.json(updated);
     }
     catch (err) {
         next(err);
     }
 };
-exports.deleteCourse = async (req, res, next) => {
+/** Supprime un cours */
+AdministrateurController.deleteCourse = async (req, res, next) => {
     try {
-        await CoursService.deleteCourse(req.params.coursId);
-        res.json({ message: "Cours supprimé" });
+        if (!req.user || req.user.role !== types_1.RoleUtilisateur.ADMIN) {
+            throw (0, http_errors_1.default)(403, 'Accès réservé aux administrateurs');
+        }
+        await CoursService_1.CoursService.deleteCourse(req.params.coursId);
+        res.json({ message: 'Cours supprimé avec succès' });
     }
     catch (err) {
         next(err);
     }
 };
+exports.default = AdministrateurController;
 //# sourceMappingURL=AdministrateurController.js.map

@@ -1,81 +1,94 @@
+// src/controllers/learning/InscriptionController.ts
 import { Request, Response, NextFunction } from 'express';
 import createError from 'http-errors';
-import { InscriptionService } from '../../services/learning/InscriptionService';
-import { InscriptionDocument, InscriptionData } from '../../types';
+import InscriptionService from '../../services/learning/InscriptionService';
+import { InscriptionData, StatutInscription } from '../../types'; // Corrected import
 
-/**
- * Contrôleur pour gérer les inscriptions des utilisateurs à des cours.
- */
 class InscriptionController {
   /**
-   * Inscrit un utilisateur à un cours.
-   * @param req - Requête Express avec corps et utilisateur authentifié
-   * @param res - Réponse Express
-   * @param next - Fonction middleware suivante
+   * Enrolls a user in a course.
    */
-  static enroll = async (req: Request<{}, {}, InscriptionData>, res: Response, next: NextFunction): Promise<void> => {
+  static enroll = async (
+    req: Request<{}, {}, InscriptionData>,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
-      if (!req.user || !req.user.id) {
+      if (!req.user?.id) {
         throw createError(401, 'Utilisateur non authentifié');
       }
+      console.log(`Enrolling user ${req.user.id} in course ${req.body.coursId}`);
       const inscription = await InscriptionService.enroll(req.user.id, req.body.coursId);
       res.status(201).json(inscription);
     } catch (err) {
-      console.error('Erreur controller enroll:', (err as Error).message);
+      console.error('Error in enroll:', err);
       next(err);
     }
   };
 
   /**
-   * Récupère toutes les inscriptions d'un utilisateur.
-   * @param req - Requête Express avec utilisateur authentifié
-   * @param res - Réponse Express
-   * @param next - Fonction middleware suivante
+   * Retrieves all enrollments for the authenticated user.
    */
-  static getUserEnrollments = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  static getUserEnrollments = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
-      if (!req.user || !req.user.id) {
+      if (!req.user?.id) {
         throw createError(401, 'Utilisateur non authentifié');
       }
+      console.log(`Fetching enrollments for user ${req.user.id}`);
       const enrollments = await InscriptionService.getUserEnrollments(req.user.id);
       res.json(enrollments);
     } catch (err) {
+      console.error('Error in getUserEnrollments:', err);
       next(err);
     }
   };
 
   /**
-   * Met à jour le statut d'une inscription.
-   * @param req - Requête Express avec paramètre ID et corps
-   * @param res - Réponse Express
-   * @param next - Fonction middleware suivante
+   * Updates the status of an enrollment.
    */
-  static updateStatus = async (req: Request<{ id: string }, {}, { statut: string }>, res: Response, next: NextFunction): Promise<void> => {
+  static updateStatus = async (
+    req: Request<{ id: string }, {}, { statut: StatutInscription }>,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
-      if (!req.user || !req.user.id) {
+      if (!req.user?.id) {
         throw createError(401, 'Utilisateur non authentifié');
       }
-      const inscription = await InscriptionService.updateStatus(req.params.id, req.body.statut, req.user.id);
+      console.log(`Updating enrollment ${req.params.id} status to ${req.body.statut}`);
+      const inscription = await InscriptionService.updateStatus(
+        req.params.id,
+        req.body.statut,
+        req.user.id
+      );
       res.json(inscription);
     } catch (err) {
+      console.error('Error in updateStatus:', err);
       next(err);
     }
   };
 
   /**
-   * Supprime une inscription.
-   * @param req - Requête Express avec paramètre ID
-   * @param res - Réponse Express
-   * @param next - Fonction middleware suivante
+   * Deletes an enrollment.
    */
-  static delete = async (req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> => {
+  static delete = async (
+    req: Request<{ id: string }>,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
-      if (!req.user || !req.user.id) {
+      if (!req.user?.id) {
         throw createError(401, 'Utilisateur non authentifié');
       }
+      console.log(`Deleting enrollment ${req.params.id} for user ${req.user.id}`);
       const result = await InscriptionService.deleteEnrollment(req.params.id, req.user.id);
       res.json(result);
     } catch (err) {
+      console.error('Error in deleteEnrollment:', err);
       next(err);
     }
   };

@@ -5,13 +5,11 @@ import { styled } from '@mui/material/styles';
 import { KeyboardArrowUp as ArrowUpIcon } from '@mui/icons-material';
 import { Outlet } from 'react-router-dom';
 import Navbar from './Navbar';
-import Sidebar from './Sidebar';
 import Footer from './Footer';
 import "../../styles/components.css";
 
 // Constantes pour les dimensions
-const DRAWER_WIDTH = 240; // Corrigé de 20 à 240
-const HEADER_HEIGHT = 64; // Corrigé de 20 à 64
+const HEADER_HEIGHT = 40; // Adjusted to a more realistic header height
 
 // Styles globaux pour l'application
 const globalStyles = {
@@ -41,7 +39,7 @@ const globalStyles = {
     padding: 0,
     fontFamily: 'var(--font-primary)',
     backgroundColor: 'var(--gray-50)',
-    minHeight: '100vh',
+    minHeight: '100vh', // Corrected from 5vh to 100vh
     display: 'flex',
     flexDirection: 'column',
     overflowX: 'hidden',
@@ -93,8 +91,7 @@ const MainContainer = styled(Box)({
   display: 'flex',
   flex: 1,
   width: '100%',
-  minHeight: 'calc(100vh - 64px)', // Hauteur totale moins le header
-  position: 'relative',
+  minHeight: 'calc(10vh - 5px)', // Matches HEADER_HEIGHT
 });
 
 const ContentWrapper = styled(Box)({
@@ -103,14 +100,13 @@ const ContentWrapper = styled(Box)({
   flexDirection: 'column',
   minHeight: '100%',
   width: '100%',
-  transition: 'all 0.3s ease-in-out',
 });
 
 const PageContent = styled(Box)({
   flex: 1,
   display: 'flex',
   flexDirection: 'column',
-  minHeight: 'calc(100vh - 128px)', // Hauteur moins header et footer
+  minHeight: 'calc(100vh - 128px)', // Header + Footer height
   width: '100%',
   overflow: 'auto',
 });
@@ -164,8 +160,7 @@ const Overlay = styled(Box)({
 
 const Layout = ({
   children,
-  showSidebar = true,
-  sidebarVariant = 'responsive',
+  showSidebar = false, // Default to false since sidebar is removed
   headerVariant = 'default',
   footerVariant = 'default',
   backgroundPattern = false,
@@ -173,19 +168,7 @@ const Layout = ({
   fullScreen = false,
 }) => {
   const theme = useTheme();
-  const isLargeScreen = useMediaQuery(theme.breakpoints.up('md'));
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
-
-  useEffect(() => {
-    if (sidebarVariant === 'responsive') {
-      setSidebarOpen(isLargeScreen);
-    } else if (sidebarVariant === 'permanent') {
-      setSidebarOpen(true);
-    } else {
-      setSidebarOpen(false);
-    }
-  }, [isLargeScreen, sidebarVariant]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -195,25 +178,9 @@ const Layout = ({
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const handleToggleSidebar = useCallback(() => {
-    setSidebarOpen((prev) => !prev);
-  }, []);
-
-  const handleCloseSidebar = useCallback(() => {
-    setSidebarOpen(false);
-  }, []);
-
   const handleScrollToTop = useCallback(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
-
-  const getSidebarVariant = () => {
-    if (sidebarVariant === 'responsive') {
-      return isLargeScreen ? 'permanent' : 'temporary';
-    }
-    const validVariants = ['permanent', 'temporary', 'persistent'];
-    return validVariants.includes(sidebarVariant) ? sidebarVariant : 'persistent';
-  };
 
   const getBackgroundStyles = () => {
     if (!backgroundPattern) return {};
@@ -240,10 +207,6 @@ const Layout = ({
     return maxWidths[containerMaxWidth] || 'xl';
   };
 
-  const currentSidebarVariant = getSidebarVariant();
-  const hasSidebar = showSidebar && !fullScreen && sidebarOpen;
-  const sidebarWidth = hasSidebar ? DRAWER_WIDTH : 0;
-
   return (
     <LayoutContainer>
       <CssBaseline />
@@ -251,43 +214,14 @@ const Layout = ({
 
       {/* Header */}
       <Navbar
-        onToggleSidebar={handleToggleSidebar}
         variant={headerVariant}
         position={fullScreen ? 'absolute' : 'fixed'}
       />
 
       {/* Main Content Area */}
       <MainContainer>
-        {/* Sidebar */}
-        {showSidebar && !fullScreen && (
-          <Sidebar
-            open={sidebarOpen}
-            onClose={handleCloseSidebar}
-            variant={currentSidebarVariant}
-            drawerWidth={DRAWER_WIDTH}
-          />
-        )}
-
         {/* Content Wrapper */}
-        <ContentWrapper
-          sx={{
-            marginLeft: {
-              xs: 0,
-              md: hasSidebar && currentSidebarVariant === 'persistent' ? `${sidebarWidth}px` : 0,
-            },
-            width: {
-              xs: '100%',
-              md:
-                hasSidebar && currentSidebarVariant === 'persistent'
-                  ? `calc(100% - ${sidebarWidth}px)`
-                  : '100%',
-            },
-            transition: theme.transitions.create(['margin', 'width'], {
-              easing: theme.transitions.easing.sharp,
-              duration: theme.transitions.duration.leavingScreen,
-            }),
-          }}
-        >
+        <ContentWrapper>
           {/* Page Content */}
           <PageContent
             sx={{
@@ -298,7 +232,7 @@ const Layout = ({
           >
             <ContentArea
               sx={{
-                maxWidth: fullScreen ? '100%' : getContainerMaxWidth(),
+                maxWidth: fullScreen ? '10150%' : getContainerMaxWidth(),
                 py: fullScreen ? 0 : 3,
               }}
             >
@@ -331,11 +265,6 @@ const Layout = ({
           <ArrowUpIcon />
         </StyledFab>
       </Zoom>
-
-      {/* Overlay for mobile sidebar */}
-      {sidebarOpen && currentSidebarVariant === 'temporary' && !fullScreen && (
-        <Overlay onClick={handleCloseSidebar} />
-      )}
     </LayoutContainer>
   );
 };
@@ -343,8 +272,7 @@ const Layout = ({
 // Variantes du Layout
 export const DashboardLayout = ({ children, ...props }) => (
   <Layout
-    showSidebar={true}
-    sidebarVariant='persistent'
+    showSidebar={false}
     backgroundPattern={true}
     footerVariant='minimal'
     containerMaxWidth='xl'

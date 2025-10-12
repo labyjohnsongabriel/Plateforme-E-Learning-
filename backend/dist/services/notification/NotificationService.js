@@ -1,176 +1,220 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-const mongoose = require("mongoose");
-const createError = require("http-errors");
-const Notification = require("../../models/notification/Notification");
-const EmailService = require("./EmailService");
-const User = require("../../models/user/User");
-const logger = require("../../utils/logger"); // Assuming a logger utility (e.g., winston)
-// Assume Socket.IO is exported from a separate module or initialized elsewhere
-const { io } = require("../../utils/socket"); // Corrected import (create this module)
-class NotificationService {
-    // Create a notification
-    static async create(data) {
-        try {
-            // Validate required fields
-            if (!data.utilisateur || !data.message || !data.type) {
-                throw createError(400, "Utilisateur, message, and type are required");
-            }
-            // Create and save notification
-            const notif = new Notification({
-                ...data,
-                dateEnvoi: new Date(),
-                lu: false, // Default: unread
+exports.envoyer = exports.createBatch = exports.deleteNotification = exports.markAsRead = exports.getForUser = exports.create = void 0;
+// src/services/notification/NotificationService.ts
+const mongoose_1 = require("mongoose");
+const http_errors_1 = __importDefault(require("http-errors"));
+const Notification_1 = __importDefault(require("../../models/notification/Notification"));
+const EmailService = __importStar(require("./EmailService"));
+const User_1 = require("../../models/user/User");
+const logger_1 = __importDefault(require("../../utils/logger"));
+const socket_1 = require("../../utils/socket");
+// Create a notification
+const create = async (data) => {
+    try {
+        if (!data.utilisateur || !data.message || !data.type) {
+            throw (0, http_errors_1.default)(400, 'Utilisateur, message, and type are required');
+        }
+        const notif = new Notification_1.default({
+            ...data,
+            dateEnvoi: new Date(),
+            lu: false,
+        });
+        await notif.save();
+        const io = (0, socket_1.getIO)();
+        if (io) {
+            io.to(data.utilisateur.toString()).emit('new_notification', {
+                id: notif._id,
+                message: notif.message,
+                type: notif.type,
+                dateEnvoi: notif.dateEnvoi,
+                lu: notif.lu,
             });
-            await notif.save();
-            // Emit real-time notification via Socket.IO
-            if (io) {
-                io.to(data.utilisateur.toString()).emit("new_notification", {
-                    id: notif._id,
-                    message: notif.message,
-                    type: notif.type,
-                    dateEnvoi: notif.dateEnvoi,
-                    lu: notif.lu,
+            logger_1.default.info(`Notification emitted to user ${data.utilisateur}: ${notif.message}`);
+        }
+        else {
+            logger_1.default.warn('Socket.IO not initialized, skipping real-time notification');
+        }
+        const user = await User_1.User.findById(data.utilisateur);
+        if (!user) {
+            throw (0, http_errors_1.default)(404, 'Utilisateur non trouvé');
+        }
+        await EmailService.sendNotification(user.email, notif.message);
+        logger_1.default.info(`Email sent to ${user.email} for notification ${notif._id}`);
+        return notif;
+    }
+    catch (err) {
+        logger_1.default.error(`Error creating notification: ${err.message}`);
+        throw err;
+    }
+};
+exports.create = create;
+// Get notifications for a user
+const getForUser = async (userId) => {
+    try {
+        if (!mongoose_1.Types.ObjectId.isValid(userId)) {
+            throw (0, http_errors_1.default)(400, 'Invalid user ID');
+        }
+        return await Notification_1.default.find({ utilisateur: userId })
+            .sort({ dateEnvoi: -1 })
+            .populate('utilisateur', 'nom email');
+    }
+    catch (err) {
+        logger_1.default.error(`Error fetching notifications for user ${userId}: ${err.message}`);
+        throw err;
+    }
+};
+exports.getForUser = getForUser;
+// Mark a notification as read
+const markAsRead = async (id, userId) => {
+    try {
+        if (!mongoose_1.Types.ObjectId.isValid(id) || !mongoose_1.Types.ObjectId.isValid(userId)) {
+            throw (0, http_errors_1.default)(400, 'Invalid notification or user ID');
+        }
+        const notif = await Notification_1.default.findOneAndUpdate({ _id: id, utilisateur: userId }, { lu: true }, { new: true });
+        if (!notif) {
+            throw (0, http_errors_1.default)(404, 'Notification non trouvée');
+        }
+        logger_1.default.info(`Notification ${id} marked as read for user ${userId}`);
+        return notif;
+    }
+    catch (err) {
+        logger_1.default.error(`Error marking notification ${id} as read: ${err.message}`);
+        throw err;
+    }
+};
+exports.markAsRead = markAsRead;
+// Delete a notification
+const deleteNotification = async (id, userId) => {
+    try {
+        if (!mongoose_1.Types.ObjectId.isValid(id) || !mongoose_1.Types.ObjectId.isValid(userId)) {
+            throw (0, http_errors_1.default)(400, 'Invalid notification or user ID');
+        }
+        const notif = await Notification_1.default.findOneAndDelete({ _id: id, utilisateur: userId });
+        if (!notif) {
+            throw (0, http_errors_1.default)(404, 'Notification non trouvée');
+        }
+        logger_1.default.info(`Notification ${id} deleted for user ${userId}`);
+        return notif;
+    }
+    catch (err) {
+        logger_1.default.error(`Error deleting notification ${id}: ${err.message}`);
+        throw err;
+    }
+};
+exports.deleteNotification = deleteNotification;
+// Batch send notifications
+const createBatch = async (data, utilisateurIds) => {
+    try {
+        const notifications = utilisateurIds.map((userId) => ({
+            ...data,
+            utilisateur: userId,
+            dateEnvoi: new Date(),
+            lu: false,
+        }));
+        const savedNotifications = await Notification_1.default.insertMany(notifications);
+        const io = (0, socket_1.getIO)();
+        if (io) {
+            utilisateurIds.forEach((userId) => {
+                savedNotifications.forEach((notif) => {
+                    if (notif.utilisateur.toString() === userId.toString()) {
+                        io.to(userId.toString()).emit('new_notification', {
+                            id: notif._id,
+                            message: notif.message,
+                            type: notif.type,
+                            dateEnvoi: notif.dateEnvoi,
+                            lu: notif.lu,
+                        });
+                    }
                 });
-                logger.info(`Notification emitted to user ${data.utilisateur}: ${notif.message}`);
-            }
-            else {
-                logger.warn("Socket.IO not initialized, skipping real-time notification");
-            }
-            // Send email notification
-            const user = await User.findById(data.utilisateur);
-            if (!user) {
-                throw createError(404, "Utilisateur non trouvé");
-            }
-            await EmailService.sendNotification(user.email, notif.message, notif.type);
-            logger.info(`Email sent to ${user.email} for notification ${notif._id}`);
-            return notif;
-        }
-        catch (err) {
-            logger.error(`Error creating notification: ${err.message}`);
-            throw err;
-        }
-    }
-    // Get notifications for a user
-    static async getForUser(userId) {
-        try {
-            if (!mongoose.isValidObjectId(userId)) {
-                throw createError(400, "Invalid user ID");
-            }
-            return await Notification.find({ utilisateur: userId })
-                .sort({ dateEnvoi: -1 }) // Sort by dateEnvoi descending
-                .populate("utilisateur", "nom email");
-        }
-        catch (err) {
-            logger.error(`Error fetching notifications for user ${userId}: ${err.message}`);
-            throw err;
-        }
-    }
-    // Mark a notification as read
-    static async markAsRead(id, userId) {
-        try {
-            if (!mongoose.isValidObjectId(id) || !mongoose.isValidObjectId(userId)) {
-                throw createError(400, "Invalid notification or user ID");
-            }
-            const notif = await Notification.findOneAndUpdate({ _id: id, utilisateur: userId }, { lu: true }, { new: true });
-            if (!notif) {
-                throw createError(404, "Notification non trouvée");
-            }
-            logger.info(`Notification ${id} marked as read for user ${userId}`);
-            return notif;
-        }
-        catch (err) {
-            logger.error(`Error marking notification ${id} as read: ${err.message}`);
-            throw err;
-        }
-    }
-    // Delete a notification
-    static async delete(id, userId) {
-        try {
-            if (!mongoose.isValidObjectId(id) || !mongoose.isValidObjectId(userId)) {
-                throw createError(400, "Invalid notification or user ID");
-            }
-            const notif = await Notification.findOneAndDelete({
-                _id: id,
-                utilisateur: userId,
             });
-            if (!notif) {
-                throw createError(404, "Notification non trouvée");
-            }
-            logger.info(`Notification ${id} deleted for user ${userId}`);
-            return notif;
+            logger_1.default.info(`Batch notifications emitted to ${utilisateurIds.length} users`);
         }
-        catch (err) {
-            logger.error(`Error deleting notification ${id}: ${err.message}`);
-            throw err;
-        }
+        const users = await User_1.User.find({ _id: { $in: utilisateurIds } });
+        await Promise.all(users.map((user) => EmailService.sendNotification(user.email, data.message)));
+        logger_1.default.info(`Batch emails sent to ${users.length} users`);
+        return savedNotifications;
     }
-    // Innovation: Batch send notifications to multiple users (e.g., course announcement)
-    static async createBatch(data, utilisateurIds) {
-        try {
-            const notifications = utilisateurIds.map((userId) => ({
-                ...data,
-                utilisateur: userId,
-                dateEnvoi: new Date(),
-                lu: false,
-            }));
-            const savedNotifications = await Notification.insertMany(notifications);
-            // Emit to all users
-            if (io) {
-                utilisateurIds.forEach((userId) => {
-                    savedNotifications.forEach((notif) => {
-                        if (notif.utilisateur.toString() === userId.toString()) {
-                            io.to(userId.toString()).emit("new_notification", {
-                                id: notif._id,
-                                message: notif.message,
-                                type: notif.type,
-                                dateEnvoi: notif.dateEnvoi,
-                                lu: notif.lu,
-                            });
-                        }
-                    });
-                });
-                logger.info(`Batch notifications emitted to ${utilisateurIds.length} users`);
-            }
-            // Send emails
-            const users = await User.find({ _id: { $in: utilisateurIds } });
-            await Promise.all(users.map((user) => EmailService.sendNotification(user.email, data.message, data.type)));
-            logger.info(`Batch emails sent to ${users.length} users`);
-            return savedNotifications;
-        }
-        catch (err) {
-            logger.error(`Error creating batch notifications: ${err.message}`);
-            throw err;
-        }
+    catch (err) {
+        logger_1.default.error(`Error creating batch notifications: ${err.message}`);
+        throw err;
     }
-    // Innovation: Method to implement envoyer() from UML
-    static async envoyer(notificationId) {
-        try {
-            const notif = await Notification.findById(notificationId).populate("utilisateur", "email");
-            if (!notif) {
-                throw createError(404, "Notification non trouvée");
-            }
-            // Re-send email
-            await EmailService.sendNotification(notif.utilisateur.email, notif.message, notif.type);
-            // Re-emit via Socket.IO
-            if (io) {
-                io.to(notif.utilisateur._id.toString()).emit("new_notification", {
-                    id: notif._id,
-                    message: notif.message,
-                    type: notif.type,
-                    dateEnvoi: notif.dateEnvoi,
-                    lu: notif.lu,
-                });
-                logger.info(`Notification ${notificationId} re-emitted to user ${notif.utilisateur._id}`);
-            }
-            logger.info(`Notification ${notificationId} re-sent to ${notif.utilisateur.email}`);
-            return notif;
+};
+exports.createBatch = createBatch;
+// Re-send a notification
+const envoyer = async (notificationId) => {
+    try {
+        const notif = await Notification_1.default.findById(notificationId).populate('utilisateur', 'email');
+        if (!notif) {
+            throw (0, http_errors_1.default)(404, 'Notification non trouvée');
         }
-        catch (err) {
-            logger.error(`Error re-sending notification ${notificationId}: ${err.message}`);
-            throw err;
+        // Vérification que l'utilisateur est bien peuplé et conversion de type
+        const populatedNotif = notif;
+        if (!populatedNotif.utilisateur || !populatedNotif.utilisateur._id) {
+            throw (0, http_errors_1.default)(404, 'Utilisateur non trouvé pour cette notification');
         }
+        await EmailService.sendNotification(populatedNotif.utilisateur.email, populatedNotif.message);
+        const io = (0, socket_1.getIO)();
+        if (io) {
+            // Utilisation de l'ID utilisateur avec vérification de type
+            const userId = populatedNotif.utilisateur._id.toString();
+            io.to(userId).emit('new_notification', {
+                id: populatedNotif._id,
+                message: populatedNotif.message,
+                type: populatedNotif.type,
+                dateEnvoi: populatedNotif.dateEnvoi,
+                lu: populatedNotif.lu,
+            });
+            logger_1.default.info(`Notification ${notificationId} re-emitted to user ${userId}`);
+        }
+        logger_1.default.info(`Notification ${notificationId} re-sent to ${populatedNotif.utilisateur.email}`);
+        // Retour de la notification originale sans le populate
+        const originalNotif = await Notification_1.default.findById(notificationId);
+        if (!originalNotif) {
+            throw (0, http_errors_1.default)(404, 'Notification non trouvée après envoi');
+        }
+        return originalNotif;
     }
-}
-module.exports = NotificationService;
+    catch (err) {
+        logger_1.default.error(`Error re-sending notification ${notificationId}: ${err.message}`);
+        throw err;
+    }
+};
+exports.envoyer = envoyer;
 //# sourceMappingURL=NotificationService.js.map

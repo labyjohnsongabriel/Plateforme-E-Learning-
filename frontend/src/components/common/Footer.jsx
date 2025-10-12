@@ -1,3 +1,4 @@
+// Code original fourni, sans changements
 import React, { useMemo } from "react";
 import {
   Box,

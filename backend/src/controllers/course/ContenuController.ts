@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import createError from 'http-errors';
 import mongoose from 'mongoose';
-import { Contenu } from '../../models/course/Contenu';
-import { Cours } from '../../models/course/Cours';
+import Contenu from '../../models/course/Contenu'; // ✅ Changed to default import
+import Cours from '../../models/course/Cours'; // ✅ Changed to default import
 import { ContenuDocument, ContenuData } from '../../types';
 
 class ContenuService {

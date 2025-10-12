@@ -48,7 +48,7 @@ const Certificates = () => {
     const fetchCertificates = async () => {
       setLoading(true);
       try {
-        const response = await axios.get(`${API_BASE_URL}/users/${user.id}/certificats`, {
+        const response = await axios.get(`${API_BASE_URL}/certificates`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setCertificates(response.data);
@@ -59,11 +59,11 @@ const Certificates = () => {
       }
     };
     fetchCertificates();
-  }, [user.id, token]);
+  }, [token]);
 
   const handleDownload = async (certId) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/certificates/${certId}/download`, {
+      const response = await axios.get(`${API_BASE_URL}/certificate/${certId}/download`, {
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob',
       });

@@ -1,6 +1,10 @@
-const logger = require("../utils/logger");
+// src/middleware/error.ts
+import { Request, Response, NextFunction } from 'express';
+import logger from '../utils/logger';
 
-module.exports = (err, req, res, next) => {
+const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction): void => {
   logger.error(err.message);
-  res.status(500).json({ error: "Server error" });
+  res.status(500).json({ error: 'Server error' });
 };
+
+export default errorHandler;

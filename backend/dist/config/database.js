@@ -3,20 +3,25 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.connectDB = void 0;
 const mongoose_1 = __importDefault(require("mongoose"));
-const connection_1 = require("../database/connection"); // Ajustez le chemin si nécessaire
-const logger_1 = __importDefault(require("../utils/logger")); // Assurez-vous que ce fichier existe et est typé
-const config = {
-    connect: async () => {
-        try {
-            await (0, connection_1.connectDB)();
-            logger_1.default.info('MongoDB connected via config/database.ts');
-        }
-        catch (err) {
-            logger_1.default.error(`DB connection error: ${err.message}`);
-            process.exit(1);
-        }
-    },
+const logger_1 = __importDefault(require("../utils/logger"));
+const config_1 = __importDefault(require("./config"));
+const connectDB = async () => {
+    const mongoURI = config_1.default.MONGO_URI;
+    if (!mongoURI) {
+        logger_1.default.error('❌ MONGODB_URI non définie dans les variables d’environnement');
+        process.exit(1);
+    }
+    try {
+        const conn = await mongoose_1.default.connect(mongoURI, { retryWrites: true, w: 'majority' });
+        logger_1.default.info(`✅ MongoDB connecté: ${conn.connection.host}`);
+    }
+    catch (error) {
+        logger_1.default.error(`❌ Erreur de connexion MongoDB: ${error.message}`);
+        process.exit(1);
+    }
 };
-exports.default = config;
+exports.connectDB = connectDB;
+exports.default = exports.connectDB;
 //# sourceMappingURL=database.js.map

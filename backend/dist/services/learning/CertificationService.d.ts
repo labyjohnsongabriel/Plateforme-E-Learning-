@@ -1,2 +1,13 @@
-export {};
+import { ICertificat } from '../../models/learning/Certificat';
+import { IProgression } from '../../models/learning/Progression';
+export declare enum NiveauFormation {
+    ALFA = "ALFA",
+    BETA = "BETA",
+    GAMMA = "GAMMA",
+    DELTA = "DELTA"
+}
+export declare class CertificatService {
+    static generateIfEligible(progression: IProgression): Promise<ICertificat | null>;
+}
+export default CertificatService;
 //# sourceMappingURL=CertificationService.d.ts.map

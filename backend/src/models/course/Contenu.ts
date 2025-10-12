@@ -1,49 +1,81 @@
-// models/course/Contenu.js
-const mongoose = require("mongoose");
+import { Schema, model, Document, Types, Model } from 'mongoose';
 
-const contenuSchema = new mongoose.Schema({
-  titre: { type: String, required: true },
-  description: { type: String },
-  url: { type: String, required: true }, // URL générale pour tout type de contenu
-  duree: { type: Number }, // En minutes, optionnel pour certains types
-  cours: { type: mongoose.Schema.Types.ObjectId, ref: "Cours", required: true },
-  type: {
-    type: String,
-    enum: ["VIDEO", "DOCUMENT", "QUIZ", "EXERCICE"],
-    required: true,
+// Interface pour le document Contenu
+interface IContenu extends Document {
+  titre: string;
+  description?: string;
+  url: string;
+  duree?: number;
+  cours: Types.ObjectId;
+  type: 'VIDEO' | 'DOCUMENT' | 'QUIZ' | 'EXERCICE';
+  createdAt: Date;
+  updatedAt: Date;
+  visualiser(utilisateurId: Types.ObjectId): Promise<{ message: string }>;
+}
+
+// Interface pour le document Vidéo
+interface IVideo extends IContenu {}
+
+// Interface pour le document Document
+interface IDocument extends IContenu {
+  format?: 'pdf' | 'doc' | 'other';
+}
+
+// Interface pour le document Exercice
+interface IExercice extends IContenu {
+  instructions?: string;
+}
+
+// Schéma de base pour Contenu
+const contenuSchema = new Schema<IContenu>(
+  {
+    titre: { type: String, required: true },
+    description: { type: String },
+    url: { type: String, required: true }, // URL générale pour tout type de contenu
+    duree: { type: Number }, // En minutes, optionnel pour certains types
+    cours: { type: Schema.Types.ObjectId, ref: 'Cours', required: true },
+    type: {
+      type: String,
+      enum: ['VIDEO', 'DOCUMENT', 'QUIZ', 'EXERCICE'],
+      required: true,
+    },
   },
-}, { discriminatorKey: "type", timestamps: true });
+  { discriminatorKey: 'type', timestamps: true }
+);
 
-// Méthode pour visualiser le contenu (visualiser)
-contenuSchema.methods.visualiser = async function (utilisateurId) {
-  // Innovation: Enregistrer l'activité dans Progression
-  const Progression = mongoose.model("Progression");
+// Méthode pour visualiser le contenu
+contenuSchema.methods.visualiser = async function (
+  this: IContenu,
+  utilisateurId: Types.ObjectId
+): Promise<{ message: string }> {
+  const Progression = model('Progression');
   await Progression.updateOne(
     { utilisateur: utilisateurId, cours: this.cours },
-    { $set: { dateDerniereActivite: new Date() }, $inc: { avancement: 5 } }, // Incrémente de 5% par visualisation
+    { $set: { dateDerniereActivite: new Date() }, $inc: { avancement: 5 } },
     { upsert: true }
   );
   return { message: `Contenu "${this.titre}" visualisé.` };
 };
 
-const Contenu = mongoose.model("Contenu", contenuSchema);
+// Modèle de base Contenu
+const Contenu: Model<IContenu> = model<IContenu>('Contenu', contenuSchema);
 
-// Discriminateur pour Vidéo
-const videoSchema = new mongoose.Schema({
-  // Champs spécifiques si nécessaires, mais url et duree sont déjà dans base
+// Schéma pour Vidéo
+const videoSchema = new Schema<IVideo>({});
+
+// Schéma pour Document
+const documentSchema = new Schema<IDocument>({
+  format: { type: String, enum: ['pdf', 'doc', 'other'] },
 });
-Contenu.discriminator("VIDEO", videoSchema);
 
-// Discriminateur pour Document
-const documentSchema = new mongoose.Schema({
-  format: { type: String, enum: ["pdf", "doc", "other"] },
-});
-Contenu.discriminator("DOCUMENT", documentSchema);
-
-// Discriminateur pour Exercice (innovation: ajout pour complétude)
-const exerciceSchema = new mongoose.Schema({
+// Schéma pour Exercice
+const exerciceSchema = new Schema<IExercice>({
   instructions: { type: String },
 });
-Contenu.discriminator("EXERCICE", exerciceSchema);
 
-module.exports = Contenu;
+// Discriminateurs
+Contenu.discriminator('VIDEO', videoSchema);
+Contenu.discriminator('DOCUMENT', documentSchema);
+Contenu.discriminator('EXERCICE', exerciceSchema);
+
+export default Contenu;

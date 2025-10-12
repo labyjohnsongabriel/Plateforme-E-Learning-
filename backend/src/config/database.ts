@@ -1,21 +1,22 @@
 import mongoose from 'mongoose';
-import { connectDB } from '../database/connection'; // Ajustez le chemin si nécessaire
-import logger from '../utils/logger'; // Assurez-vous que ce fichier existe et est typé
+import logger from '../utils/logger';
+import config from './config';
 
-interface DatabaseConfig {
-  connect: () => Promise<void>;
-}
+export const connectDB = async (): Promise<void> => {
+  const mongoURI = config.MONGO_URI;
 
-const config: DatabaseConfig = {
-  connect: async () => {
-    try {
-      await connectDB();
-      logger.info('MongoDB connected via config/database.ts');
-    } catch (err) {
-      logger.error(`DB connection error: ${(err as Error).message}`);
-      process.exit(1);
-    }
-  },
+  if (!mongoURI) {
+    logger.error('❌ MONGODB_URI non définie dans les variables d’environnement');
+    process.exit(1);
+  }
+
+  try {
+    const conn = await mongoose.connect(mongoURI, { retryWrites: true, w: 'majority' });
+    logger.info(`✅ MongoDB connecté: ${conn.connection.host}`);
+  } catch (error: any) {
+    logger.error(`❌ Erreur de connexion MongoDB: ${error.message}`);
+    process.exit(1);
+  }
 };
 
-export default config;
+export default connectDB;

@@ -1,15 +1,25 @@
-const mongoose = require("mongoose");
-const StatutInscription = require("../enums/StatutInscription"); // Chemin relatif ajusté
+// src/models/learning/Inscription.ts
+import { Schema, model, Document, Types, Model } from 'mongoose';
+import { StatutInscription } from '../../models/enums/StatutInscription'; // Adjust path as needed
 
-const inscriptionSchema = new mongoose.Schema({
+// Interface pour le document Inscription
+export interface IInscription extends Document {
+  apprenant: Types.ObjectId;
+  cours: Types.ObjectId;
+  dateInscription: Date;
+  statut: StatutInscription;
+}
+
+// Schéma pour Inscription
+const inscriptionSchema = new Schema<IInscription>({
   apprenant: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
+    type: Schema.Types.ObjectId,
+    ref: 'User',
     required: true,
   },
   cours: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Cours",
+    type: Schema.Types.ObjectId,
+    ref: 'Cours',
     required: true,
   },
   dateInscription: {
@@ -26,4 +36,7 @@ const inscriptionSchema = new mongoose.Schema({
 // Index unique pour éviter doublons
 inscriptionSchema.index({ apprenant: 1, cours: 1 }, { unique: true });
 
-module.exports = mongoose.model("Inscription", inscriptionSchema);
+// Modèle Inscription
+const Inscription: Model<IInscription> = model<IInscription>('Inscription', inscriptionSchema);
+
+export default Inscription;

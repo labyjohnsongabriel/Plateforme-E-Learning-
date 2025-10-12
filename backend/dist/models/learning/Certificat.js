@@ -1,15 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const mongoose = require("mongoose");
-const certificatSchema = new mongoose.Schema({
+// src/models/learning/Certificat.ts
+const mongoose_1 = require("mongoose");
+// Schéma pour Certificat
+const certificatSchema = new mongoose_1.Schema({
     apprenant: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: 'User',
         required: true,
     },
     cours: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Cours",
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: 'Cours',
         required: true,
     },
     dateEmission: {
@@ -23,5 +25,7 @@ const certificatSchema = new mongoose.Schema({
 });
 // Index pour accélérer les recherches par apprenant et cours (évite les doublons et optimise les queries)
 certificatSchema.index({ apprenant: 1, cours: 1 }, { unique: true });
-module.exports = mongoose.model("Certificat", certificatSchema);
+// Modèle Certificat
+const Certificat = (0, mongoose_1.model)('Certificat', certificatSchema);
+exports.default = Certificat;
 //# sourceMappingURL=Certificat.js.map

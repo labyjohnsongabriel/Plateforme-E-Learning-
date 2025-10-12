@@ -4,76 +4,82 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
 const http_errors_1 = __importDefault(require("http-errors"));
-const mongoose_1 = __importDefault(require("mongoose"));
-const Domaine_1 = require("../../models/course/Domaine");
-const Cours_1 = require("../../models/course/Cours");
+const mongoose_1 = require("mongoose");
+const Domaine_1 = __importDefault(require("../../models/course/Domaine"));
+const Cours_1 = __importDefault(require("../../models/course/Cours"));
 const logger_1 = __importDefault(require("../../utils/logger"));
-const types_1 = require("../../types");
 class DomaineService {
     static async create(data) {
         try {
-            const domaine = new Domaine_1.Domaine(data);
+            const domaine = new Domaine_1.default(data);
             await domaine.save();
-            return domaine;
+            return domaine.toObject();
         }
         catch (err) {
-            logger_1.default.error(`Error creating domaine: ${err.message}`);
+            logger_1.default.error(`Erreur lors de la création du domaine : ${err.message}`);
             throw err;
         }
     }
     static async getAll() {
         try {
-            const domaines = await Domaine_1.Domaine.find().lean();
-            return domaines;
+            const domaines = await Domaine_1.default.find().exec();
+            return domaines.map((doc) => doc.toObject());
         }
         catch (err) {
-            logger_1.default.error(`Error fetching domaines: ${err.message}`);
+            logger_1.default.error(`Erreur lors de la récupération des domaines : ${err.message}`);
             throw err;
         }
     }
     static async getById(id) {
         try {
-            const domaine = await Domaine_1.Domaine.findById(id).lean();
+            if (!mongoose_1.Types.ObjectId.isValid(id)) {
+                throw (0, http_errors_1.default)(400, 'ID invalide');
+            }
+            const domaine = await Domaine_1.default.findById(id).exec();
             if (!domaine) {
                 throw (0, http_errors_1.default)(404, 'Domaine non trouvé');
             }
-            return domaine;
+            return domaine.toObject();
         }
         catch (err) {
-            logger_1.default.error(`Error fetching domaine by ID: ${err.message}`);
+            logger_1.default.error(`Erreur lors de la récupération du domaine : ${err.message}`);
             throw err;
         }
     }
     static async update(id, data) {
         try {
-            const domaine = await Domaine_1.Domaine.findByIdAndUpdate(id, data, {
+            if (!mongoose_1.Types.ObjectId.isValid(id)) {
+                throw (0, http_errors_1.default)(400, 'ID invalide');
+            }
+            const domaine = await Domaine_1.default.findByIdAndUpdate(id, data, {
                 new: true,
                 runValidators: true,
-            });
+            }).exec();
             if (!domaine) {
                 throw (0, http_errors_1.default)(404, 'Domaine non trouvé');
             }
-            return domaine;
+            return domaine.toObject();
         }
         catch (err) {
-            logger_1.default.error(`Error updating domaine: ${err.message}`);
+            logger_1.default.error(`Erreur lors de la mise à jour du domaine : ${err.message}`);
             throw err;
         }
     }
     static async delete(id) {
         try {
-            const domaine = await Domaine_1.Domaine.findByIdAndDelete(id);
+            if (!mongoose_1.Types.ObjectId.isValid(id)) {
+                throw (0, http_errors_1.default)(400, 'ID invalide');
+            }
+            const domaine = await Domaine_1.default.findByIdAndDelete(id).exec();
             if (!domaine) {
                 throw (0, http_errors_1.default)(404, 'Domaine non trouvé');
             }
-            // Delete associated courses
-            await Cours_1.Cours.deleteMany({ domaineId: id });
-            return domaine;
+            await Cours_1.default.deleteMany({ domaineId: id });
+            return domaine.toObject();
         }
         catch (err) {
-            logger_1.default.error(`Error deleting domaine: ${err.message}`);
+            logger_1.default.error(`Erreur lors de la suppression du domaine : ${err.message}`);
             throw err;
         }
     }
@@ -120,7 +126,7 @@ DomaineController.update = async (req, res, next) => {
 DomaineController.delete = async (req, res, next) => {
     try {
         const domaine = await DomaineService.delete(req.params.id);
-        res.json({ message: 'Domaine supprimé', domaine });
+        res.json({ message: 'Domaine supprimé avec succès', domaine });
     }
     catch (err) {
         next(err);

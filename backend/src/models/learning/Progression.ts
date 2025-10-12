@@ -1,29 +1,41 @@
-const mongoose = require("mongoose");
-const StatutProgression = require("../enums/StatutProgression"); // Enum optionnel pour statut (voir ci-dessous)
+// src/models/learning/Progression.ts
+import { Schema, model, Document, Types, Model } from 'mongoose';
+import { StatutProgression } from '../../services/learning/ProgressionService';
 
-const progressionSchema = new mongoose.Schema({
+export interface IProgression extends Document {
+  apprenant: Types.ObjectId;
+  cours: Types.ObjectId;
+  pourcentage: number;
+  dateDebut: Date;
+  dateFin?: Date;
+  statut: StatutProgression;
+}
+
+const progressionSchema = new Schema<IProgression>({
   apprenant: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
+    type: Schema.Types.ObjectId,
+    ref: 'User',
     required: true,
   },
   cours: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Cours",
+    type: Schema.Types.ObjectId,
+    ref: 'Cours',
     required: true,
   },
   pourcentage: {
     type: Number,
+    required: true,
     min: 0,
     max: 100,
-    default: 0,
   },
   dateDebut: {
     type: Date,
+    required: true,
     default: Date.now,
   },
   dateFin: {
     type: Date,
+    required: false,
   },
   statut: {
     type: String,
@@ -32,7 +44,8 @@ const progressionSchema = new mongoose.Schema({
   },
 });
 
-// Index unique pour éviter doublons et optimiser queries
 progressionSchema.index({ apprenant: 1, cours: 1 }, { unique: true });
 
-module.exports = mongoose.model("Progression", progressionSchema);
+const Progression: Model<IProgression> = model<IProgression>('Progression', progressionSchema);
+
+export default Progression;

@@ -1,4 +1,3 @@
-// src/components/admin/AdminDashboard.jsx
 import React, { useState, useEffect, useContext } from 'react';
 import {
   Box,
@@ -18,13 +17,11 @@ import {
   createTheme,
 } from '@mui/material';
 import { styled, keyframes } from '@mui/material/styles';
-
 import { Pie, Bar } from 'react-chartjs-2';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../../context/AuthContext';
 import { colors } from '../../utils/colors';
-
 import {
   People as PeopleIcon,
   School as SchoolIcon,
@@ -44,55 +41,35 @@ import {
   Title,
 } from 'chart.js';
 
-// Enregistrement des composants Chart.js
+// Register Chart.js components
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
 
-// Création du thème personnalisé
+// Custom theme
 const adminTheme = createTheme({
   palette: {
-    primary: {
-      main: colors.fuschia || '#f13544',
-      light: colors.lightFuschia || '#ff6b74',
-    },
-    secondary: {
-      main: colors.navy || '#010b40',
-      light: colors.lightNavy || '#1a237e',
-    },
+    primary: { main: colors.fuschia || '#f13544', light: colors.lightFuschia || '#ff6b74' },
+    secondary: { main: colors.navy || '#010b40', light: colors.lightNavy || '#1a237e' },
     background: {
       default: colors.navy || '#010b40',
       paper: `linear-gradient(135deg, ${colors.navy || '#010b40'}dd, ${colors.lightNavy || '#1a237e'}dd)`,
     },
-    text: {
-      primary: colors.white || '#ffffff',
-      secondary: 'rgba(255, 255, 255, 0.7)',
-    },
+    text: { primary: colors.white || '#ffffff', secondary: 'rgba(255, 255, 255, 0.7)' },
   },
   typography: {
     fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
-    h3: {
-      fontWeight: 700,
-    },
-    h5: {
-      fontWeight: 600,
-    },
-    h6: {
-      fontWeight: 500,
-    },
+    h3: { fontWeight: 700 },
+    h5: { fontWeight: 600 },
+    h6: { fontWeight: 500 },
   },
   components: {
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          borderRadius: '16px',
-        },
-      },
-    },
+    MuiCard: { styleOverrides: { root: { borderRadius: '16px' } } },
     MuiButton: {
       styleOverrides: {
         root: {
           borderRadius: '12px',
           textTransform: 'none',
           fontWeight: 600,
+          padding: '10px 20px',
         },
       },
     },
@@ -104,20 +81,13 @@ const fadeInUp = keyframes`
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 `;
-
 const fadeIn = keyframes`
   from { opacity: 0; }
   to { opacity: 1; }
 `;
-
 const floatingAnimation = keyframes`
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
-`;
-
-const pulse = keyframes`
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
 `;
 
 // Styled Components
@@ -127,11 +97,8 @@ const DashboardContainer = styled(Box)(({ theme }) => ({
   background: `linear-gradient(135deg, ${colors.navy || '#010b40'}, ${colors.lightNavy || '#1a237e'})`,
   padding: theme.spacing(4),
   position: 'relative',
-  overflow: 'hidden',
-  fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(2),
-  },
+  overflow: 'auto',
+  [theme.breakpoints.down('sm')]: { padding: theme.spacing(2) },
 }));
 
 const StatCard = styled(Card)(({ theme }) => ({
@@ -141,12 +108,10 @@ const StatCard = styled(Card)(({ theme }) => ({
   borderRadius: '16px',
   transition: 'all 0.3s ease',
   animation: `${fadeInUp} 0.6s ease-out`,
-  position: 'relative',
-  overflow: 'hidden',
   '&:hover': {
     transform: 'translateY(-4px)',
     boxShadow: `0 8px 24px ${colors.fuschia || '#f13544'}4d`,
-    border: `1px solid ${colors.fuschia || '#f13544'}66`,
+    borderColor: `${colors.fuschia || '#f13544'}66`,
   },
   '&::before': {
     content: '""',
@@ -157,9 +122,6 @@ const StatCard = styled(Card)(({ theme }) => ({
     height: '4px',
     background: `linear-gradient(90deg, ${colors.fuschia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`,
   },
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(1),
-  },
 }));
 
 const ChartCard = styled(Paper)(({ theme }) => ({
@@ -169,21 +131,13 @@ const ChartCard = styled(Paper)(({ theme }) => ({
   borderRadius: '16px',
   padding: theme.spacing(3),
   animation: `${fadeIn} 0.8s ease-out`,
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(2),
-  },
+  [theme.breakpoints.down('sm')]: { padding: theme.spacing(2) },
 }));
 
 const StyledButton = styled(Button)(({ theme }) => ({
   background: `linear-gradient(135deg, ${colors.fuschia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`,
-  borderRadius: '12px',
-  padding: theme.spacing(1.5, 4),
-  fontWeight: 600,
-  fontSize: '1rem',
-  textTransform: 'none',
-  boxShadow: `0 4px 16px ${colors.fuschia || '#f13544'}4d`,
   color: colors.white || '#ffffff',
-  transition: 'all 0.3s ease',
+  boxShadow: `0 4px 16px ${colors.fuschia || '#f13544'}4d`,
   '&:hover': {
     background: `linear-gradient(135deg, ${colors.fuschia || '#f13544'}cc, ${colors.lightFuschia || '#ff6b74'}cc)`,
     boxShadow: `0 6px 20px ${colors.fuschia || '#f13544'}66`,
@@ -193,10 +147,6 @@ const StyledButton = styled(Button)(({ theme }) => ({
     background: `linear-gradient(135deg, ${colors.fuschia || '#f13544'}80, ${colors.lightFuschia || '#ff6b74'}80)`,
     cursor: 'not-allowed',
   },
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(1, 2),
-    fontSize: '0.9rem',
-  },
 }));
 
 const IconWrapper = styled(Avatar)(({ theme }) => ({
@@ -204,25 +154,20 @@ const IconWrapper = styled(Avatar)(({ theme }) => ({
   height: 60,
   background: `linear-gradient(135deg, ${colors.fuschia || '#f13544'}33, ${colors.lightFuschia || '#ff6b74'}33)`,
   marginBottom: theme.spacing(2),
-  '& .MuiSvgIcon-root': {
-    fontSize: '2rem',
-    color: colors.fuschia || '#f13544',
-  },
+  '& .MuiSvgIcon-root': { fontSize: '2rem', color: colors.fuschia || '#f13544' },
 }));
 
 const QuickActionButton = styled(Button)(({ theme }) => ({
   background: 'rgba(255, 255, 255, 0.05)',
   backdropFilter: 'blur(8px)',
   border: `1px solid ${colors.fuschia || '#f13544'}33`,
-  borderRadius: '12px',
-  padding: theme.spacing(2),
   color: colors.white || '#ffffff',
   textTransform: 'none',
   fontWeight: 500,
   transition: 'all 0.3s ease',
   '&:hover': {
     background: `linear-gradient(135deg, ${colors.fuschia || '#f13544'}33, ${colors.lightFuschia || '#ff6b74'}33)`,
-    border: `1px solid ${colors.fuschia || '#f13544'}66`,
+    borderColor: `${colors.fuschia || '#f13544'}66`,
     transform: 'translateY(-2px)',
   },
 }));
@@ -234,59 +179,73 @@ const AdminDashboard = () => {
     totalUsers: 0,
     totalCourses: 0,
     completionRate: 0,
-    usersByRole: {},
+    usersByRole: { ETUDIANT: 0, ENSEIGNANT: 0, ADMIN: 0 },
     recentActivities: [],
-    coursesData: [],
+    coursesData: Array(6).fill({ newUsers: 0, completed: 0 }),
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Vérification des droits admin
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+
+  // Admin access check
   useEffect(() => {
     if (authLoading) return;
     if (!user || user.role !== 'ADMIN') {
       setError('Accès non autorisé. Seuls les administrateurs peuvent accéder à cette page.');
       setTimeout(() => navigate('/login'), 2000);
+      return;
     }
   }, [user, authLoading, navigate]);
 
-  // Chargement des statistiques
+  // Fetch stats
   useEffect(() => {
     const fetchStats = async () => {
+      if (!user?.token) {
+        setError('Utilisateur non authentifié. Veuillez vous reconnecter.');
+        setIsLoading(false);
+        return;
+      }
       setIsLoading(true);
       setError('');
       try {
-        const response = await axios.get(`${import.meta.env.VITE_API_URL}/admin/stats/global`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        console.log('Fetching stats from:', `${API_BASE_URL}/api/admin/stats/global`);
+        const response = await axios.get(`${API_BASE_URL}/api/admin/stats/global`, {
+          headers: { Authorization: `Bearer ${user.token}` },
         });
-        setStats(
-          response.data || {
-            totalUsers: 0,
-            totalCourses: 0,
-            completionRate: 0,
-            usersByRole: {},
-            recentActivities: [],
-            coursesData: [],
-          }
-        );
+        const data = response.data || {};
+        setStats({
+          totalUsers: data.totalUsers || 0,
+          totalCourses: data.totalCourses || 0,
+          completionRate: data.completionRate || 0,
+          usersByRole: data.usersByRole || { ETUDIANT: 0, ENSEIGNANT: 0, ADMIN: 0 },
+          recentActivities: data.recentActivities || [],
+          coursesData: data.coursesData || Array(6).fill({ newUsers: 0, completed: 0 }),
+        });
       } catch (err) {
         console.error('Erreur lors du chargement des statistiques:', err);
-        setError(err.response?.data?.message || 'Erreur lors de la récupération des statistiques');
+        const errorMessage =
+          err.response?.data?.message || err.code === 'ERR_NETWORK'
+            ? 'Serveur indisponible. Vérifiez si le backend est démarré sur localhost:3001.'
+            : 'Erreur lors de la récupération des statistiques.';
+        setError(errorMessage);
       } finally {
         setIsLoading(false);
       }
     };
-    if (user && user.role === 'ADMIN') {
-      fetchStats();
-    }
-  }, [user]);
+    if (user && user.role === 'ADMIN') fetchStats();
+  }, [user, API_BASE_URL]);
 
-  // Données pour le graphique en camembert (Pie Chart)
+  // Pie Chart Data
   const pieChartData = {
-    labels: Object.keys(stats.usersByRole || {}),
+    labels:
+      Object.keys(stats.usersByRole).length > 0
+        ? Object.keys(stats.usersByRole)
+        : ['Étudiants', 'Enseignants', 'Admins'],
     datasets: [
       {
-        data: Object.values(stats.usersByRole || {}),
+        data:
+          Object.keys(stats.usersByRole).length > 0 ? Object.values(stats.usersByRole) : [0, 0, 0],
         backgroundColor: [
           colors.fuschia || '#f13544',
           colors.lightFuschia || '#ff6b74',
@@ -297,7 +256,6 @@ const AdminDashboard = () => {
         ],
         borderColor: colors.white || '#ffffff',
         borderWidth: 2,
-        hoverOffset: 10,
       },
     ],
   };
@@ -308,50 +266,34 @@ const AdminDashboard = () => {
     plugins: {
       legend: {
         position: 'bottom',
-        labels: {
-          color: colors.white || '#ffffff',
-          font: { size: 12 },
-          padding: 15,
-        },
+        labels: { color: colors.white || '#ffffff', font: { size: 12 } },
       },
       title: {
         display: true,
         text: 'Répartition des utilisateurs par rôle',
         color: colors.white || '#ffffff',
-        font: { size: 18, weight: 'bold' },
-        padding: { bottom: 20 },
-      },
-      tooltip: {
-        backgroundColor: colors.navy || '#010b40',
-        titleColor: colors.white || '#ffffff',
-        bodyColor: colors.white || '#ffffff',
-        borderColor: colors.fuschia || '#f13544',
-        borderWidth: 1,
-        padding: 12,
-        displayColors: true,
+        font: { size: 16, weight: 'bold' },
       },
     },
   };
 
-  // Données pour le graphique en barres (Bar Chart) - Exemple avec des cours
+  // Bar Chart Data
   const barChartData = {
-    labels: ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin'],
+    labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
     datasets: [
       {
         label: 'Nouveaux utilisateurs',
-        data: [12, 19, 15, 25, 22, 30],
+        data: stats.coursesData.map((d) => d.newUsers || 0),
         backgroundColor: `${colors.fuschia || '#f13544'}cc`,
         borderColor: colors.fuschia || '#f13544',
         borderWidth: 2,
-        borderRadius: 8,
       },
       {
         label: 'Cours complétés',
-        data: [8, 14, 12, 18, 16, 24],
+        data: stats.coursesData.map((d) => d.completed || 0),
         backgroundColor: `${colors.lightFuschia || '#ff6b74'}cc`,
         borderColor: colors.lightFuschia || '#ff6b74',
         borderWidth: 2,
-        borderRadius: 8,
       },
     ],
   };
@@ -360,49 +302,23 @@ const AdminDashboard = () => {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: {
-        position: 'top',
-        labels: {
-          color: colors.white || '#ffffff',
-          font: { size: 12 },
-          padding: 15,
-        },
-      },
+      legend: { position: 'top', labels: { color: colors.white || '#ffffff', font: { size: 12 } } },
       title: {
         display: true,
         text: 'Activité mensuelle',
         color: colors.white || '#ffffff',
-        font: { size: 18, weight: 'bold' },
-        padding: { bottom: 20 },
-      },
-      tooltip: {
-        backgroundColor: colors.navy || '#010b40',
-        titleColor: colors.white || '#ffffff',
-        bodyColor: colors.white || '#ffffff',
-        borderColor: colors.fuschia || '#f13544',
-        borderWidth: 1,
-        padding: 12,
+        font: { size: 16, weight: 'bold' },
       },
     },
     scales: {
       y: {
         beginAtZero: true,
-        ticks: {
-          color: colors.white || '#ffffff',
-          font: { size: 11 },
-        },
-        grid: {
-          color: 'rgba(255, 255, 255, 0.1)',
-        },
+        ticks: { color: colors.white || '#ffffff' },
+        grid: { color: 'rgba(255, 255, 255, 0.1)' },
       },
       x: {
-        ticks: {
-          color: colors.white || '#ffffff',
-          font: { size: 11 },
-        },
-        grid: {
-          color: 'rgba(255, 255, 255, 0.1)',
-        },
+        ticks: { color: colors.white || '#ffffff' },
+        grid: { color: 'rgba(255, 255, 255, 0.1)' },
       },
     },
   };
@@ -415,16 +331,31 @@ const AdminDashboard = () => {
           width: '100vw',
           bgcolor: colors.navy || '#010b40',
           display: 'flex',
-          alignItems: 'center',
           justifyContent: 'center',
+          alignItems: 'center',
         }}
       >
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-          <CircularProgress sx={{ color: colors.fuschia || '#f13544' }} size={48} />
-          <Typography variant='h5' sx={{ color: colors.white || '#ffffff', fontWeight: 500 }}>
-            Chargement du tableau de bord...
-          </Typography>
-        </Box>
+        <CircularProgress sx={{ color: colors.fuschia || '#f13544' }} />
+        <Typography sx={{ ml: 2, color: colors.white || '#ffffff' }}>Chargement...</Typography>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box
+        sx={{
+          minHeight: '100vh',
+          width: '100vw',
+          bgcolor: colors.navy || '#010b40',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
+        <Alert severity='error' sx={{ maxWidth: 600 }}>
+          {error}
+        </Alert>
       </Box>
     );
   }
@@ -437,10 +368,7 @@ const AdminDashboard = () => {
           sx={{
             position: 'absolute',
             inset: 0,
-            backgroundImage: `
-              linear-gradient(${colors.fuschia || '#f13544'}1a 1px, transparent 1px),
-              linear-gradient(90deg, ${colors.fuschia || '#f13544'}1a 1px, transparent 1px)
-            `,
+            background: `linear-gradient(${colors.fuschia || '#f13544'}0a 1px, transparent 1px)`,
             backgroundSize: '40px 40px',
             opacity: 0.05,
           }}
@@ -472,173 +400,138 @@ const AdminDashboard = () => {
           }}
         />
 
-        <Container maxWidth='xl'>
+        <Container maxWidth={false} disableGutters>
           {/* Header */}
-          <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+          <Box sx={{ p: 4, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
             <DashboardIcon sx={{ fontSize: 40, color: colors.fuschia || '#f13544' }} />
-            <Box sx={{ flex: 1 }}>
+            <Box>
               <Typography
                 variant='h3'
-                sx={{
-                  fontWeight: 700,
-                  color: colors.white || '#ffffff',
-                  mb: 0.5,
-                  fontSize: { xs: '1.75rem', md: '2.5rem' },
-                }}
+                sx={{ color: colors.white || '#ffffff', fontSize: { xs: '1.5rem', md: '2.5rem' } }}
               >
                 Tableau de Bord Administrateur
               </Typography>
-              <Typography
-                variant='body1'
-                sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: { xs: '0.875rem', md: '1rem' } }}
-              >
-                Bienvenue {user?.nom || 'Administrateur'} - Vue d'ensemble du système
+              <Typography sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                Bienvenue {user?.nom || 'Administrateur'}
               </Typography>
             </Box>
             <Chip
-              label='Administrateur'
+              label='Admin'
               sx={{
                 bgcolor: `${colors.fuschia || '#f13544'}33`,
                 color: colors.white || '#ffffff',
-                fontWeight: 600,
                 border: `1px solid ${colors.fuschia || '#f13544'}`,
-                animation: `${pulse} 2s ease-in-out infinite`,
               }}
             />
           </Box>
 
-          {error && (
-            <Alert severity='error' sx={{ mb: 3, borderRadius: 2 }}>
-              {error}
-            </Alert>
-          )}
-
-          {/* Statistiques principales */}
-          <Grid container spacing={3} sx={{ mb: 4 }}>
+          {/* Stats Grid */}
+          <Grid container spacing={3} sx={{ p: 4 }}>
             <Grid item xs={12} sm={6} md={4}>
               <StatCard>
                 <CardContent>
                   <IconWrapper>
                     <PeopleIcon />
                   </IconWrapper>
-                  <Typography variant='h6' sx={{ color: colors.white || '#ffffff', mb: 1 }}>
-                    Utilisateurs inscrits
+                  <Typography sx={{ color: colors.white || '#ffffff' }}>Utilisateurs</Typography>
+                  <Typography variant='h4' sx={{ color: colors.fuschia || '#f13544', mt: 1 }}>
+                    {stats.totalUsers}
                   </Typography>
-                  <Typography
-                    variant='h3'
-                    sx={{ color: colors.fuschia || '#f13544', fontWeight: 700, mb: 2 }}
-                  >
-                    {stats.totalUsers || 0}
-                  </Typography>
-                  <StyledButton
-                    component={Link}
-                    to='/admin/users'
-                    fullWidth
-                    aria-label='Gérer les utilisateurs'
-                  >
-                    Gérer les utilisateurs
+                  <StyledButton component={Link} to='/admin/users' sx={{ mt: 2 }}>
+                    Gérer
                   </StyledButton>
                 </CardContent>
               </StatCard>
             </Grid>
-
             <Grid item xs={12} sm={6} md={4}>
               <StatCard>
                 <CardContent>
                   <IconWrapper>
                     <SchoolIcon />
                   </IconWrapper>
-                  <Typography variant='h6' sx={{ color: colors.white || '#ffffff', mb: 1 }}>
-                    Cours disponibles
+                  <Typography sx={{ color: colors.white || '#ffffff' }}>Cours</Typography>
+                  <Typography variant='h4' sx={{ color: colors.fuschia || '#f13544', mt: 1 }}>
+                    {stats.totalCourses}
                   </Typography>
-                  <Typography
-                    variant='h3'
-                    sx={{ color: colors.fuschia || '#f13544', fontWeight: 700, mb: 2 }}
-                  >
-                    {stats.totalCourses || 0}
-                  </Typography>
-                  <StyledButton
-                    component={Link}
-                    to='/admin/courses'
-                    fullWidth
-                    aria-label='Gérer les cours'
-                  >
-                    Gérer les cours
+                  <StyledButton component={Link} to='/admin/courses' sx={{ mt: 2 }}>
+                    Gérer
                   </StyledButton>
                 </CardContent>
               </StatCard>
             </Grid>
-
             <Grid item xs={12} sm={6} md={4}>
               <StatCard>
                 <CardContent>
                   <IconWrapper>
                     <TrendingUpIcon />
                   </IconWrapper>
-                  <Typography variant='h6' sx={{ color: colors.white || '#ffffff', mb: 1 }}>
-                    Taux de complétion moyen
+                  <Typography sx={{ color: colors.white || '#ffffff' }}>
+                    Taux de complétion
                   </Typography>
-                  <Typography
-                    variant='h3'
-                    sx={{ color: colors.fuschia || '#f13544', fontWeight: 700, mb: 2 }}
-                  >
-                    {(stats.completionRate || 0).toFixed(1)}%
+                  <Typography variant='h4' sx={{ color: colors.fuschia || '#f13544', mt: 1 }}>
+                    {stats.completionRate}%
                   </Typography>
-                  <StyledButton
-                    component={Link}
-                    to='/admin/reports'
-                    fullWidth
-                    aria-label='Voir les rapports'
-                  >
-                    Voir les rapports
+                  <StyledButton component={Link} to='/admin/reports' sx={{ mt: 2 }}>
+                    Rapports
                   </StyledButton>
                 </CardContent>
               </StatCard>
             </Grid>
           </Grid>
 
-          {/* Actions rapides */}
-          <ChartCard sx={{ mb: 4 }}>
-            <Typography
-              variant='h5'
-              sx={{ color: colors.white || '#ffffff', fontWeight: 600, mb: 3 }}
-            >
+          {/* Charts */}
+          <Grid container spacing={3} sx={{ p: 4 }}>
+            <Grid item xs={12} md={6}>
+              <ChartCard>
+                <Box sx={{ height: 300 }}>
+                  <Pie data={pieChartData} options={pieChartOptions} />
+                </Box>
+              </ChartCard>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <ChartCard>
+                <Box sx={{ height: 300 }}>
+                  <Bar data={barChartData} options={barChartOptions} />
+                </Box>
+              </ChartCard>
+            </Grid>
+          </Grid>
+
+          {/* Quick Actions */}
+          <ChartCard sx={{ p: 4, mb: 4 }}>
+            <Typography variant='h5' sx={{ color: colors.white || '#ffffff', mb: 3 }}>
               Actions rapides
             </Typography>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6} md={3}>
                 <QuickActionButton
-                  fullWidth
                   component={Link}
                   to='/admin/users/create'
                   startIcon={<PeopleIcon />}
                 >
-                  Ajouter un utilisateur
+                  Ajouter utilisateur
                 </QuickActionButton>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
                 <QuickActionButton
-                  fullWidth
                   component={Link}
                   to='/admin/courses/create'
                   startIcon={<SchoolIcon />}
                 >
-                  Créer un cours
+                  Créer cours
                 </QuickActionButton>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
                 <QuickActionButton
-                  fullWidth
                   component={Link}
                   to='/admin/reports'
                   startIcon={<AssessmentIcon />}
                 >
-                  Générer un rapport
+                  Rapports
                 </QuickActionButton>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
                 <QuickActionButton
-                  fullWidth
                   component={Link}
                   to='/admin/settings'
                   startIcon={<SettingsIcon />}
@@ -649,36 +542,10 @@ const AdminDashboard = () => {
             </Grid>
           </ChartCard>
 
-          {/* Graphiques */}
-          <Grid container spacing={3}>
-            {/* Graphique en camembert */}
-            {stats.usersByRole && Object.keys(stats.usersByRole).length > 0 && (
-              <Grid item xs={12} md={6}>
-                <ChartCard>
-                  <Box sx={{ height: 400 }}>
-                    <Pie data={pieChartData} options={pieChartOptions} />
-                  </Box>
-                </ChartCard>
-              </Grid>
-            )}
-
-            {/* Graphique en barres */}
-            <Grid item xs={12} md={6}>
-              <ChartCard>
-                <Box sx={{ height: 400 }}>
-                  <Bar data={barChartData} options={barChartOptions} />
-                </Box>
-              </ChartCard>
-            </Grid>
-          </Grid>
-
-          {/* Activités récentes */}
-          {stats.recentActivities && stats.recentActivities.length > 0 && (
-            <ChartCard sx={{ mt: 4 }}>
-              <Typography
-                variant='h5'
-                sx={{ color: colors.white || '#ffffff', fontWeight: 600, mb: 3 }}
-              >
+          {/* Recent Activities */}
+          {stats.recentActivities.length > 0 && (
+            <ChartCard sx={{ p: 4 }}>
+              <Typography variant='h5' sx={{ color: colors.white || '#ffffff', mb: 3 }}>
                 Activités récentes
               </Typography>
               <Divider sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)', mb: 2 }} />
@@ -693,11 +560,11 @@ const AdminDashboard = () => {
                         : 'none',
                   }}
                 >
-                  <Typography variant='body1' sx={{ color: colors.white || '#ffffff' }}>
+                  <Typography sx={{ color: colors.white || '#ffffff' }}>
                     {activity.description}
                   </Typography>
-                  <Typography variant='caption' sx={{ color: 'rgba(255, 255, 255, 0.6)' }}>
-                    {activity.date}
+                  <Typography sx={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+                    {new Date(activity.date).toLocaleDateString()}
                   </Typography>
                 </Box>
               ))}

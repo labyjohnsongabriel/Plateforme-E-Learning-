@@ -67,16 +67,8 @@ export const NotificationProvider = ({ children }) => {
   const navigate = useNavigate();
 
   const fetchNotifications = useCallback(async () => {
-    // Skip fetching for ETUDIANT role if backend restricts access
-    if (!user?.token || isTokenExpired(user.token) || user.role === RoleUtilisateur.ETUDIANT) {
-      if (user?.role === RoleUtilisateur.ETUDIANT) {
-        console.log("Skipping notification fetch for ETUDIANT role due to restricted access");
-        setNotifications([]);
-        localStorage.setItem("notifications", JSON.stringify([]));
-        setIsLoading(false);
-        return;
-      }
-      console.error("Invalid or missing token");
+    if (!user?.token || isTokenExpired(user.token)) {
+      console.error("Invalid or missing token", { user });
       setError("Token d’authentification manquant, invalide ou expiré");
       navigate("/login");
       setIsLoading(false);
@@ -86,13 +78,20 @@ export const NotificationProvider = ({ children }) => {
     setIsLoading(true);
     setError(null);
     try {
-      console.log("Fetching notifications with token:", user.token.substring(0, 10) + "...");
+      console.log("Fetching notifications", {
+        url: `${API_BASE_URL}/api/notifications`,
+        token: user.token.substring(0, 10) + "...",
+        role: user.role.toUpperCase(),
+      });
       const response = await axios.get(`${API_BASE_URL}/api/notifications`, {
         headers: { Authorization: `Bearer ${user.token}` },
         validateStatus: (status) => status < 500,
-        params: { role: user.role },
       });
-      console.log("Notifications response:", response.data, "Status:", response.status);
+      console.log("Notifications response:", {
+        data: response.data,
+        status: response.status,
+        headers: response.headers,
+      });
       if (response.headers["content-type"].includes("application/json")) {
         const fetchedNotifications = Array.isArray(response.data) ? response.data : [];
         setNotifications(fetchedNotifications);
@@ -101,7 +100,12 @@ export const NotificationProvider = ({ children }) => {
         throw new Error("Réponse serveur non-JSON");
       }
     } catch (err) {
-      console.error("Fetch notifications error:", err);
+      console.error("Fetch notifications error:", {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+        headers: err.response?.headers,
+      });
       let errorMessage;
       if (err.response) {
         switch (err.response.status) {
@@ -134,11 +138,11 @@ export const NotificationProvider = ({ children }) => {
   }, [API_BASE_URL, navigate, user]);
 
   useEffect(() => {
-    if (user?.token && !isTokenExpired(user.token) && user.role !== RoleUtilisateur.ETUDIANT) {
+    if (user?.token && !isTokenExpired(user.token)) {
       fetchNotifications();
       // Polling only for ADMIN role
-      if (user?.role === RoleUtilisateur.ADMIN) {
-        const interval = setInterval(fetchNotifications, 30000); // Every 30 seconds for admins
+      if (user?.role.toUpperCase() === RoleUtilisateur.ADMIN) {
+        const interval = setInterval(fetchNotifications, 30000);
         return () => clearInterval(interval);
       }
     } else {
@@ -148,17 +152,15 @@ export const NotificationProvider = ({ children }) => {
   }, [user, fetchNotifications]);
 
   const unreadCount = Array.isArray(notifications)
-    ? notifications.filter((n) => !n.read).length
+    ? notifications.filter((n) => !n.lu).length
     : 0;
 
   const addNotification = useCallback(
     async (message, severity = "info", role = user?.role) => {
-      if (!user?.token || isTokenExpired(user.token) || user.role === RoleUtilisateur.ETUDIANT) {
-        console.error("Invalid or missing token or restricted role");
-        setError("Action non autorisée pour ce rôle ou session invalide");
-        if (user?.role !== RoleUtilisateur.ETUDIANT) {
-          navigate("/login");
-        }
+      if (!user?.token || isTokenExpired(user.token)) {
+        console.error("Invalid or missing token", { user });
+        setError("Session invalide");
+        navigate("/login");
         setIsLoading(false);
         return;
       }
@@ -167,12 +169,13 @@ export const NotificationProvider = ({ children }) => {
       const newNotification = {
         message,
         severity,
-        role,
+        role: role.toUpperCase(),
         id: crypto.randomUUID(),
         createdAt: new Date().toISOString(),
-        read: false,
+        lu: false,
       };
       try {
+        console.log("Adding notification", { newNotification });
         setNotifications((prev) => {
           const updatedNotifications = [...prev, newNotification];
           localStorage.setItem("notifications", JSON.stringify(updatedNotifications));
@@ -188,7 +191,10 @@ export const NotificationProvider = ({ children }) => {
             },
           }
         );
-        console.log("Add notification response:", response.data);
+        console.log("Add notification response:", {
+          data: response.data,
+          status: response.status,
+        });
         if (response.headers["content-type"].includes("application/json")) {
           setNotifications((prev) => {
             const updatedNotifications = prev.map((n) =>
@@ -201,7 +207,11 @@ export const NotificationProvider = ({ children }) => {
           throw new Error("Réponse serveur non-JSON");
         }
       } catch (err) {
-        console.error("Add notification error:", err);
+        console.error("Add notification error:", {
+          message: err.message,
+          response: err.response?.data,
+          status: err.response?.status,
+        });
         let errorMessage;
         if (err.response) {
           switch (err.response.status) {
@@ -237,23 +247,24 @@ export const NotificationProvider = ({ children }) => {
 
   const markAsRead = useCallback(
     async (id) => {
-      if (!user?.token || isTokenExpired(user.token) || user.role === RoleUtilisateur.ETUDIANT) {
-        setError("Action non autorisée pour ce rôle ou session invalide");
-        if (user?.role !== RoleUtilisateur.ETUDIANT) {
-          navigate("/login");
-        }
+      if (!user?.token || isTokenExpired(user.token)) {
+        console.error("Invalid or missing token", { user });
+        setError("Session invalide");
+        navigate("/login");
         return;
       }
-      if (!/^[0-9a-fA-F]{24}$/.test(id) && !crypto.randomUUID().match(id)) {
+      if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+        console.error("Invalid notification ID", { id });
         setError("ID de notification invalide");
         return;
       }
       setIsLoading(true);
       setError(null);
       try {
+        console.log("Marking notification as read", { id });
         setNotifications((prev) => {
           const updatedNotifications = prev.map((n) =>
-            n._id === id || n.id === id ? { ...n, read: true } : n
+            n._id === id || n.id === id ? { ...n, lu: true } : n
           );
           localStorage.setItem("notifications", JSON.stringify(updatedNotifications));
           return updatedNotifications;
@@ -263,9 +274,16 @@ export const NotificationProvider = ({ children }) => {
           {},
           { headers: { Authorization: `Bearer ${user.token}` } }
         );
-        console.log("Mark as read response:", response.data);
+        console.log("Mark as read response:", {
+          data: response.data,
+          status: response.status,
+        });
       } catch (err) {
-        console.error("Mark as read error:", err);
+        console.error("Mark as read error:", {
+          message: err.message,
+          response: err.response?.data,
+          status: err.response?.status,
+        });
         let errorMessage;
         if (err.response) {
           switch (err.response.status) {
@@ -288,7 +306,7 @@ export const NotificationProvider = ({ children }) => {
         if (err.response?.status !== 401) {
           setNotifications((prev) => {
             const updatedNotifications = prev.map((n) =>
-              n._id === id || n.id === id ? { ...n, read: false } : n
+              n._id === id || n.id === id ? { ...n, lu: false } : n
             );
             localStorage.setItem("notifications", JSON.stringify(updatedNotifications));
             return updatedNotifications;
@@ -303,18 +321,18 @@ export const NotificationProvider = ({ children }) => {
 
   const markAllAsRead = useCallback(
     async () => {
-      if (!user?.token || isTokenExpired(user.token) || user.role === RoleUtilisateur.ETUDIANT) {
-        setError("Action non autorisée pour ce rôle ou session invalide");
-        if (user?.role !== RoleUtilisateur.ETUDIANT) {
-          navigate("/login");
-        }
+      if (!user?.token || isTokenExpired(user.token)) {
+        console.error("Invalid or missing token", { user });
+        setError("Session invalide");
+        navigate("/login");
         return;
       }
       setIsLoading(true);
       setError(null);
       try {
+        console.log("Marking all notifications as read");
         setNotifications((prev) => {
-          const updatedNotifications = prev.map((n) => ({ ...n, read: true }));
+          const updatedNotifications = prev.map((n) => ({ ...n, lu: true }));
           localStorage.setItem("notifications", JSON.stringify(updatedNotifications));
           return updatedNotifications;
         });
@@ -323,9 +341,16 @@ export const NotificationProvider = ({ children }) => {
           {},
           { headers: { Authorization: `Bearer ${user.token}` } }
         );
-        console.log("Mark all as read response:", response.data);
+        console.log("Mark all as read response:", {
+          data: response.data,
+          status: response.status,
+        });
       } catch (err) {
-        console.error("Mark all as read error:", err);
+        console.error("Mark all as read error:", {
+          message: err.message,
+          response: err.response?.data,
+          status: err.response?.status,
+        });
         let errorMessage;
         if (err.response) {
           switch (err.response.status) {
@@ -347,7 +372,7 @@ export const NotificationProvider = ({ children }) => {
         setError(errorMessage);
         if (err.response?.status !== 401) {
           setNotifications((prev) => {
-            const updatedNotifications = prev.map((n) => ({ ...n, read: n.read }));
+            const updatedNotifications = prev.map((n) => ({ ...n, lu: n.lu }));
             localStorage.setItem("notifications", JSON.stringify(updatedNotifications));
             return updatedNotifications;
           });
@@ -361,24 +386,31 @@ export const NotificationProvider = ({ children }) => {
 
   const clearNotifications = useCallback(
     async () => {
-      if (!user?.token || isTokenExpired(user.token) || user.role === RoleUtilisateur.ETUDIANT) {
-        setError("Action non autorisée pour ce rôle ou session invalide");
-        if (user?.role !== RoleUtilisateur.ETUDIANT) {
-          navigate("/login");
-        }
+      if (!user?.token || isTokenExpired(user.token)) {
+        console.error("Invalid or missing token", { user });
+        setError("Session invalide");
+        navigate("/login");
         return;
       }
       setIsLoading(true);
       setError(null);
       try {
+        console.log("Clearing notifications");
         setNotifications([]);
         localStorage.removeItem("notifications");
         const response = await axios.delete(`${API_BASE_URL}/api/notifications`, {
           headers: { Authorization: `Bearer ${user.token}` },
         });
-        console.log("Clear notifications response:", response.data);
+        console.log("Clear notifications response:", {
+          data: response.data,
+          status: response.status,
+        });
       } catch (err) {
-        console.error("Clear notifications error:", err);
+        console.error("Clear notifications error:", {
+          message: err.message,
+          response: err.response?.data,
+          status: err.response?.status,
+        });
         let errorMessage;
         if (err.response) {
           switch (err.response.status) {
@@ -418,8 +450,7 @@ export const NotificationProvider = ({ children }) => {
     error,
   };
 
-  // Limit notifications to 3 for non-admin roles, show all for admins
-  const maxNotifications = user?.role === RoleUtilisateur.ADMIN ? notifications.length : 3;
+  const maxNotifications = user?.role.toUpperCase() === RoleUtilisateur.ADMIN ? notifications.length : 3;
   const visibleNotifications = notifications.slice(0, maxNotifications);
 
   return (
@@ -455,7 +486,7 @@ export const NotificationProvider = ({ children }) => {
         }}
       >
         <img
-          src="/assets/images/Youth Computing.png" // Adjusted path for public assets
+          src="/assets/images/Youth Computing.png"
           alt="Youth Computing Logo"
           style={{ width: "100px", height: "100px", marginBottom: "20px" }}
         />

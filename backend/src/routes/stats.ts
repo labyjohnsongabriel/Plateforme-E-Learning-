@@ -1,13 +1,13 @@
-// backend/routes/stats.js
-const express = require("express");
-const router = express.Router();
-const StatsController = require("../controllers/stats/StatsController"); // Adjust path
+import { Router, Request, Response, NextFunction } from 'express';
+import StatsController from '../controllers/stats/StatsController'; // Import par défaut
+
+const router: Router = Router();
 
 /**
  * @route GET /api/stats
  * @desc Récupérer les statistiques globales (e.g., pour le catalogue)
- * @access Public (or Privé if authMiddleware is used)
+ * @access Public
  */
-router.get("/", StatsController.getStats); // Remove authMiddleware to make it public
+router.get('/', StatsController.getStats);
 
-module.exports = router;
+export default router;

@@ -1,42 +1,32 @@
+// src/controllers/user/AdministrateurController.ts
 import { Request, Response, NextFunction } from 'express';
 import createError from 'http-errors';
-import { StatisticsService } from '../../services/report/StatisticsService';
-import { UserService } from '../../services/user/UserService';
-import { CoursService } from '../../services/learning/CoursService';
-import { GlobalStats, UserStats, CourseStats, UserData, CourseData, UserDocument, CourseDocument } from '../../types';
+import * as StatisticsService from '../../services/report/StatisticsService';
+import * as UserService from '../../services/user/UserService';
+import { CoursService } from '../../services/learning/CoursService'; // Import the class
+import { RoleUtilisateur, CourseCreateData, CourseUpdateData, UserData } from '../../types';
 
 /**
  * Contrôleur pour gérer les fonctionnalités administratives.
  */
-class AdminController {
-  /**
-   * Récupère les statistiques globales du système.
-   * @param req - Requête Express
-   * @param res - Réponse Express
-   * @param next - Fonction middleware suivante
-   */
-  static getGlobalStats = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+class AdministrateurController {
+  /** Récupère les statistiques globales */
+  static getGlobalStats = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      if (!req.user || req.user.role !== 'admin') {
+      if (!req.user || req.user.role !== RoleUtilisateur.ADMIN) {
         throw createError(403, 'Accès réservé aux administrateurs');
       }
       const stats = await StatisticsService.getGlobalStats();
       res.json(stats);
     } catch (err) {
-      console.error('Erreur controller getGlobalStats:', (err as Error).message);
       next(err);
     }
   };
 
-  /**
-   * Récupère les statistiques d'un utilisateur spécifique.
-   * @param req - Requête Express avec paramètre userId
-   * @param res - Réponse Express
-   * @param next - Fonction middleware suivante
-   */
-  static getUserStats = async (req: Request<{ userId: string }>, res: Response, next: NextFunction): Promise<void> => {
+  /** Récupère les statistiques d’un utilisateur */
+  static getUserStats = async (req: Request<{ userId: string }>, res: Response, next: NextFunction) => {
     try {
-      if (!req.user || req.user.role !== 'admin') {
+      if (!req.user || req.user.role !== RoleUtilisateur.ADMIN) {
         throw createError(403, 'Accès réservé aux administrateurs');
       }
       const stats = await StatisticsService.getUserStats(req.params.userId);
@@ -46,15 +36,10 @@ class AdminController {
     }
   };
 
-  /**
-   * Récupère les statistiques d'un cours spécifique.
-   * @param req - Requête Express avec paramètre coursId
-   * @param res - Réponse Express
-   * @param next - Fonction middleware suivante
-   */
-  static getCourseStats = async (req: Request<{ coursId: string }>, res: Response, next: NextFunction): Promise<void> => {
+  /** Récupère les statistiques d’un cours */
+  static getCourseStats = async (req: Request<{ coursId: string }>, res: Response, next: NextFunction) => {
     try {
-      if (!req.user || req.user.role !== 'admin') {
+      if (!req.user || req.user.role !== RoleUtilisateur.ADMIN) {
         throw createError(403, 'Accès réservé aux administrateurs');
       }
       const stats = await StatisticsService.getCourseStats(req.params.coursId);
@@ -64,15 +49,10 @@ class AdminController {
     }
   };
 
-  /**
-   * Récupère tous les utilisateurs.
-   * @param req - Requête Express
-   * @param res - Réponse Express
-   * @param next - Fonction middleware suivante
-   */
-  static getAllUsers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  /** Liste tous les utilisateurs */
+  static getAllUsers = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      if (!req.user || req.user.role !== 'admin') {
+      if (!req.user || req.user.role !== RoleUtilisateur.ADMIN) {
         throw createError(403, 'Accès réservé aux administrateurs');
       }
       const users = await UserService.getAllUsers();
@@ -82,15 +62,10 @@ class AdminController {
     }
   };
 
-  /**
-   * Met à jour un utilisateur.
-   * @param req - Requête Express avec paramètre userId et corps
-   * @param res - Réponse Express
-   * @param next - Fonction middleware suivante
-   */
-  static updateUser = async (req: Request<{ userId: string }, {}, UserData>, res: Response, next: NextFunction): Promise<void> => {
+  /** Met à jour un utilisateur */
+  static updateUser = async (req: Request<{ userId: string }, {}, UserData>, res: Response, next: NextFunction) => {
     try {
-      if (!req.user || req.user.role !== 'admin') {
+      if (!req.user || req.user.role !== RoleUtilisateur.ADMIN) {
         throw createError(403, 'Accès réservé aux administrateurs');
       }
       const updated = await UserService.updateUser(req.params.userId, req.body);
@@ -100,33 +75,23 @@ class AdminController {
     }
   };
 
-  /**
-   * Supprime un utilisateur.
-   * @param req - Requête Express avec paramètre userId
-   * @param res - Réponse Express
-   * @param next - Fonction middleware suivante
-   */
-  static deleteUser = async (req: Request<{ userId: string }>, res: Response, next: NextFunction): Promise<void> => {
+  /** Supprime un utilisateur */
+  static deleteUser = async (req: Request<{ userId: string }>, res: Response, next: NextFunction) => {
     try {
-      if (!req.user || req.user.role !== 'admin') {
+      if (!req.user || req.user.role !== RoleUtilisateur.ADMIN) {
         throw createError(403, 'Accès réservé aux administrateurs');
       }
       await UserService.deleteUser(req.params.userId);
-      res.json({ message: 'Utilisateur supprimé' });
+      res.json({ message: 'Utilisateur supprimé avec succès' });
     } catch (err) {
       next(err);
     }
   };
 
-  /**
-   * Crée un nouveau cours.
-   * @param req - Requête Express avec corps et utilisateur authentifié
-   * @param res - Réponse Express
-   * @param next - Fonction middleware suivante
-   */
-  static createCourse = async (req: Request<{}, {}, CourseData>, res: Response, next: NextFunction): Promise<void> => {
+  /** Crée un cours */
+  static createCourse = async (req: Request<{}, {}, CourseCreateData>, res: Response, next: NextFunction) => {
     try {
-      if (!req.user || req.user.role !== 'admin') {
+      if (!req.user || req.user.role !== RoleUtilisateur.ADMIN) {
         throw createError(403, 'Accès réservé aux administrateurs');
       }
       const course = await CoursService.createCourse(req.body, req.user.id);
@@ -136,15 +101,10 @@ class AdminController {
     }
   };
 
-  /**
-   * Récupère tous les cours.
-   * @param req - Requête Express
-   * @param res - Réponse Express
-   * @param next - Fonction middleware suivante
-   */
-  static getAllCourses = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  /** Liste tous les cours */
+  static getAllCourses = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      if (!req.user || req.user.role !== 'admin') {
+      if (!req.user || req.user.role !== RoleUtilisateur.ADMIN) {
         throw createError(403, 'Accès réservé aux administrateurs');
       }
       const courses = await CoursService.getAllCourses();
@@ -154,37 +114,41 @@ class AdminController {
     }
   };
 
-  /**
-   * Met à jour un cours.
-   * @param req - Requête Express avec paramètre coursId et corps
-   * @param res - Réponse Express
-   * @param next - Fonction middleware suivante
-   */
-  static updateCourse = async (req: Request<{ coursId: string }, {}, CourseData>, res: Response, next: NextFunction): Promise<void> => {
+  /** Récupère un cours par ID */
+  static getCourseById = async (req: Request<{ coursId: string }>, res: Response, next: NextFunction) => {
     try {
-      if (!req.user || req.user.role !== 'admin') {
+      if (!req.user || req.user.role !== RoleUtilisateur.ADMIN) {
         throw createError(403, 'Accès réservé aux administrateurs');
       }
-      const updated = await CoursService.updateCourse(req.params.coursId, req.body);
+      const course = await CoursService.getCourseById(req.params.coursId);
+      res.json(course);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  /** Met à jour un cours */
+  static updateCourse = async (req: Request<{ coursId: string }, {}, CourseUpdateData>, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user || req.user.role !== RoleUtilisateur.ADMIN) {
+        throw createError(403, 'Accès réservé aux administrateurs');
+      }
+      const { coursId } = req.params;
+      const updated = await CoursService.updateCourse(coursId, req.body);
       res.json(updated);
     } catch (err) {
       next(err);
     }
   };
 
-  /**
-   * Supprime un cours.
-   * @param req - Requête Express avec paramètre coursId
-   * @param res - Réponse Express
-   * @param next - Fonction middleware suivante
-   */
-  static deleteCourse = async (req: Request<{ coursId: string }>, res: Response, next: NextFunction): Promise<void> => {
+  /** Supprime un cours */
+  static deleteCourse = async (req: Request<{ coursId: string }>, res: Response, next: NextFunction) => {
     try {
-      if (!req.user || req.user.role !== 'admin') {
+      if (!req.user || req.user.role !== RoleUtilisateur.ADMIN) {
         throw createError(403, 'Accès réservé aux administrateurs');
       }
       await CoursService.deleteCourse(req.params.coursId);
-      res.json({ message: 'Cours supprimé' });
+      res.json({ message: 'Cours supprimé avec succès' });
     } catch (err) {
       next(err);
     }

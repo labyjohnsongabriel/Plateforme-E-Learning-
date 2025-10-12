@@ -1,50 +1,51 @@
-const express = require("express");
-const router = express.Router();
-const InstructeurController = require("../controllers/user/InstructeurController");
-const authMiddleware = require("../middleware/auth");
-const authorizationMiddleware = require("../middleware/authorization");
-const Role = require("../models/enums/RoleUtilisateur"); 
+import { Router } from 'express';
+import { getCourses, createCourse, updateCourse, submitForApproval, getCoursesInProgress, getProfile } from '../controllers/user/InstructeurController';
+import authMiddleware from '../middleware/auth';
+import authorize from '../middleware/authorization';
+import { RoleUtilisateur } from '../types';
+
+const router = Router();
 
 router.get(
-  "/:id/courses",
+  '/:id/courses',
   authMiddleware,
-  authorizationMiddleware([Role.INSTRUCTEUR]),
-  InstructeurController.getCourses
+  authorize([RoleUtilisateur.ENSEIGNANT, RoleUtilisateur.ADMIN]),
+  getCourses
 );
 
 router.post(
-  "/:id/courses",
+  '/:id/courses',
   authMiddleware,
-  authorizationMiddleware([Role.INSTRUCTEUR]),
-  InstructeurController.createCourse
+  authorize([RoleUtilisateur.ENSEIGNANT, RoleUtilisateur.ADMIN]),
+  createCourse
 );
 
 router.put(
-  "/:id/courses",
+  '/:id/courses/:courseId',
   authMiddleware,
-  authorizationMiddleware([Role.INSTRUCTEUR]),
-  InstructeurController.updateCourse
+  authorize([RoleUtilisateur.ENSEIGNANT, RoleUtilisateur.ADMIN]),
+  updateCourse
 );
 
 router.post(
-  "/:id/courses/submit",
+  '/:id/courses/:courseId/submit',
   authMiddleware,
-  authorizationMiddleware([Role.INSTRUCTEUR]),
-  InstructeurController.submitForApproval
+  authorize([RoleUtilisateur.ENSEIGNANT, RoleUtilisateur.ADMIN]),
+  submitForApproval
 );
 
 router.get(
-  "/:id/courses-in-progress",
+  '/:id/courses-in-progress',
   authMiddleware,
-  authorizationMiddleware([Role.INSTRUCTEUR]),
-  InstructeurController.getCoursesInProgress
+  authorize([RoleUtilisateur.ENSEIGNANT, RoleUtilisateur.ADMIN]),
+  getCoursesInProgress
 );
 
 router.get(
-  "/:id/profile",
+  '/:id/profile',
   authMiddleware,
-  authorizationMiddleware([Role.INSTRUCTEUR]),
-  InstructeurController.getProfile
+  authorize([RoleUtilisateur.ENSEIGNANT, RoleUtilisateur.ADMIN]),
+  getProfile
 );
 
-module.exports = router;
+export default router;

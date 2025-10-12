@@ -1,27 +1,31 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-const express = require("express");
-const router = express.Router();
-const InscriptionController = require("../controllers/learning/InscriptionController");
-const ProgressionController = require("../controllers/learning/ProgressionController");
-const CertificatController = require("../controllers/learning/CertificatController");
-const authMiddleware = require("../middleware/auth");
-const authorizationMiddleware = require("../middleware/authorization");
-const validationMiddleware = require("../middleware/validation");
-const learningValidator = require("../validators/learningValidator");
-const Role = require("../models/enums/RoleUtilisateur");
-// Routes pour inscriptions (inchangées, mais commentées pour clarté)
-router.post("/enroll", authMiddleware, authorizationMiddleware([Role.APPRENANT]), validationMiddleware(learningValidator.enroll), InscriptionController.enroll);
-router.get("/enrollments", authMiddleware, authorizationMiddleware([Role.APPRENANT]), InscriptionController.getUserEnrollments);
-router.put("/enrollment/:id/status", authMiddleware, authorizationMiddleware([Role.APPRENANT]), InscriptionController.updateStatus);
-router.delete("/enrollment/:id", authMiddleware, authorizationMiddleware([Role.APPRENANT]), InscriptionController.delete);
-// Routes pour progressions (inchangées)
-router.get("/progress/:coursId", authMiddleware, authorizationMiddleware([Role.APPRENANT]), ProgressionController.getByUserAndCourse);
-router.put("/progress/:coursId", authMiddleware, authorizationMiddleware([Role.APPRENANT]), validationMiddleware(learningValidator.updateProgress), ProgressionController.update);
-// Routes pour certificats (corrigées et complétées)
-// Récupération des certificats de l'utilisateur
-router.get("/certificates", authMiddleware, authorizationMiddleware([Role.APPRENANT]), CertificatController.getByUser);
-// Téléchargement d'un certificat spécifique (vérifie l'autorisation)
-router.get("/certificate/:id/download", authMiddleware, authorizationMiddleware([Role.APPRENANT]), CertificatController.download);
-module.exports = router;
+const express_1 = require("express");
+const auth_1 = __importDefault(require("../middleware/auth"));
+const authorization_1 = __importDefault(require("../middleware/authorization"));
+const User_1 = require("../models/user/User");
+const InscriptionController_1 = __importDefault(require("../controllers/learning/InscriptionController"));
+const ProgressionController_1 = __importDefault(require("../controllers/learning/ProgressionController"));
+const CertificatController_1 = __importDefault(require("../controllers/learning/CertificatController"));
+const router = (0, express_1.Router)();
+// --- Routes pour inscriptions ---
+router.post('/enroll', auth_1.default, (0, authorization_1.default)([User_1.RoleUtilisateur.ETUDIANT]), 
+// validate(learningValidator.enroll), // tableau de ValidationChain
+InscriptionController_1.default.enroll);
+router.get('/enrollments', auth_1.default, (0, authorization_1.default)([User_1.RoleUtilisateur.ETUDIANT]), InscriptionController_1.default.getUserEnrollments);
+router.put('/enrollment/:id/status', auth_1.default, (0, authorization_1.default)([User_1.RoleUtilisateur.ETUDIANT]), InscriptionController_1.default.updateStatus);
+router.delete('/enrollment/:id', auth_1.default, (0, authorization_1.default)([User_1.RoleUtilisateur.ETUDIANT]), InscriptionController_1.default.delete // ok, le controller gère l'appel
+);
+// --- Routes pour progressions ---
+router.get('/progress/:coursId', auth_1.default, (0, authorization_1.default)([User_1.RoleUtilisateur.ETUDIANT]), ProgressionController_1.default.getByUserAndCourse);
+router.put('/progress/:coursId', auth_1.default, (0, authorization_1.default)([User_1.RoleUtilisateur.ETUDIANT]), 
+//validate(learningValidator.updateProgress),
+ProgressionController_1.default.update);
+// --- Routes pour certificats ---
+router.get('/certificates', auth_1.default, (0, authorization_1.default)([User_1.RoleUtilisateur.ETUDIANT]), CertificatController_1.default.getByUser);
+router.get('/certificate/:id/download', auth_1.default, (0, authorization_1.default)([User_1.RoleUtilisateur.ETUDIANT]), CertificatController_1.default.download);
+exports.default = router;
 //# sourceMappingURL=learning.js.map

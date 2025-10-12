@@ -1,8 +1,17 @@
-const User = require("./User");
+import { Schema, Types } from 'mongoose';
+import User, { IUser } from './User';
 
-const apprenantSchema = new mongoose.Schema({
-  progres: [{ type: mongoose.Schema.Types.ObjectId, ref: "Progression" }],
-  certificats: [{ type: mongoose.Schema.Types.ObjectId, ref: "Certificat" }],
+// Interface pour le document Apprenant
+interface IApprenant extends IUser {
+  progres: Types.ObjectId[];
+  certificats: Types.ObjectId[];
+}
+
+// Schéma pour le discriminateur Apprenant
+const apprenantSchema = new Schema<IApprenant>({
+  progres: [{ type: Schema.Types.ObjectId, ref: 'Progression' }],
+  certificats: [{ type: Schema.Types.ObjectId, ref: 'Certificat' }],
 });
 
-module.exports = User.discriminator("apprenant", apprenantSchema);
+// Discriminateur pour Apprenant
+export default User.discriminator('apprenant', apprenantSchema);

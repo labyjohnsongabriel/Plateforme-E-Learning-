@@ -4,30 +4,27 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
 const http_errors_1 = __importDefault(require("http-errors"));
-const mongoose_1 = __importDefault(require("mongoose"));
-const Contenu_1 = require("../../models/course/Contenu");
-const Cours_1 = require("../../models/course/Cours");
-const types_1 = require("../../types");
+const Contenu_1 = __importDefault(require("../../models/course/Contenu")); // ✅ Changed to default import
+const Cours_1 = __importDefault(require("../../models/course/Cours")); // ✅ Changed to default import
 class ContenuService {
     static async create(data, file) {
         if (file) {
             data.url = `/uploads/${file.filename}`;
         }
-        const contenu = new Contenu_1.Contenu(data);
+        const contenu = new Contenu_1.default(data);
         await contenu.save();
         // Ajouter au cours
-        await Cours_1.Cours.findByIdAndUpdate(data.cours, {
+        await Cours_1.default.findByIdAndUpdate(data.cours, {
             $push: { contenus: contenu._id },
         });
         return contenu;
     }
     static async getAll() {
-        return Contenu_1.Contenu.find().populate('cours');
+        return Contenu_1.default.find().populate('cours');
     }
     static async getById(id) {
-        const contenu = await Contenu_1.Contenu.findById(id).populate('cours');
+        const contenu = await Contenu_1.default.findById(id).populate('cours');
         if (!contenu) {
             throw (0, http_errors_1.default)(404, 'Contenu non trouvé');
         }
@@ -37,14 +34,14 @@ class ContenuService {
         if (file) {
             data.url = `/uploads/${file.filename}`;
         }
-        const contenu = await Contenu_1.Contenu.findByIdAndUpdate(id, data, { new: true });
+        const contenu = await Contenu_1.default.findByIdAndUpdate(id, data, { new: true });
         if (!contenu) {
             throw (0, http_errors_1.default)(404, 'Contenu non trouvé');
         }
         return contenu;
     }
     static async delete(id) {
-        const contenu = await Contenu_1.Contenu.findByIdAndDelete(id);
+        const contenu = await Contenu_1.default.findByIdAndDelete(id);
         if (!contenu) {
             throw (0, http_errors_1.default)(404, 'Contenu non trouvé');
         }

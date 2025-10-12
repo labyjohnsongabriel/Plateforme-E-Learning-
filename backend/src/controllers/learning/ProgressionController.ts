@@ -1,58 +1,74 @@
+// src/controllers/learning/ProgressionController.ts
 import { Request, Response, NextFunction } from 'express';
 import createError from 'http-errors';
-import { ProgressionService } from '../../services/learning/ProgressionService';
-import { CertificatService } from '../../services/learning/CertificationService';
-import { getIo } from '../../utils/socket';
-import { ProgressionDocument, ProgressionUpdateData } from '../../types';
+import ProgressionService from '../../services/learning/ProgressionService';
+import CertificatService from '../../services/learning/CertificationService';
+import { getIO } from '../../utils/socket';
+import { IProgression, ProgressionUpdateData } from '../../types';
 
 /**
- * Contrôleur pour gérer la progression des utilisateurs dans les cours.
+ * Controller for managing user progress in courses.
  */
 class ProgressionController {
   /**
-   * Récupère la progression d'un utilisateur pour un cours spécifique.
-   * @param req - Requête Express avec paramètre coursId et utilisateur authentifié
-   * @param res - Réponse Express
-   * @param next - Fonction middleware suivante
+   * Retrieves a user's progress for a specific course.
    */
-  static getByUserAndCourse = async (req: Request<{ coursId: string }>, res: Response, next: NextFunction): Promise<void> => {
+  static getByUserAndCourse = async (
+    req: Request<{ coursId: string }>,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
-      if (!req.user || !req.user.id) {
+      if (!req.user?.id) {
         throw createError(401, 'Utilisateur non authentifié');
       }
-      const progression = await ProgressionService.getByUserAndCourse(req.user.id, req.params.coursId);
-      res.json(progression || { pourcentage: 0 }); // Retourne 0 si pas de progression
+      console.log(`Fetching progress for user ${req.user.id} and course ${req.params.coursId}`);
+      const progression = await ProgressionService.getByUserAndCourse(
+        req.user.id,
+        req.params.coursId
+      );
+      res.json(progression || { pourcentage: 0 });
     } catch (err) {
+      console.error('Error in getByUserAndCourse:', err);
       next(err);
     }
   };
 
   /**
-   * Met à jour la progression d'un utilisateur dans un cours et génère un certificat si nécessaire.
-   * @param req - Requête Express avec paramètre coursId, corps (pourcentage), et utilisateur authentifié
-   * @param res - Réponse Express
-   * @param next - Fonction middleware suivante
+   * Updates a user's progress and generates a certificate if eligible.
    */
-  static update = async (req: Request<{ coursId: string }, {}, ProgressionUpdateData>, res: Response, next: NextFunction): Promise<void> => {
+  static update = async (
+    req: Request<{ coursId: string }, {}, ProgressionUpdateData>,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
-      if (!req.user || !req.user.id) {
+      if (!req.user?.id) {
         throw createError(401, 'Utilisateur non authentifié');
       }
-      const progression = await ProgressionService.update(req.user.id, req.params.coursId, req.body.pourcentage);
-      
+      console.log(`Updating progress for user ${req.user.id} and course ${req.params.coursId}`);
+      const progression: IProgression = await ProgressionService.update(
+        req.user.id,
+        req.params.coursId,
+        req.body.pourcentage
+      );
+
+      // Generate certificate if progress is 100%
       if (progression.pourcentage === 100) {
         const cert = await CertificatService.generateIfEligible(progression);
         if (cert) {
-          // Notification real-time à l'utilisateur
-          const io = getIo();
+          const io = getIO();
           io.to(progression.apprenant.toString()).emit('new_certificate', cert);
-          // Optionnel : Emit à admin pour tableau de bord
-          io.emit('progress_update', { userId: progression.apprenant, coursId: progression.cours });
+          io.emit('progress_update', {
+            userId: progression.apprenant,
+            coursId: progression.cours,
+          });
         }
       }
+
       res.json(progression);
     } catch (err) {
-      console.error('Erreur controller update progression:', (err as Error).message);
+      console.error('Error in update progression:', err);
       next(err);
     }
   };

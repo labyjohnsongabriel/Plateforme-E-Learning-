@@ -1,19 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-// models/course/Question.js
-const mongoose = require("mongoose");
-const questionSchema = new mongoose.Schema({
-    enonce: { type: String, required: true },
-    reponses: [{ type: String, required: true }], // Liste des options
-    reponseCorrecte: { type: Number, required: true }, // Index de la réponse correcte
-    quiz: { type: mongoose.Schema.Types.ObjectId, ref: "Quiz", required: true },
-});
-// Méthode pour générer une question aléatoire (genererAleatoire)
-questionSchema.statics.genererAleatoire = async function (quizId) {
-    // Innovation: Générer une question aléatoire pour un quiz donné
-    const count = await this.countDocuments({ quiz: quizId });
-    const random = Math.floor(Math.random() * count);
-    return this.findOne({ quiz: quizId }).skip(random);
-};
-module.exports = mongoose.model("Question", questionSchema);
+const mongoose_1 = require("mongoose");
+const questionSchema = new mongoose_1.Schema({
+    texte: { type: String, required: true },
+    type: {
+        type: String,
+        enum: ['SINGLE', 'MULTIPLE'],
+        required: true,
+    },
+    options: [{ type: String, required: true }],
+    reponsesCorrectes: [{ type: String, required: true }],
+    quiz: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Quiz', required: true }, // ✅ corrigé ici
+}, { timestamps: true });
+const Question = (0, mongoose_1.model)('Question', questionSchema);
+exports.default = Question;
 //# sourceMappingURL=Question.js.map

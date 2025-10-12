@@ -1,54 +1,57 @@
-// src/middleware/auth.js
-const jwt = require("jsonwebtoken");
+import { Request, Response, NextFunction } from 'express';
+import jwt, { JwtPayload } from 'jsonwebtoken';
+import { RoleUtilisateur, UserDocument } from '../types';
 
-/**
- * @desc Middleware d'authentification JWT
- * @param {Object} req - Requête Express
- * @param {Object} res - Réponse Express
- * @param {Function} next - Middleware suivant
- */
-const authMiddleware = (req, res, next) => {
-  // Récupérer l'en-tête Authorization
-  const authHeader = req.headers.authorization || req.headers.Authorization; // Supporte 'Authorization' et 'authorization'
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Aucun jeton fourni" });
+// ✅ Étendre Express.Request pour inclure req.user
+declare module 'express-serve-static-core' {
+  interface Request {
+    user?: Partial<UserDocument>;
+  }
+}
+
+const authMiddleware = (req: Request, res: Response, next: NextFunction): void => {
+  const authHeader = (req.headers.authorization || req.headers.Authorization) as string | undefined;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    res.status(401).json({ message: 'Aucun jeton fourni' });
+    return;
   }
 
-  // Extraire le jeton
-  const token = authHeader.split(" ")[1];
+  const token = authHeader.split(' ')[1];
   if (!token) {
-    return res.status(401).json({ message: "Format de jeton invalide" });
+    res.status(401).json({ message: 'Format du jeton invalide' });
+    return;
   }
 
-  // Récupérer la clé secrète
   const secretKey = process.env.JWT_SECRET;
   if (!secretKey) {
-    console.error("JWT_SECRET non défini dans les variables d'environnement");
-    return res
-      .status(500)
-      .json({ message: "Erreur serveur : configuration manquante" });
+    console.error('❌ JWT_SECRET non défini dans le fichier .env');
+    res.status(500).json({ message: 'Erreur serveur : configuration JWT manquante' });
+    return;
   }
 
   try {
-    // Vérifier et décoder le jeton
-    const decoded = jwt.verify(token, secretKey);
-    if (!decoded.id || !decoded.role) {
-      return res
-        .status(401)
-        .json({ message: "Jeton invalide : données manquantes" });
+    const decoded = jwt.verify(token, secretKey) as JwtPayload;
+
+    if (!decoded || typeof decoded !== 'object' || !decoded.id || !decoded.role) {
+      res.status(401).json({ message: 'Jeton invalide : données manquantes' });
+      return;
     }
-    req.user = decoded; // Attache les données décodées (id, role) à req.user
+
+    // ✅ Correction du typage ici
+    req.user = {
+      _id: decoded.id,
+      role: decoded.role as RoleUtilisateur,
+      email: decoded.email,
+    } as Partial<UserDocument>;
+
     next();
-  } catch (error) {
-    console.error("Erreur de vérification du jeton :", error.message);
-    if (error.name === "TokenExpiredError") {
-      return res.status(401).json({ message: "Jeton expiré" });
-    }
-    if (error.name === "JsonWebTokenError") {
-      return res.status(401).json({ message: "Jeton invalide" });
-    }
-    return res.status(401).json({ message: "Erreur d'authentification" });
+  } catch (error: any) {
+    console.error('Erreur de vérification du jeton :', error.message);
+    res.status(401).json({
+      message: error.name === 'TokenExpiredError' ? 'Jeton expiré' : 'Jeton invalide',
+    });
   }
 };
 
-module.exports = authMiddleware;
+export default authMiddleware;

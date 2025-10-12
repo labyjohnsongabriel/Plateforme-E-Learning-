@@ -1,26 +1,24 @@
 "use strict";
 var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
 const User_1 = require("../../models/user/User");
-const types_1 = require("../../types");
 class ProfileController {
 }
 _a = ProfileController;
 ProfileController.getProfile = async (req, res, next) => {
     try {
-        if (!req.user || !req.user.id) {
+        if (!req.user || !req.user._id) {
             res.status(401).json({ message: 'Utilisateur non authentifié' });
             return;
         }
-        console.log('Récupération du profil pour user ID:', req.user.id);
-        const user = await User_1.User.findById(req.user.id).select('-password');
+        console.log('Récupération du profil pour user ID:', req.user._id);
+        const user = await User_1.User.findById(req.user._id).select('-password');
         if (!user) {
             res.status(404).json({ message: 'Utilisateur non trouvé' });
             return;
         }
         const response = {
-            _id: user._id,
+            _id: user._id.toString(), // Convertir ObjectId en string
             prenom: user.prenom,
             nom: user.nom,
             email: user.email,
@@ -40,12 +38,12 @@ ProfileController.getProfile = async (req, res, next) => {
 };
 ProfileController.updateProfile = async (req, res, next) => {
     try {
-        if (!req.user || !req.user.id) {
+        if (!req.user || !req.user._id) {
             res.status(401).json({ message: 'Utilisateur non authentifié' });
             return;
         }
         const updates = req.body;
-        const user = await User_1.User.findByIdAndUpdate(req.user.id, updates, {
+        const user = await User_1.User.findByIdAndUpdate(req.user._id, updates, {
             new: true,
             runValidators: true,
         }).select('-password');
@@ -54,7 +52,7 @@ ProfileController.updateProfile = async (req, res, next) => {
             return;
         }
         const response = {
-            _id: user._id,
+            _id: user._id.toString(), // Convertir ObjectId en string
             prenom: user.prenom,
             nom: user.nom,
             email: user.email,

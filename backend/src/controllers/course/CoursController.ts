@@ -1,17 +1,19 @@
 import { Request, Response, NextFunction } from 'express';
 import createError from 'http-errors';
 import mongoose from 'mongoose';
-import { Cours } from '../../models/course/Cours';
-import { Domaine } from '../../models/course/Domaine';
-import { Contenu } from '../../models/course/Contenu';
-import { Quiz } from '../../models/course/Quiz';
+import Cours from '../../models/course/Cours';
+import Domaine from '../../models/course/Domaine';
+import Contenu from '../../models/course/Contenu';
+import Quiz from '../../models/course/Quiz';
 import logger from '../../utils/logger';
 import { CourseDocument, CourseData, CourseResponse } from '../../types';
+
+
 
 class CoursService {
   static async create(data: CourseData, createurId: string): Promise<CourseDocument> {
     try {
-      // Verify domaineId exists
+      // Vérification du domaine
       const domaine = await Domaine.findById(data.domaineId);
       if (!domaine) {
         throw createError(400, 'Domaine non trouvé');
@@ -23,13 +25,15 @@ class CoursService {
         domaineId: data.domaineId,
       });
       await cours.save();
-      // Add course to domaine
+
+      // Ajout du cours dans le domaine correspondant
       await Domaine.findByIdAndUpdate(data.domaineId, {
         $push: { cours: cours._id },
       });
-      return cours;
+
+      return cours as CourseDocument;
     } catch (err) {
-      logger.error(`Error creating course: ${(err as Error).message}`);
+      logger.error(`Erreur lors de la création du cours: ${(err as Error).message}`);
       throw err;
     }
   }
@@ -40,16 +44,18 @@ class CoursService {
         .populate('domaineId')
         .limit(limit)
         .skip((page - 1) * limit)
-        .lean();
+        .lean(); // Keep .lean() for performance
+
       const total = await Cours.countDocuments();
+
       return {
-        data: courses as CourseDocument[],
+        data: courses as unknown as CourseDocument[], // ✅ Safe cast through unknown
         totalPages: Math.ceil(total / limit),
         currentPage: page,
       };
     } catch (err) {
-      logger.error(`Error fetching courses: ${(err as Error).message}`);
-      throw createError(500, `Error fetching courses: ${(err as Error).message}`);
+      logger.error(`Erreur lors de la récupération des cours: ${(err as Error).message}`);
+      throw createError(500, `Erreur serveur: ${(err as Error).message}`);
     }
   }
 
@@ -59,16 +65,15 @@ class CoursService {
       if (!cours) {
         throw createError(404, 'Cours non trouvé');
       }
-      return cours as CourseDocument;
+      return cours as unknown as CourseDocument; // ✅ Safe cast through unknown
     } catch (err) {
-      logger.error(`Error fetching course by ID: ${(err as Error).message}`);
+      logger.error(`Erreur lors de la récupération du cours: ${(err as Error).message}`);
       throw err;
     }
   }
 
   static async update(id: string, data: Partial<CourseData>): Promise<CourseDocument> {
     try {
-      // Verify domaineId exists if provided
       if (data.domaineId) {
         const domaine = await Domaine.findById(data.domaineId);
         if (!domaine) {
@@ -80,33 +85,33 @@ class CoursService {
         id,
         { ...data, domaineId: data.domaineId },
         { new: true, runValidators: true }
-      );
+      ).lean();
+
       if (!cours) {
         throw createError(404, 'Cours non trouvé');
       }
-      return cours;
+
+      return cours as unknown as CourseDocument; // ✅ Safe cast through unknown
     } catch (err) {
-      logger.error(`Error updating course: ${(err as Error).message}`);
+      logger.error(`Erreur lors de la mise à jour du cours: ${(err as Error).message}`);
       throw err;
     }
   }
 
   static async delete(id: string): Promise<CourseDocument> {
     try {
-      const cours = await Cours.findByIdAndDelete(id);
+      const cours = await Cours.findByIdAndDelete(id).lean();
       if (!cours) {
         throw createError(404, 'Cours non trouvé');
       }
-      // Delete associated contenus and quizzes
+
       await Contenu.deleteMany({ cours: id });
       await Quiz.deleteMany({ cours: id });
-      // Remove course from domaine
-      await Domaine.findByIdAndUpdate(cours.domaineId, {
-        $pull: { cours: id },
-      });
-      return cours;
+      await Domaine.findByIdAndUpdate(cours.domaineId, { $pull: { cours: id } });
+
+      return cours as unknown as CourseDocument; // ✅ Safe cast through unknown
     } catch (err) {
-      logger.error(`Error deleting course: ${(err as Error).message}`);
+      logger.error(`Erreur lors de la suppression du cours: ${(err as Error).message}`);
       throw err;
     }
   }

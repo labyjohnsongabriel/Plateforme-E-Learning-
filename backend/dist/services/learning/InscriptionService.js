@@ -1,29 +1,29 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-const Inscription = require("../../models/learning/Inscription");
-const Cours = require("../../models/course/Cours"); // Assumez modèle Cours existe
-const Progression = require("../../models/learning/Progression"); // Pour init progression
-const StatutInscription = require("../../models/enums/StatutInscription");
-exports.enroll = async (apprenantId, coursId) => {
-    try {
-        // Vérifier si le cours existe
-        const cours = await Cours.findById(coursId);
-        if (!cours) {
-            throw new Error("Cours non trouvé");
-        }
-        // Vérifier si déjà inscrit
-        const existing = await Inscription.findOne({ apprenant: apprenantId, cours: coursId });
-        if (existing) {
-            throw new Error("Déjà inscrit à ce cours");
-        }
-        // Créer inscription
-        const inscription = new Inscription({
-            apprenant: apprenantId,
-            cours: coursId,
-        });
+exports.StatutInscription = void 0;
+const Inscription_1 = __importDefault(require("../../models/learning/Inscription"));
+const Cours_1 = __importDefault(require("../../models/course/Cours"));
+const Progression_1 = __importDefault(require("../../models/learning/Progression"));
+var StatutInscription;
+(function (StatutInscription) {
+    StatutInscription["EN_COURS"] = "EN_COURS";
+    StatutInscription["COMPLETE"] = "COMPLETE";
+})(StatutInscription || (exports.StatutInscription = StatutInscription = {}));
+// Fonctions du service
+const InscriptionService = {
+    enroll: async (apprenantId, coursId) => {
+        const cours = await Cours_1.default.findById(coursId);
+        if (!cours)
+            throw new Error('Cours non trouvé');
+        const existing = await Inscription_1.default.findOne({ apprenant: apprenantId, cours: coursId });
+        if (existing)
+            throw new Error('Déjà inscrit à ce cours');
+        const inscription = new Inscription_1.default({ apprenant: apprenantId, cours: coursId });
         await inscription.save();
-        // Initialiser progression (0%) pour ce cours, aligné avec système de progression
-        const progression = new Progression({
+        const progression = new Progression_1.default({
             apprenant: apprenantId,
             cours: coursId,
             pourcentage: 0,
@@ -31,62 +31,35 @@ exports.enroll = async (apprenantId, coursId) => {
         });
         await progression.save();
         return inscription;
-    }
-    catch (err) {
-        console.error("Erreur lors de l'inscription:", err);
-        throw err;
-    }
-};
-exports.getUserEnrollments = async (apprenantId) => {
-    try {
-        const enrollments = await Inscription.find({ apprenant: apprenantId }).populate("cours", "titre niveau domaine");
-        return enrollments;
-    }
-    catch (err) {
-        throw err;
-    }
-};
-exports.updateStatus = async (inscriptionId, newStatus, apprenantId) => {
-    try {
-        const inscription = await Inscription.findOne({ _id: inscriptionId, apprenant: apprenantId });
-        if (!inscription) {
-            throw new Error("Inscription non trouvée ou non autorisée");
-        }
-        if (!Object.values(StatutInscription).includes(newStatus)) {
-            throw new Error("Statut invalide");
-        }
+    },
+    getUserEnrollments: async (apprenantId) => {
+        return await Inscription_1.default.find({ apprenant: apprenantId }).populate('cours', 'titre niveau domaine');
+    },
+    updateStatus: async (inscriptionId, newStatus, apprenantId) => {
+        const inscription = await Inscription_1.default.findOne({ _id: inscriptionId, apprenant: apprenantId });
+        if (!inscription)
+            throw new Error('Inscription non trouvée ou non autorisée');
+        if (!Object.values(StatutInscription).includes(newStatus))
+            throw new Error('Statut invalide');
         inscription.statut = newStatus;
         await inscription.save();
-        // Si complété, synchroniser avec progression (e.g., trigger certificat si applicable)
         if (newStatus === StatutInscription.COMPLETE) {
-            const progression = await Progression.findOne({ apprenant: apprenantId, cours: inscription.cours });
+            const progression = await Progression_1.default.findOne({ apprenant: apprenantId, cours: inscription.cours });
             if (progression) {
                 progression.pourcentage = 100;
                 await progression.save();
-                // Appel à génération certificat (du précédent controller)
-                // const CertificatController = require("../controllers/learning/CertificatController");
-                // await CertificatController.generateCertificate(apprenantId, inscription.cours);
             }
         }
         return inscription;
-    }
-    catch (err) {
-        throw err;
-    }
-};
-exports.deleteEnrollment = async (inscriptionId, apprenantId) => {
-    try {
-        const inscription = await Inscription.findOne({ _id: inscriptionId, apprenant: apprenantId });
-        if (!inscription) {
-            throw new Error("Inscription non trouvée ou non autorisée");
-        }
-        // Supprimer aussi la progression associée
-        await Progression.deleteOne({ apprenant: apprenantId, cours: inscription.cours });
+    },
+    deleteEnrollment: async (inscriptionId, apprenantId) => {
+        const inscription = await Inscription_1.default.findOne({ _id: inscriptionId, apprenant: apprenantId });
+        if (!inscription)
+            throw new Error('Inscription non trouvée ou non autorisée');
+        await Progression_1.default.deleteOne({ apprenant: apprenantId, cours: inscription.cours });
         await inscription.deleteOne();
-        return { message: "Inscription supprimée avec succès" };
-    }
-    catch (err) {
-        throw err;
-    }
+        return { message: 'Inscription supprimée avec succès' };
+    },
 };
+exports.default = InscriptionService;
 //# sourceMappingURL=InscriptionService.js.map

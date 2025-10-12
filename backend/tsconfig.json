@@ -1,32 +1,26 @@
 {
-  // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
     "target": "ES2020",
     "module": "commonjs",
-    "rootDir": "src",
-    "outDir": "dist",
-
-    // Basic Options
+  "outDir": "./dist",
+    "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-
-    // Other Outputs
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
-
-    // Stricter Typechecking Options
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
-
-    // Recommended Options
     "jsx": "react-jsx",
-    "verbatimModuleSyntax": true,
+    "verbatimModuleSyntax": false,
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force"
   },
-  "include": ["src"],
+  "include": [
+      "src/**/*.ts",
+    "src/types/express.d.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }

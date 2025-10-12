@@ -1,23 +1,24 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const { body, validationResult } = require("express-validator");
-const RoleUtilisateur = require("../../src/models/enums/RoleUtilisateur");
+exports.login = exports.register = void 0;
+const express_validator_1 = require("express-validator");
+const RoleUtilisateur_1 = require("../../src/models/enums/RoleUtilisateur"); // Adjust path if needed
 /**
  * @desc Validation pour l'inscription
  */
 exports.register = [
-    body("email").isEmail().withMessage("Format d'email invalide"),
-    body("password")
+    (0, express_validator_1.body)('email').isEmail().withMessage('Format d\'email invalide'),
+    (0, express_validator_1.body)('password')
         .isLength({ min: 6 })
-        .withMessage("Le mot de passe doit contenir au moins 6 caractères"),
-    body("nom").notEmpty().withMessage("Le nom est requis"),
-    body("prenom").notEmpty().withMessage("Le prénom est requis"),
-    body("role")
+        .withMessage('Le mot de passe doit contenir au moins 6 caractères'),
+    (0, express_validator_1.body)('nom').notEmpty().withMessage('Le nom est requis'),
+    (0, express_validator_1.body)('prenom').notEmpty().withMessage('Le prénom est requis'),
+    (0, express_validator_1.body)('role')
         .optional()
-        .isIn(Object.values(RoleUtilisateur))
-        .withMessage("Rôle invalide"),
+        .isIn(Object.values(RoleUtilisateur_1.RoleUtilisateur))
+        .withMessage('Rôle invalide'),
     (req, res, next) => {
-        const errors = validationResult(req);
+        const errors = (0, express_validator_1.validationResult)(req);
         if (!errors.isEmpty()) {
             return res.status(400).json({ errors: errors.array() });
         }
@@ -28,15 +29,14 @@ exports.register = [
  * @desc Validation pour la connexion
  */
 exports.login = [
-    body("email").isEmail().withMessage("Format d'email invalide"),
-    body("password").notEmpty().withMessage("Le mot de passe est requis"),
+    (0, express_validator_1.body)('email').isEmail().withMessage('Format d\'email invalide'),
+    (0, express_validator_1.body)('password').notEmpty().withMessage('Le mot de passe est requis'),
     (req, res, next) => {
-        const errors = validationResult(req);
+        const errors = (0, express_validator_1.validationResult)(req);
         if (!errors.isEmpty()) {
             return res.status(400).json({ errors: errors.array() });
         }
         next();
     },
 ];
-module.exports = exports;
 //# sourceMappingURL=authValidator.js.map

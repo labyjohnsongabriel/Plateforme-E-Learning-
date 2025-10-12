@@ -1,8 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const User = require("./User");
-const administrateurSchema = new mongoose.Schema({
-// No specific fields, but can add admin-specific like logs
-});
-module.exports = User.discriminator("administrateur", administrateurSchema);
+exports.Administrateur = void 0;
+// src/models/user/Administrateur.ts
+const mongoose_1 = require("mongoose");
+const User_1 = require("./User");
+// Schéma pour le discriminateur Administrateur
+const administrateurSchema = new mongoose_1.Schema({});
+// Discriminateur pour Administrateur
+exports.Administrateur = User_1.User.discriminator('Administrateur', administrateurSchema);
 //# sourceMappingURL=Administrateur.js.map

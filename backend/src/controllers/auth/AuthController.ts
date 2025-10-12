@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
+import logger from '../../utils/logger';
 import { User, RoleUtilisateur } from '../../models/user/User';
-import { UserDocument } from '../../types';
 
 interface RegisterRequestBody {
   nom: string;
@@ -18,41 +18,23 @@ interface LoginRequestBody {
 
 class AuthController {
   static register = async (req: Request<{}, {}, RegisterRequestBody>, res: Response, next: NextFunction): Promise<void> => {
+    logger.info('Raw request body:', req.body); // Log pour débogage
     try {
       const { nom, prenom, email, password } = req.body;
-
-      // Log received data for debugging
-      console.log('Received registration data:', { nom, prenom, email, password });
-
-      // Validate input
-      if (!nom || !prenom || !email || !password) {
+      logger.info('Received registration data:', { nom, prenom, email });
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        logger.warn('Email already used:', { email });
         res.status(400).json({
-          message: 'Tous les champs (nom, prenom, email, motDePasse) sont requis',
-          missingFields: {
-            nom: !nom,
-            prenom: !prenom,
-            email: !email,
-            password: !password,
-          },
+          errors: [{
+            type: 'field',
+            msg: 'Email déjà utilisé',
+            path: 'email',
+            location: 'body',
+          }],
         });
         return;
       }
-
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        res.status(400).json({ message: 'Format d\'email invalide' });
-        return;
-      }
-
-      // Check if user exists
-      const existingUser = await User.findOne({ email });
-      if (existingUser) {
-        res.status(400).json({ message: 'Email déjà utilisé' });
-        return;
-      }
-
-      // Create new user
       const user = new User({
         email,
         password,
@@ -61,57 +43,91 @@ class AuthController {
         role: RoleUtilisateur.ETUDIANT,
       });
       await user.save();
-
-      // Generate JWT token
+      if (!process.env.JWT_SECRET) {
+        logger.error('JWT_SECRET non défini');
+        res.status(500).json({
+          errors: [{
+            type: 'server',
+            msg: 'Erreur serveur : configuration JWT manquante',
+            path: '',
+            location: 'server',
+          }],
+        });
+        return;
+      }
       const token = jwt.sign(
-        { id: user._id, role: user.role },
-        process.env.JWT_SECRET || 'secret',
+        { id: user._id, role: user.role, email: user.email },
+        process.env.JWT_SECRET,
         { expiresIn: '1h' }
       );
-
       res.status(201).json({ message: 'Utilisateur enregistré', token });
     } catch (error) {
-      console.error('Registration error:', (error as Error).message);
+      if (error instanceof mongoose.Error.ValidationError) {
+        const errors = Object.values(error.errors).map(err => ({
+          type: 'field',
+          msg: err.message,
+          path: err.path,
+          location: 'body',
+        }));
+        logger.error('Mongoose validation errors:', { errors, body: req.body });
+        res.status(400).json({ errors });
+        return;
+      }
+      logger.error('Registration error:', { message: (error as Error).message, stack: (error as Error).stack });
       next(error);
     }
   };
 
   static login = async (req: Request<{}, {}, LoginRequestBody>, res: Response, next: NextFunction): Promise<void> => {
+    logger.info('Raw request body:', req.body); // Log pour débogage
     try {
       const { email, password } = req.body;
-
-      // Validate input
-      if (!email || !password) {
-        res.status(400).json({ message: 'Email et mot de passe requis' });
-        return;
-      }
-
-      // Find user
+      logger.info('Received login data:', { email });
       const user = await User.findOne({ email });
       if (!user) {
-        res.status(401).json({ message: 'Identifiants invalides' });
+        logger.warn('User not found:', { email });
+        res.status(401).json({
+          errors: [{
+            type: 'field',
+            msg: 'Identifiants invalides',
+            path: 'email',
+            location: 'body',
+          }],
+        });
         return;
       }
-
-      // Check password
       const isMatch = await user.comparePassword(password);
       if (!isMatch) {
-        res.status(401).json({ message: 'Identifiants invalides' });
+        logger.warn('Invalid password for:', { email });
+        res.status(401).json({
+          errors: [{
+            type: 'field',
+            msg: 'Identifiants invalides',
+            path: 'password',
+            location: 'body',
+          }],
+        });
         return;
       }
-
-      // Update last login
       user.lastLogin = new Date();
       await user.save();
-
-      // Generate JWT token
+      if (!process.env.JWT_SECRET) {
+        logger.error('JWT_SECRET non défini');
+        res.status(500).json({
+          errors: [{
+            type: 'server',
+            msg: 'Erreur serveur : configuration JWT manquante',
+            path: '',
+            location: 'server',
+          }],
+        });
+        return;
+      }
       const token = jwt.sign(
-        { id: user._id, role: user.role },
-        process.env.JWT_SECRET || 'secret',
+        { id: user._id, role: user.role, email: user.email },
+        process.env.JWT_SECRET,
         { expiresIn: '1h' }
       );
-
-      // Return user data along with token
       res.status(200).json({
         message: 'Connexion réussie',
         token,
@@ -124,17 +140,24 @@ class AuthController {
         },
       });
     } catch (error) {
-      console.error('Login error:', (error as Error).message);
+      logger.error('Login error:', { message: (error as Error).message, stack: (error as Error).stack });
       next(error);
     }
   };
 
   static getMe = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      // req.user is set by authMiddleware (contains id and role from JWT)
       const user = await User.findById(req.user?.id).select('-password');
       if (!user) {
-        res.status(404).json({ message: 'Utilisateur non trouvé' });
+        logger.warn('User not found:', { userId: req.user?.id });
+        res.status(404).json({
+          errors: [{
+            type: 'field',
+            msg: 'Utilisateur non trouvé',
+            path: 'id',
+            location: 'user',
+          }],
+        });
         return;
       }
       res.json({
@@ -145,8 +168,15 @@ class AuthController {
         role: user.role,
       });
     } catch (error) {
-      console.error('Error in getMe:', (error as Error).message);
-      res.status(500).json({ message: 'Erreur serveur' });
+      logger.error('Error in getMe:', { message: (error as Error).message, stack: (error as Error).stack });
+      res.status(500).json({
+        errors: [{
+          type: 'server',
+          msg: 'Erreur serveur',
+          path: '',
+          location: 'server',
+        }],
+      });
     }
   };
 }

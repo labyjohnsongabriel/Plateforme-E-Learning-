@@ -1,19 +1,28 @@
-// models/course/Question.js
-const mongoose = require("mongoose");
+import { Schema, model, Model, Document, Types } from 'mongoose';
 
-const questionSchema = new mongoose.Schema({
-  enonce: { type: String, required: true },
-  reponses: [{ type: String, required: true }], // Liste des options
-  reponseCorrecte: { type: Number, required: true }, // Index de la réponse correcte
-  quiz: { type: mongoose.Schema.Types.ObjectId, ref: "Quiz", required: true },
-});
+interface IQuestion extends Document {
+  texte: string;
+  type: 'SINGLE' | 'MULTIPLE';
+  options: string[];
+  reponsesCorrectes: string[];
+  quiz: Types.ObjectId;
+}
 
-// Méthode pour générer une question aléatoire (genererAleatoire)
-questionSchema.statics.genererAleatoire = async function (quizId) {
-  // Innovation: Générer une question aléatoire pour un quiz donné
-  const count = await this.countDocuments({ quiz: quizId });
-  const random = Math.floor(Math.random() * count);
-  return this.findOne({ quiz: quizId }).skip(random);
-};
+const questionSchema = new Schema<IQuestion>(
+  {
+    texte: { type: String, required: true },
+    type: {
+      type: String,
+      enum: ['SINGLE', 'MULTIPLE'],
+      required: true,
+    },
+    options: [{ type: String, required: true }],
+    reponsesCorrectes: [{ type: String, required: true }],
+    quiz: { type: Schema.Types.ObjectId, ref: 'Quiz', required: true }, // ✅ corrigé ici
+  },
+  { timestamps: true }
+);
 
-module.exports = mongoose.model("Question", questionSchema);
+const Question: Model<IQuestion> = model<IQuestion>('Question', questionSchema);
+
+export default Question;

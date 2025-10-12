@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Course } from '../../models/course/Cours';
+import  Course  from '../../models/course/Cours';
 
 /**
  * Interface pour les statistiques des cours.

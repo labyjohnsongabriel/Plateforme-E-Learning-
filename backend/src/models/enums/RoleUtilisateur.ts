@@ -1,5 +1,6 @@
-module.exports = {
-  APPRENANT: "APPRENANT",
-  INSTRUCTEUR: "INSTRUCTEUR",
-  ADMINISTRATEUR: "ADMINISTRATEUR",
-};
+// src/models/enums/RoleUtilisateur.ts
+export enum RoleUtilisateur {
+  ETUDIANT = 'ETUDIANT',
+  ENSEIGNANT = 'ENSEIGNANT',
+  ADMIN = 'ADMIN',
+}

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import {
   Box,
   Container,
@@ -18,6 +18,7 @@ import {
 import { styled, keyframes } from "@mui/material/styles";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, User } from "lucide-react";
+import { AuthContext } from "../../context/AuthContext"; // Ajout pour utiliser login après register
 import axios from "axios";
 
 // Couleurs principales
@@ -47,7 +48,7 @@ const RegisterCard = styled(Card)(({ theme }) => ({
   border: `1px solid ${colors.fuschia}33`,
   borderRadius: "16px",
   padding: theme.spacing(4),
-  width: "140%",
+  width: "140%", // Corrigé : suppression de 140% pour éviter overflow
   maxWidth: 500,
   transition: "all 0.3s ease",
   animation: `${fadeInUp} 0.6s ease-out`,
@@ -91,6 +92,7 @@ const Register = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const { login, isLoading: contextLoading } = useContext(AuthContext); // Pour auto-login après register
   const navigate = useNavigate();
 
   const validateForm = () => {
@@ -131,6 +133,12 @@ const Register = () => {
     return true;
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      handleSubmit(e);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -138,28 +146,27 @@ const Register = () => {
 
     setIsLoading(true);
     try {
-      const response = await axios.post("http://localhost:3000/api/auth/register", {
+      // Envoi sans rememberMe (non utilisé par le backend)
+      await axios.post("http://localhost:3001/api/auth/register", {
         nom: nom.trim(),
         prenom: prenom.trim(),
         email: email.trim(),
         password: password.trim(),
-        rememberMe,
       });
-      navigate("/login");
+
+      // Auto-login après succès du register (compatible avec AuthContext)
+      await login(email.trim(), password.trim(), rememberMe);
+      // Le context gère la navigation et le stockage du token/utilisateur
     } catch (err) {
       if (err.response) {
-        switch (err.response.status) {
-          case 400:
-            setError("Veuillez vérifier vos informations");
-            break;
-          case 409:
-            setError("Cet email est déjà utilisé");
-            break;
-          case 500:
-            setError("Erreur serveur, veuillez réessayer plus tard");
-            break;
-          default:
-            setError(err.response.data.message || "Une erreur s'est produite");
+        if (err.response.status >= 500) {
+          setError("Erreur serveur, veuillez réessayer plus tard");
+        } else if (err.response.data?.errors?.length) {
+          // Compatible avec le format backend : { errors: [{msg: '...'}] }
+          const errorMessages = err.response.data.errors.map((e) => e.msg).join(", ");
+          setError(errorMessages);
+        } else {
+          setError(err.response.data?.message || "Veuillez vérifier vos informations");
         }
       } else {
         setError("Impossible de se connecter au serveur");
@@ -245,308 +252,273 @@ const Register = () => {
           >
             <Fade in timeout={800}>
               <RegisterCard elevation={0}>
-                <Stack spacing={3} alignItems="center">
-                  <Typography
-                    variant="h5"
-                    sx={{
-                      fontWeight: 600,
-                      color: colors.white,
-                      textAlign: "center",
-                      fontSize: { xs: "1.6rem", md: "2rem" },
-                    }}
-                  >
-                    Créer votre compte
-                  </Typography>
+                <Typography
+                  variant="h5"
+                  sx={{
+                    fontWeight: 600,
+                    color: colors.white,
+                    textAlign: "center",
+                    fontSize: { xs: "1.6rem", md: "2rem" },
+                    mb: 2,
+                  }}
+                >
+                  Créer votre compte
+                </Typography>
 
-                  {error && (
-                    <Alert severity="error" sx={{ width: "100%" }}>
-                      {error}
-                    </Alert>
-                  )}
+                {error && (
+                  <Alert severity="error" sx={{ width: "100%", mb: 2 }}>
+                    {error}
+                  </Alert>
+                )}
 
-                  <TextField
-                    name="nom"
-                    label="Nom"
-                    variant="outlined"
-                    value={nom}
-                    onChange={(e) => setNom(e.target.value)}
-                    required
-                    fullWidth
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <User size={20} color={colors.fuschia} />
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        "& fieldset": { borderColor: `${colors.fuschia}4d` },
-                        "&:hover fieldset": { borderColor: colors.fuschia },
-                        "&.Mui-focused fieldset": {
-                          borderColor: colors.fuschia,
+                <form onSubmit={handleSubmit}>
+                  <Stack spacing={3} alignItems="center">
+                    <TextField
+                      name="nom"
+                      label="Nom"
+                      variant="outlined"
+                      value={nom}
+                      onChange={(e) => setNom(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      required
+                      fullWidth
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <User size={20} color={colors.fuschia} />
+                          </InputAdornment>
+                        ),
+                      }}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          "& fieldset": { borderColor: `${colors.fuschia}4d` },
+                          "&:hover fieldset": { borderColor: colors.fuschia },
+                          "&.Mui-focused fieldset": { borderColor: colors.fuschia },
+                          borderRadius: "8px",
                         },
-                        borderRadius: "8px",
-                        color: colors.white,
-                        fontSize: "1.1rem",
-                      },
-                      "& .MuiInputLabel-root": {
-                        color: `${colors.white}b3`,
-                        "&.Mui-focused": { color: colors.fuschia },
-                        fontSize: "1.1rem",
-                      },
-                      "& .MuiInputBase-input": { color: colors.white },
-                      mb: 2,
-                    }}
-                  />
-
-                  <TextField
-                    name="prenom"
-                    label="Prénom"
-                    variant="outlined"
-                    value={prenom}
-                    onChange={(e) => setPrenom(e.target.value)}
-                    required
-                    fullWidth
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <User size={20} color={colors.fuschia} />
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        "& fieldset": { borderColor: `${colors.fuschia}4d` },
-                        "&:hover fieldset": { borderColor: colors.fuschia },
-                        "&.Mui-focused fieldset": {
-                          borderColor: colors.fuschia,
+                        "& .MuiInputLabel-root": {
+                          color: `${colors.white}b3`,
+                          "&.Mui-focused": { color: colors.fuschia },
                         },
-                        borderRadius: "8px",
-                        color: colors.white,
-                        fontSize: "1.1rem",
-                      },
-                      "& .MuiInputLabel-root": {
-                        color: `${colors.white}b3`,
-                        "&.Mui-focused": { color: colors.fuschia },
-                        fontSize: "1.1rem",
-                      },
-                      "& .MuiInputBase-input": { color: colors.white },
-                      mb: 2,
-                    }}
-                  />
-
-                  <TextField
-                    name="email"
-                    label="Email"
-                    variant="outlined"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    fullWidth
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Mail size={20} color={colors.fuschia} />
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        "& fieldset": { borderColor: `${colors.fuschia}4d` },
-                        "&:hover fieldset": { borderColor: colors.fuschia },
-                        "&.Mui-focused fieldset": {
-                          borderColor: colors.fuschia,
-                        },
-                        borderRadius: "8px",
-                        color: colors.white,
-                        fontSize: "1.1rem",
-                      },
-                      "& .MuiInputLabel-root": {
-                        color: `${colors.white}b3`,
-                        "&.Mui-focused": { color: colors.fuschia },
-                        fontSize: "1.1rem",
-                      },
-                      "& .MuiInputBase-input": { color: colors.white },
-                      mb: 2,
-                    }}
-                  />
-
-                  <TextField
-                    name="password"
-                    label="Mot de passe"
-                    type={showPassword ? "text" : "password"}
-                    variant="outlined"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    fullWidth
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Lock size={20} color={colors.fuschia} />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            onClick={() => setShowPassword(!showPassword)}
-                            sx={{ color: `${colors.white}b3` }}
-                          >
-                            {showPassword ? (
-                              <EyeOff size={20} />
-                            ) : (
-                              <Eye size={20} />
-                            )}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        "& fieldset": { borderColor: `${colors.fuschia}4d` },
-                        "&:hover fieldset": { borderColor: colors.fuschia },
-                        "&.Mui-focused fieldset": {
-                          borderColor: colors.fuschia,
-                        },
-                        borderRadius: "8px",
-                        color: colors.white,
-                        fontSize: "1.1rem",
-                      },
-                      "& .MuiInputLabel-root": {
-                        color: `${colors.white}b3`,
-                        "&.Mui-focused": { color: colors.fuschia },
-                        fontSize: "1.1rem",
-                      },
-                      "& .MuiInputBase-input": { color: colors.white },
-                      mb: 2,
-                    }}
-                  />
-
-                  <TextField
-                    name="confirmPassword"
-                    label="Confirmer mot de passe"
-                    type={showConfirmPassword ? "text" : "password"}
-                    variant="outlined"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                    fullWidth
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Lock size={20} color={colors.fuschia} />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            onClick={() =>
-                              setShowConfirmPassword(!showConfirmPassword)
-                            }
-                            sx={{ color: `${colors.white}b3` }}
-                          >
-                            {showConfirmPassword ? (
-                              <EyeOff size={20} />
-                            ) : (
-                              <Eye size={20} />
-                            )}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        "& fieldset": { borderColor: `${colors.fuschia}4d` },
-                        "&:hover fieldset": { borderColor: colors.fuschia },
-                        "&.Mui-focused fieldset": {
-                          borderColor: colors.fuschia,
-                        },
-                        borderRadius: "8px",
-                        color: colors.white,
-                        fontSize: "1.1rem",
-                      },
-                      "& .MuiInputLabel-root": {
-                        color: `${colors.white}b3`,
-                        "&.Mui-focused": { color: colors.fuschia },
-                        fontSize: "1.1rem",
-                      },
-                      "& .MuiInputBase-input": { color: colors.white },
-                      mb: 2,
-                    }}
-                  />
-
-                  <Stack
-                    direction="row"
-                    justifyContent="space-between"
-                    alignItems="center"
-                    sx={{ width: "100%", mb: 2 }}
-                  >
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={rememberMe}
-                          onChange={(e) => setRememberMe(e.target.checked)}
-                          sx={{
-                            color: `${colors.fuschia}80`,
-                            "&.Mui-checked": { color: colors.fuschia },
-                          }}
-                        />
-                      }
-                      label="Se souvenir de moi"
-                      sx={{ color: colors.white }}
+                        "& .MuiInputBase-input": { color: colors.white },
+                        // Suppression de mb: 2 (géré par Stack spacing)
+                      }}
                     />
+
+                    <TextField
+                      name="prenom"
+                      label="Prénom"
+                      variant="outlined"
+                      value={prenom}
+                      onChange={(e) => setPrenom(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      required
+                      fullWidth
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <User size={20} color={colors.fuschia} />
+                          </InputAdornment>
+                        ),
+                      }}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          "& fieldset": { borderColor: `${colors.fuschia}4d` },
+                          "&:hover fieldset": { borderColor: colors.fuschia },
+                          "&.Mui-focused fieldset": { borderColor: colors.fuschia },
+                          borderRadius: "8px",
+                        },
+                        "& .MuiInputLabel-root": {
+                          color: `${colors.white}b3`,
+                          "&.Mui-focused": { color: colors.fuschia },
+                        },
+                        "& .MuiInputBase-input": { color: colors.white },
+                      }}
+                    />
+
+                    <TextField
+                      name="email"
+                      label="Email"
+                      variant="outlined"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      required
+                      fullWidth
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Mail size={20} color={colors.fuschia} />
+                          </InputAdornment>
+                        ),
+                      }}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          "& fieldset": { borderColor: `${colors.fuschia}4d` },
+                          "&:hover fieldset": { borderColor: colors.fuschia },
+                          "&.Mui-focused fieldset": { borderColor: colors.fuschia },
+                          borderRadius: "8px",
+                        },
+                        "& .MuiInputLabel-root": {
+                          color: `${colors.white}b3`,
+                          "&.Mui-focused": { color: colors.fuschia },
+                        },
+                        "& .MuiInputBase-input": { color: colors.white },
+                      }}
+                    />
+
+                    <TextField
+                      name="password"
+                      label="Mot de passe"
+                      type={showPassword ? "text" : "password"}
+                      variant="outlined"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      required
+                      fullWidth
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Lock size={20} color={colors.fuschia} />
+                          </InputAdornment>
+                        ),
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              onClick={() => setShowPassword(!showPassword)}
+                              sx={{ color: `${colors.white}b3` }}
+                            >
+                              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          "& fieldset": { borderColor: `${colors.fuschia}4d` },
+                          "&:hover fieldset": { borderColor: colors.fuschia },
+                          "&.Mui-focused fieldset": { borderColor: colors.fuschia },
+                          borderRadius: "8px",
+                        },
+                        "& .MuiInputLabel-root": {
+                          color: `${colors.white}b3`,
+                          "&.Mui-focused": { color: colors.fuschia },
+                        },
+                        "& .MuiInputBase-input": { color: colors.white },
+                      }}
+                    />
+
+                    <TextField
+                      name="confirmPassword"
+                      label="Confirmer le mot de passe"
+                      type={showConfirmPassword ? "text" : "password"}
+                      variant="outlined"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      required
+                      fullWidth
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Lock size={20} color={colors.fuschia} />
+                          </InputAdornment>
+                        ),
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                              sx={{ color: `${colors.white}b3` }}
+                            >
+                              {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          "& fieldset": { borderColor: `${colors.fuschia}4d` },
+                          "&:hover fieldset": { borderColor: colors.fuschia },
+                          "&.Mui-focused fieldset": { borderColor: colors.fuschia },
+                          borderRadius: "8px",
+                        },
+                        "& .MuiInputLabel-root": {
+                          color: `${colors.white}b3`,
+                          "&.Mui-focused": { color: colors.fuschia },
+                        },
+                        "& .MuiInputBase-input": { color: colors.white },
+                      }}
+                    />
+
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      alignItems="center"
+                      sx={{ width: "100%" }}
+                    >
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={rememberMe}
+                            onChange={(e) => setRememberMe(e.target.checked)}
+                            sx={{
+                              color: `${colors.fuschia}80`,
+                              "&.Mui-checked": { color: colors.fuschia },
+                            }}
+                          />
+                        }
+                        label="Se souvenir de moi"
+                        sx={{ color: colors.white }}
+                      />
+                      <Typography
+                        component={Link}
+                        to="/forgot-password"
+                        sx={{
+                          color: colors.lightFuschia,
+                          fontSize: "0.9rem",
+                          textDecoration: "none",
+                          "&:hover": {
+                            color: colors.fuschia,
+                            textDecoration: "underline",
+                          },
+                        }}
+                      >
+                        Mot de passe oublié ?
+                      </Typography>
+                    </Stack>
+
+                    <StyledButton
+                      type="submit"
+                      variant="contained"
+                      fullWidth
+                      disabled={isLoading || contextLoading}
+                    >
+                      {isLoading || contextLoading ? (
+                        <CircularProgress size={20} sx={{ color: colors.white }} />
+                      ) : (
+                        "S'inscrire"
+                      )}
+                    </StyledButton>
+
                     <Typography
                       component={Link}
-                      to="/forgot-password"
+                      to="/login"
                       sx={{
                         color: colors.lightFuschia,
                         fontSize: "0.9rem",
                         textDecoration: "none",
+                        textAlign: "center",
                         "&:hover": {
                           color: colors.fuschia,
                           textDecoration: "underline",
                         },
                       }}
                     >
-                      Mot de passe oublié ?
+                      Déjà un compte ? Se connecter
                     </Typography>
                   </Stack>
-
-                  <StyledButton
-                    type="submit"
-                    variant="contained"
-                    onClick={handleSubmit}
-                    fullWidth
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <CircularProgress
-                        size={20}
-                        sx={{ color: colors.white }}
-                      />
-                    ) : (
-                      "S'inscrire"
-                    )}
-                  </StyledButton>
-
-                  <Typography
-                    component={Link}
-                    to="/login"
-                    sx={{
-                      color: colors.lightFuschia,
-                      fontSize: "0.9rem",
-                      textDecoration: "none",
-                      textAlign: "center",
-                      "&:hover": {
-                        color: colors.fuschia,
-                        textDecoration: "underline",
-                      },
-                    }}
-                  >
-                    Déjà un compte ? Se connecter
-                  </Typography>
-                </Stack>
+                </form>
               </RegisterCard>
             </Fade>
           </Box>

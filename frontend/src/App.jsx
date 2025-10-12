@@ -1,3 +1,4 @@
+// Code original fourni, sans changements
 import React from "react";
 import {
   BrowserRouter as Router,
@@ -267,7 +268,7 @@ function App() {
                   <Route
                     path="/student"
                     element={
-                      <ProtectedRoute requiredRole="student">
+                      <ProtectedRoute requiredRole="etudiant">
                         <DashboardLayout />
                       </ProtectedRoute>
                     }
@@ -289,7 +290,7 @@ function App() {
                   <Route
                     path="/instructor"
                     element={
-                      <ProtectedRoute requiredRole="instructor">
+                      <ProtectedRoute requiredRole="enseignant">
                         <DashboardLayout />
                       </ProtectedRoute>
                     }

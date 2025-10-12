@@ -1,11 +1,11 @@
-// src/app.js (example)
-const express = require("express");
-const http = require("http");
-const socket = require("../backend/src/utils/socket");
-const app = express();
-const server = http.createServer(app);
+import express, { Express } from 'express';
+import http from 'http';
+import { init as initSocket } from '../backend/src/utils/socket';
+
+const app: Express = express();
+const server: http.Server = http.createServer(app);
 
 // Initialize Socket.IO
-socket.init(server);
+initSocket(server);
 
-module.exports = server; // Export server instead of app
+export default server;

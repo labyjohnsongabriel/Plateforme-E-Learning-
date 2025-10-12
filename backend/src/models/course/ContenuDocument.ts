@@ -1,8 +1,12 @@
-const Contenu = require("./Contenu");
+// src/models/learning/Document.ts (supposé)
+import { Schema } from 'mongoose';
+import Contenu, { IContenu, IDocument } from './Contenu';
 
-const contenuDocumentSchema = new mongoose.Schema({
+// Schéma pour le discriminateur Document
+const contenuDocumentSchema = new Schema<IDocument>({
   urlDocument: { type: String, required: true },
-  type: { type: String, enum: ["pdf", "doc", "other"] },
+  type: { type: String, enum: ['pdf', 'doc', 'other'] },
 });
 
-module.exports = Contenu.discriminator("document", contenuDocumentSchema);
+// Discriminateur pour Document
+export default Contenu.discriminator<IDocument>('document', contenuDocumentSchema);

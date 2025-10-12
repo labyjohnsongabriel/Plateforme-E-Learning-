@@ -48,7 +48,7 @@ const Progress = () => {
       setLoading(true);
       try {
         const response = await axios.get(
-          `${API_BASE_URL}/users/${user.id}/progress`,
+          `${API_BASE_URL}/progress/global`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -64,7 +64,7 @@ const Progress = () => {
       }
     };
     fetchProgress();
-  }, [user.id, token]);
+  }, [token]);
 
   if (loading) {
     return (

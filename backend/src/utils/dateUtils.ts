@@ -1,6 +1,9 @@
-const moment = require("moment");
+import moment from 'moment';
 
-module.exports = {
-  formatDate: (date) => moment(date).format("YYYY-MM-DD HH:mm:ss"),
-  isOlderThanDays: (date, days) => moment().diff(moment(date), "days") > days,
+export const formatDate = (date: Date | string): string => {
+  return moment(date).format('YYYY-MM-DD HH:mm:ss');
+};
+
+export const isOlderThanDays = (date: Date | string, days: number): boolean => {
+  return moment().diff(moment(date), 'days') > days;
 };

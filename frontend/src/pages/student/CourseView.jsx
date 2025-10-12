@@ -147,7 +147,7 @@ const CourseView = () => {
             mb: 2,
           }}
         >
-          Niveau: {course.level || "Non spécifié"}
+          Niveau: {course.niveau || "Non spécifié"}
         </Typography>
         <Typography
           sx={{
@@ -156,7 +156,7 @@ const CourseView = () => {
             mb: 3,
           }}
         >
-          Durée: {course.duration || "Non spécifiée"}
+          Durée: {course.duree || "Non spécifiée"}
         </Typography>
         <Button
           variant="contained"

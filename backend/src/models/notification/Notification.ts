@@ -1,17 +1,38 @@
-// src/models/notification/Notification.js
-const mongoose = require("mongoose");
+import { Schema, Document, Model, Types, model } from 'mongoose';
 
-const notificationSchema = new mongoose.Schema(
+// Enum for notification types
+export enum NotificationType {
+  RAPPEL_COURS = 'RAPPEL_COURS',
+  CERTIFICAT = 'CERTIFICAT',
+  PROGRESSION = 'PROGRESSION',
+}
+
+// Interface for Notification document
+export interface INotification extends Document {
+  utilisateur: Types.ObjectId;
+  message: string;
+  type: NotificationType;
+  dateEnvoi: Date;
+  lu: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Interface for Notification model
+export interface NotificationModel extends Model<INotification> {}
+
+// Define the schema
+const notificationSchema = new Schema<INotification>(
   {
     utilisateur: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      type: Schema.Types.ObjectId,
+      ref: 'User',
       required: true,
     },
     message: { type: String, required: true },
     type: {
       type: String,
-      enum: ["RAPPEL_COURS", "CERTIFICAT", "PROGRESSION"],
+      enum: Object.values(NotificationType),
       required: true,
     },
     dateEnvoi: { type: Date, default: Date.now },
@@ -20,4 +41,5 @@ const notificationSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model("Notification", notificationSchema);
+// Export the model
+export default model<INotification>('Notification', notificationSchema);

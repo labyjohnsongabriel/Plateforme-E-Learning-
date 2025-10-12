@@ -1,3 +1,6 @@
-const upload = require("../../config/upload");
+import { RequestHandler } from 'express';
+import multer from 'multer';
+import { upload } from '../config/upload';
 
-exports.uploadFile = upload.single("file");
+// Middleware for handling single file upload
+export const uploadFile: RequestHandler = upload.single('file');

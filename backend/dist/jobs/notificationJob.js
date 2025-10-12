@@ -1,28 +1,68 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-const cron = require("node-cron");
-const Progression = require("../models/learning/Progression");
-const NotificationService = require("../services/notification/NotificationService");
-const dateUtils = require("../utils/dateUtils");
-const constants = require("../utils/constants");
-const logger = require("../utils/logger");
+// src/jobs/inactivityReminderJob.ts
+const node_cron_1 = __importDefault(require("node-cron"));
+const Progression_1 = __importDefault(require("../models/learning/Progression"));
+const NotificationService = __importStar(require("../services/notification/NotificationService"));
+const dateUtils = __importStar(require("../utils/dateUtils"));
+const constants = __importStar(require("../utils/constants"));
+const logger_1 = __importDefault(require("../utils/logger"));
 // Weekly job for inactivity reminders
-cron.schedule("0 0 * * 0", async () => {
+node_cron_1.default.schedule('0 0 * * 0', async () => {
     try {
-        const inactive = await Progression.find({ dateFin: { $exists: false } });
+        const inactive = await Progression_1.default.find({
+            dateFin: { $exists: false }
+        });
         for (const prog of inactive) {
             if (dateUtils.isOlderThanDays(prog.updatedAt, constants.INACTIVITY_DAYS_FOR_REMINDER)) {
                 await NotificationService.create({
                     utilisateur: prog.apprenant,
-                    message: "Rappel : Continuez votre progression dans le cours pour obtenir votre certificat !",
-                    type: "rappel_cours",
+                    message: 'Rappel : Continuez votre progression dans le cours pour obtenir votre certificat !',
+                    type: 'rappel_cours',
                 });
             }
         }
-        logger.info("Notification job completed");
+        logger_1.default.info('Notification job completed');
     }
     catch (err) {
-        logger.error(`Notification job error: ${err.message}`);
+        const error = err;
+        logger_1.default.error(`Notification job error: ${error.message}`);
     }
 });
 //# sourceMappingURL=notificationJob.js.map

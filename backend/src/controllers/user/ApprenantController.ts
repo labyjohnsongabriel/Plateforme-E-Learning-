@@ -1,10 +1,11 @@
+// src/controllers/user/ApprenantController.ts
 import { Request, Response, NextFunction } from 'express';
 import createError from 'http-errors';
-import { User } from '../../models/user/User';
-import { InscriptionService } from '../../services/learning/InscriptionService';
-import { ProgressionService } from '../../services/learning/ProgressionService';
-import { CertificationService } from '../../services/learning/CertificationService';
-import { UserDocument, InscriptionDocument, ProgressionDocument, CertificatDocument, EnrollData, ProgressData } from '../../types';
+import  {User}  from '../../models/user/User';
+import  {InscriptionService} from '../../services/learning/InscriptionService';
+import {ProgressionService}  from '../../services/learning/ProgressionService';
+import  {CertificationService} from '../../services/learning/CertificationService';
+import { UserDocument, ProgressionDocument, CertificatDocument, EnrollData, ProgressData } from '../../types';
 
 /**
  * Contrôleur pour gérer les fonctionnalités des apprenants.
@@ -59,7 +60,7 @@ class ApprenantController {
    */
   static enrollInCourse = async (req: Request<{ id: string }, {}, EnrollData>, res: Response, next: NextFunction): Promise<void> => {
     try {
-      if (!req.user || req.user.id !== req.params.id && req.user.role !== 'admin') {
+      if (!req.user || (req.user.id !== req.params.id && req.user.role !== 'ADMIN')) {
         throw createError(403, 'Accès non autorisé');
       }
       const { coursId } = req.body;
@@ -79,7 +80,7 @@ class ApprenantController {
    */
   static updateProgress = async (req: Request<{ id: string }, {}, ProgressData>, res: Response, next: NextFunction): Promise<void> => {
     try {
-      if (!req.user || req.user.id !== req.params.id && req.user.role !== 'admin') {
+      if (!req.user || (req.user.id !== req.params.id && req.user.role !== 'ADMIN')) {
         throw createError(403, 'Accès non autorisé');
       }
       const { coursId, pourcentage } = req.body;

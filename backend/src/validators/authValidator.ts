@@ -1,21 +1,36 @@
-const { body, validationResult } = require("express-validator");
-const RoleUtilisateur = require("../../src/models/enums/RoleUtilisateur");
+import { body, validationResult } from 'express-validator';
+import { Request, Response, NextFunction } from 'express';
+import { RoleUtilisateur } from '../types';
 
 /**
- * @desc Validation pour l'inscription
+ * Validation pour l'inscription
  */
-exports.register = [
-  body("email").isEmail().withMessage("Format d'email invalide"),
-  body("password")
+export const register = [
+  body('email')
+    .trim()
+    .isEmail()
+    .withMessage("Format d'email invalide"),
+
+  body('password')
     .isLength({ min: 6 })
-    .withMessage("Le mot de passe doit contenir au moins 6 caractères"),
-  body("nom").notEmpty().withMessage("Le nom est requis"),
-  body("prenom").notEmpty().withMessage("Le prénom est requis"),
-  body("role")
+    .withMessage('Le mot de passe doit contenir au moins 6 caractères'),
+
+  body('nom')
+    .trim()
+    .notEmpty()
+    .withMessage('Le nom est requis'),
+
+  body('prenom')
+    .trim()
+    .notEmpty()
+    .withMessage('Le prénom est requis'),
+
+  body('role')
     .optional()
     .isIn(Object.values(RoleUtilisateur))
-    .withMessage("Rôle invalide"),
-  (req, res, next) => {
+    .withMessage('Rôle invalide'),
+
+  (req: Request, res: Response, next: NextFunction) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -25,12 +40,19 @@ exports.register = [
 ];
 
 /**
- * @desc Validation pour la connexion
+ * Validation pour la connexion
  */
-exports.login = [
-  body("email").isEmail().withMessage("Format d'email invalide"),
-  body("password").notEmpty().withMessage("Le mot de passe est requis"),
-  (req, res, next) => {
+export const login = [
+  body('email')
+    .trim()
+    .isEmail()
+    .withMessage("Format d'email invalide"),
+
+  body('password')
+    .notEmpty()
+    .withMessage('Le mot de passe est requis'),
+
+  (req: Request, res: Response, next: NextFunction) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -38,5 +60,3 @@ exports.login = [
     next();
   },
 ];
-
-module.exports = exports;

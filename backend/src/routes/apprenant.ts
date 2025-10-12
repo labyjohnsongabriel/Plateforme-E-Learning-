@@ -1,43 +1,25 @@
-const express = require("express");
-const router = express.Router();
-const ApprenantController = require("../controllers/user/ApprenantController");
-const authMiddleware = require("../middleware/auth");
-const authorizationMiddleware = require("../middleware/authorization");
-const Role = require("../models/enums/RoleUtilisateur"); 
+import { Router, Request, Response, NextFunction } from 'express';
+import AdministrateurController from '../controllers/user/AdministrateurController';
+import authMiddleware from '../middleware/auth';
+import authorize from '../middleware/authorization';
+import { RoleUtilisateur } from '../types'; // Updated to match AdministrateurController
 
-router.get(
-  "/:id/progress",
-  authMiddleware,
-  authorizationMiddleware([Role.APPRENANT]),
-  ApprenantController.getProgress
-);
+const router: Router = Router();
 
-router.get(
-  "/:id/certificates",
-  authMiddleware,
-  authorizationMiddleware([Role.APPRENANT]),
-  ApprenantController.getCertificates
-);
+// Stats routes
+router.get('/stats/global', authMiddleware, authorize([RoleUtilisateur.ADMIN]), AdministrateurController.getGlobalStats);
+router.get('/stats/user/:userId', authMiddleware, authorize([RoleUtilisateur.ADMIN]), AdministrateurController.getUserStats);
+router.get('/stats/course/:coursId', authMiddleware, authorize([RoleUtilisateur.ADMIN]), AdministrateurController.getCourseStats);
 
-router.post(
-  "/:id/enroll",
-  authMiddleware,
-  authorizationMiddleware([Role.APPRENANT]),
-  ApprenantController.enrollInCourse
-);
+// User management routes
+router.get('/users', authMiddleware, authorize([RoleUtilisateur.ADMIN]), AdministrateurController.getAllUsers);
+router.put('/users/:userId', authMiddleware, authorize([RoleUtilisateur.ADMIN]), AdministrateurController.updateUser);
+router.delete('/users/:userId', authMiddleware, authorize([RoleUtilisateur.ADMIN]), AdministrateurController.deleteUser);
 
-router.put(
-  "/:id/progress",
-  authMiddleware,
-  authorizationMiddleware([Role.APPRENANT]),
-  ApprenantController.updateProgress
-);
+// Course management routes
+router.post('/courses', authMiddleware, authorize([RoleUtilisateur.ADMIN]), AdministrateurController.createCourse);
+router.get('/courses', authMiddleware, authorize([RoleUtilisateur.ADMIN]), AdministrateurController.getAllCourses);
+router.put('/courses/:coursId', authMiddleware, authorize([RoleUtilisateur.ADMIN]), AdministrateurController.updateCourse);
+router.delete('/courses/:coursId', authMiddleware, authorize([RoleUtilisateur.ADMIN]), AdministrateurController.deleteCourse);
 
-router.get(
-  "/:id/profile",
-  authMiddleware,
-  authorizationMiddleware([Role.APPRENANT]),
-  ApprenantController.getProfile
-);
-
-module.exports = router;
+export default router;

@@ -1,14 +1,24 @@
-const mongoose = require("mongoose");
+// src/models/learning/Certificat.ts
+import { Schema, model, Document, Types, Model } from 'mongoose';
 
-const certificatSchema = new mongoose.Schema({
+// Interface pour le document Certificat
+export interface ICertificat extends Document {
+  apprenant: Types.ObjectId;
+  cours: Types.ObjectId;
+  dateEmission: Date; 
+  urlCertificat: string;
+}
+
+// Schéma pour Certificat
+const certificatSchema = new Schema<ICertificat>({
   apprenant: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
+    type: Schema.Types.ObjectId,
+    ref: 'User',
     required: true,
   },
   cours: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Cours",
+    type: Schema.Types.ObjectId,
+    ref: 'Cours',
     required: true,
   },
   dateEmission: {
@@ -24,4 +34,7 @@ const certificatSchema = new mongoose.Schema({
 // Index pour accélérer les recherches par apprenant et cours (évite les doublons et optimise les queries)
 certificatSchema.index({ apprenant: 1, cours: 1 }, { unique: true });
 
-module.exports = mongoose.model("Certificat", certificatSchema);
+// Modèle Certificat
+const Certificat: Model<ICertificat> = model<ICertificat>('Certificat', certificatSchema);
+
+export default Certificat;

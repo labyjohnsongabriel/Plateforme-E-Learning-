@@ -1,14 +1,42 @@
-const User = require("../../models/user/User");
+import { Types } from 'mongoose';
+import createError from 'http-errors';
+import {User , IUser } from '../../models/user/User';
+import Progression from '../../models/learning/Progression';
+import Certificat from '../../models/learning/Certificat';
 
-exports.getAllUsers = async () => {
-  return await User.find().select("-motDePasse"); // Sans MDP pour sécurité
+// Get all users
+export const getAllUsers = async (): Promise<Partial<IUser>[]> => {
+  try {
+    return await User.find().select('-motDePasse');
+  } catch (err) {
+    throw createError(500, `Erreur lors de la récupération des utilisateurs: ${(err as Error).message}`);
+  }
 };
 
-exports.updateUser = async (userId, data) => {
-  return await User.findByIdAndUpdate(userId, data, { new: true });
+// Update a user
+export const updateUser = async (userId: string | Types.ObjectId, data: Partial<IUser>): Promise<IUser | null> => {
+  try {
+    const user = await User.findByIdAndUpdate(userId, data, { new: true });
+    if (!user) {
+      throw createError(404, 'Utilisateur non trouvé');
+    }
+    return user;
+  } catch (err) {
+    throw createError(500, `Erreur lors de la mise à jour de l'utilisateur: ${(err as Error).message}`);
+  }
 };
 
-exports.deleteUser = async (userId) => {
-  await User.findByIdAndDelete(userId);
-  // Optionnel : Supprimer progressions, certs associés
+// Delete a user
+export const deleteUser = async (userId: string | Types.ObjectId): Promise<void> => {
+  try {
+    const user = await User.findByIdAndDelete(userId);
+    if (!user) {
+      throw createError(404, 'Utilisateur non trouvé');
+    }
+    // Optionally delete associated progressions and certificates
+    await Progression.deleteMany({ apprenant: userId });
+    await Certificat.deleteMany({ apprenant: userId });
+  } catch (err) {
+    throw createError(500, `Erreur lors de la suppression de l'utilisateur: ${(err as Error).message}`);
+  }
 };
