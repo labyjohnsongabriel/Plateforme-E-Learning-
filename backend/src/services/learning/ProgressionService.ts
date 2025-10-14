@@ -3,21 +3,33 @@ import { Types } from 'mongoose';
 import Progression, { IProgression } from '../../models/learning/Progression';
 import Cours, { ICours } from '../../models/course/Cours';
 
+/**
+ * Enumération des statuts de progression.
+ */
 export enum StatutProgression {
   EN_COURS = 'EN_COURS',
   COMPLETE = 'COMPLETE',
 }
 
+/**
+ * Service pour gérer la progression des apprenants dans les cours.
+ */
 export class ProgressionService {
+  /**
+   * 🔹 Initialise une progression pour un apprenant dans un cours.
+   * Si la progression existe déjà, elle est retournée.
+   */
   static async initialize(
     apprenantId: string | Types.ObjectId,
     coursId: string | Types.ObjectId
   ): Promise<IProgression> {
     try {
-      const existing = await Progression.findOne({ apprenant: apprenantId, cours: coursId });
-      if (existing) {
-        return existing;
+      if (!Types.ObjectId.isValid(apprenantId) || !Types.ObjectId.isValid(coursId)) {
+        throw new Error('Identifiant invalide');
       }
+
+      const existing = await Progression.findOne({ apprenant: apprenantId, cours: coursId });
+      if (existing) return existing;
 
       const cours = await Cours.findById(coursId);
       if (!cours) {
@@ -28,21 +40,31 @@ export class ProgressionService {
         apprenant: apprenantId,
         cours: coursId,
         dateDebut: new Date(),
+        statut: StatutProgression.EN_COURS,
+        pourcentage: 0,
       });
+
       await progression.save();
       return progression;
     } catch (err) {
-      console.error('Erreur lors de l\'initialisation de la progression:', err);
+      console.error('❌ Erreur lors de l’initialisation de la progression :', err);
       throw err;
     }
   }
 
+  /**
+   * 🔹 Met à jour la progression d’un apprenant pour un cours donné.
+   */
   static async update(
     apprenantId: string | Types.ObjectId,
     coursId: string | Types.ObjectId,
     pourcentage: number
   ): Promise<IProgression> {
     try {
+      if (!Types.ObjectId.isValid(apprenantId) || !Types.ObjectId.isValid(coursId)) {
+        throw new Error('Identifiant invalide');
+      }
+
       if (pourcentage < 0 || pourcentage > 100) {
         throw new Error('Pourcentage invalide (doit être entre 0 et 100)');
       }
@@ -53,45 +75,75 @@ export class ProgressionService {
       }
 
       progression.pourcentage = pourcentage;
+
       if (pourcentage === 100) {
         progression.dateFin = new Date();
         progression.statut = StatutProgression.COMPLETE;
-      } else if (pourcentage > 0 && progression.statut === StatutProgression.EN_COURS) {
-        // Optional logic
+      } else {
+        progression.statut = StatutProgression.EN_COURS;
       }
 
       await progression.save();
       return progression;
     } catch (err) {
-      console.error('Erreur lors de la mise à jour de la progression:', err);
+      console.error('❌ Erreur lors de la mise à jour de la progression :', err);
       throw err;
     }
   }
 
+  /**
+   * 🔹 Récupère une progression spécifique d’un apprenant dans un cours.
+   */
   static async getByUserAndCourse(
     apprenantId: string | Types.ObjectId,
     coursId: string | Types.ObjectId
   ): Promise<IProgression> {
     try {
-      const progression = await Progression.findOne({ apprenant: apprenantId, cours: coursId }).populate('cours', 'titre niveau');
+      if (!Types.ObjectId.isValid(apprenantId) || !Types.ObjectId.isValid(coursId)) {
+        throw new Error('Identifiant invalide');
+      }
+
+      const progression = await Progression.findOne({
+        apprenant: apprenantId,
+        cours: coursId,
+      }).populate('cours', 'titre niveau');
+
       if (!progression) {
         throw new Error('Progression non trouvée');
       }
+
       return progression;
     } catch (err) {
+      console.error('❌ Erreur dans getByUserAndCourse :', err);
       throw err;
     }
   }
 
-  static async getUserProgressions(apprenantId: string | Types.ObjectId): Promise<IProgression[]> {
+  /**
+   * 🔹 Récupère toutes les progressions d’un apprenant.
+   */
+  static async getUserProgressions(
+    apprenantId: string | Types.ObjectId
+  ): Promise<IProgression[]> {
     try {
-      const progressions = await Progression.find({ apprenant: apprenantId }).populate('cours', 'titre niveau domaine');
+      if (!Types.ObjectId.isValid(apprenantId)) {
+        throw new Error('Identifiant d’apprenant invalide');
+      }
+
+      const progressions = await Progression.find({ apprenant: apprenantId }).populate(
+        'cours',
+        'titre niveau domaine'
+      );
       return progressions;
     } catch (err) {
+      console.error('❌ Erreur dans getUserProgressions :', err);
       throw err;
     }
   }
 
+  /**
+   * 🔹 Récupère toutes les progressions (administration).
+   */
   static async getAllProgressions(): Promise<IProgression[]> {
     try {
       const progressions = await Progression.find()
@@ -99,6 +151,49 @@ export class ProgressionService {
         .populate('cours', 'titre');
       return progressions;
     } catch (err) {
+      console.error('❌ Erreur dans getAllProgressions :', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 🔹 Récupère la progression globale d’un apprenant :
+   *    - Moyenne de pourcentage sur tous ses cours
+   *    - Nombre total de cours
+   *    - Détails par cours
+   */
+  static async getGlobalProgress(
+    apprenantId: string | Types.ObjectId
+  ): Promise<{
+    totalCours: number;
+    moyennePourcentage: number;
+    details: IProgression[];
+  }> {
+    try {
+      if (!Types.ObjectId.isValid(apprenantId)) {
+        throw new Error('Identifiant d’apprenant invalide');
+      }
+
+      const progressions = await Progression.find({ apprenant: apprenantId }).populate(
+        'cours',
+        'titre niveau'
+      );
+
+      if (!progressions || progressions.length === 0) {
+        return { totalCours: 0, moyennePourcentage: 0, details: [] };
+      }
+
+      const totalCours = progressions.length;
+      const totalPourcentage = progressions.reduce(
+        (somme, prog) => somme + (prog.pourcentage || 0),
+        0
+      );
+
+      const moyennePourcentage = Math.round(totalPourcentage / totalCours);
+
+      return { totalCours, moyennePourcentage, details: progressions };
+    } catch (err) {
+      console.error('❌ Erreur dans getGlobalProgress :', err);
       throw err;
     }
   }

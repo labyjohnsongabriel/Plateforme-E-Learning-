@@ -1,6 +1,5 @@
-// src/routes/notifications.ts
 import { Router } from 'express';
-import NotificationController from '../controllers/notification/NotificationController';
+import NotificationController from '../controllers/notification/NotificationController'; // Changed to named import
 import authMiddleware from '../middleware/auth';
 import authorizationMiddleware from '../middleware/authorization';
 import { joiValidation } from '../middleware/joiValidation';

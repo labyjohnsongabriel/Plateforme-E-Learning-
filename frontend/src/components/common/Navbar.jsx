@@ -52,9 +52,7 @@ import { useNotifications } from '../../context/NotificationContext';
 import axios from 'axios';
 
 function HideOnScroll({ children }) {
-  const trigger = useScrollTrigger({
-    threshold: 50,
-  });
+  const trigger = useScrollTrigger({ threshold: 50 });
   return (
     <Slide appear={false} direction='down' in={!trigger}>
       {children}
@@ -70,7 +68,6 @@ const Navbar = ({ onToggleSidebar }) => {
   const [profileData, setProfileData] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [error, setError] = useState('');
-  const [hoverItem, setHoverItem] = useState(null);
 
   const { user, logout } = useAuth() || { user: null, logout: () => {} };
   const {
@@ -84,34 +81,43 @@ const Navbar = ({ onToggleSidebar }) => {
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const isTablet = useMediaQuery(theme.breakpoints.down('lg'));
 
   const defaultAvatar = '/images/default-avatar.png';
 
   // Déterminer le rôle actuel
-  const userRole = profileData?.role || user?.role || '';
+  const userRole = profileData?.role || user?.role || 'ETUDIANT';
   const isStudent = userRole.toUpperCase() === 'ETUDIANT';
   const isInstructor = userRole.toUpperCase() === 'ENSEIGNANT';
   const isAdmin = userRole.toUpperCase() === 'ADMIN';
 
+  // Définir les rôles constants
+  const ROLES = {
+    ALL: 'ALL',
+    STUDENT: 'ETUDIANT',
+    INSTRUCTOR: 'ENSEIGNANT',
+    ADMIN: 'ADMIN',
+  };
+
+  // Définir les préfixes de chemin par rôle
+  const PATH_PREFIXES = {
+    [ROLES.STUDENT]: 'student',
+    [ROLES.INSTRUCTOR]: 'instructor',
+    [ROLES.ADMIN]: 'admin',
+  };
+
   useEffect(() => {
     const handleScroll = () => {
-      const isScrolled = window.scrollY > 20;
-      if (isScrolled !== scrolled) {
-        setScrolled(isScrolled);
-      }
+      setScrolled(window.scrollY > 20);
     };
-
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [scrolled]);
+  }, []);
 
   const fetchProfile = useCallback(async () => {
     if (!user?.token) {
       setProfileData(null);
       return;
     }
-
     setLoadingProfile(true);
     try {
       const response = await axios.get('/api/auth/profile', {
@@ -221,16 +227,15 @@ const Navbar = ({ onToggleSidebar }) => {
     if (!notification.lu) {
       await handleMarkAsRead(notification._id, { stopPropagation: () => {} });
     }
-
     switch (notification.type) {
       case 'RAPPEL_COURS':
-        if (notification.courseId) navigate(`/course/${notification.courseId}`);
+        if (notification.courseId) navigate(`/student/course/${notification.courseId}`);
         break;
       case 'CERTIFICAT':
-        navigate('/certificates');
+        navigate('/student/certificates');
         break;
       case 'PROGRESSION':
-        navigate('/progress');
+        navigate('/student/progress');
         break;
       default:
         break;
@@ -244,13 +249,6 @@ const Navbar = ({ onToggleSidebar }) => {
   };
 
   const getNavItems = useCallback(() => {
-    const ROLES = {
-      ALL: 'all',
-      LEARNER: 'ETUDIANT',
-      INSTRUCTOR: 'ENSEIGNANT',
-      ADMIN: 'ADMIN',
-    };
-
     const baseItems = [
       { label: 'Accueil', path: '/', roles: [ROLES.ALL] },
       { label: 'Catalogue', path: '/catalog', roles: [ROLES.ALL] },
@@ -258,42 +256,37 @@ const Navbar = ({ onToggleSidebar }) => {
       { label: 'Contact', path: '/contact', roles: [ROLES.ALL] },
       {
         label: 'Tableau de bord',
-        path: `/${user?.role?.toLowerCase() || 'student'}/dashboard`,
-        roles: [ROLES.LEARNER, ROLES.INSTRUCTOR, ROLES.ADMIN],
+        path: `/${PATH_PREFIXES[userRole.toUpperCase()] || 'student'}/dashboard`,
+        roles: [ROLES.STUDENT, ROLES.INSTRUCTOR, ROLES.ADMIN],
       },
       {
         label: 'Mes Cours',
-        path: `/${user?.role?.toLowerCase() || 'student'}/courses`,
-        roles: [ROLES.LEARNER],
+        path: '/student/courses',
+        roles: [ROLES.STUDENT],
       },
       {
         label: 'Progression',
-        path: `/${user?.role?.toLowerCase() || 'student'}/progress`,
-        roles: [ROLES.LEARNER],
+        path: '/student/progress',
+        roles: [ROLES.STUDENT],
       },
       {
         label: 'Certificats',
-        path: `/${user?.role?.toLowerCase() || 'student'}/certificates`,
-        roles: [ROLES.LEARNER],
+        path: '/student/certificates',
+        roles: [ROLES.STUDENT],
       },
       {
         label: 'Paramètres',
-        path: `/${user?.role?.toLowerCase() || 'student'}/settings`,
-        roles: [ROLES.LEARNER],
-      },
-      {
-        label: 'Gestion des Cours',
-        path: `/${user?.role?.toLowerCase() || 'instructor'}/courses`,
-        roles: [ROLES.INSTRUCTOR],
+        path: '/student/settings',
+        roles: [ROLES.STUDENT],
       },
       {
         label: 'Créer un Cours',
-        path: `/${user?.role?.toLowerCase() || 'instructor'}/courses/create`,
+        path: '/instructor/courses/create',
         roles: [ROLES.INSTRUCTOR],
       },
       {
         label: 'Analytiques Étudiants',
-        path: `/${user?.role?.toLowerCase() || 'instructor'}/analytics`,
+        path: '/instructor/analytics',
         roles: [ROLES.INSTRUCTOR],
       },
       {
@@ -316,19 +309,13 @@ const Navbar = ({ onToggleSidebar }) => {
         path: '/admin/config',
         roles: [ROLES.ADMIN],
       },
-      {
-        label: 'Analytiques',
-        path: '/admin/analytics',
-        roles: [ROLES.ADMIN],
-      },
     ];
 
     return baseItems.filter(
       (item) =>
-        item.roles.includes(ROLES.ALL) ||
-        (user?.role && item.roles.includes(user.role.toUpperCase()))
+        item.roles.includes(ROLES.ALL) || (userRole && item.roles.includes(userRole.toUpperCase()))
     );
-  }, [user]);
+  }, [userRole]);
 
   const navItems = getNavItems();
 
@@ -525,8 +512,6 @@ const Navbar = ({ onToggleSidebar }) => {
                   <Button
                     color='inherit'
                     onClick={() => handleNavigation(item.path)}
-                    onMouseEnter={() => setHoverItem(item.path)}
-                    onMouseLeave={() => setHoverItem(null)}
                     sx={{
                       px: 2.5,
                       py: 1,
@@ -690,13 +675,13 @@ const Navbar = ({ onToggleSidebar }) => {
                     {getUserFullName()}
                   </Typography>
                   <Chip
-                    label={getRoleLabel(profileData?.role || user?.role || 'Utilisateur')}
+                    label={getRoleLabel(userRole)}
                     size='small'
                     sx={{
                       height: 18,
                       fontSize: '0.65rem',
                       fontWeight: 600,
-                      bgcolor: alpha(getRoleColor(profileData?.role || user?.role), 0.25),
+                      bgcolor: alpha(getRoleColor(userRole), 0.25),
                       color: 'white',
                       mt: 0.5,
                       '& .MuiChip-label': { px: 1 },
@@ -980,10 +965,10 @@ const Navbar = ({ onToggleSidebar }) => {
                     sx={{ flexWrap: 'wrap' }}
                   >
                     <Chip
-                      label={getRoleLabel(profileData?.role || user?.role || 'Utilisateur')}
+                      label={getRoleLabel(userRole)}
                       size='small'
                       sx={{
-                        bgcolor: alpha(getRoleColor(profileData?.role || user?.role), 0.25),
+                        bgcolor: alpha(getRoleColor(userRole), 0.25),
                         color: 'white',
                         fontWeight: 700,
                         fontSize: '0.7rem',
@@ -1007,7 +992,9 @@ const Navbar = ({ onToggleSidebar }) => {
             </Paper>
             <Box sx={{ p: 1.5 }}>
               <MenuItem
-                onClick={() => handleNavigation('/profil')}
+                onClick={() =>
+                  handleNavigation(`/${PATH_PREFIXES[userRole.toUpperCase()] || 'student'}/profil`)
+                }
                 sx={{
                   borderRadius: 2,
                   py: 1.5,
@@ -1025,7 +1012,7 @@ const Navbar = ({ onToggleSidebar }) => {
                 <ListItemText primary='Mon Profil' primaryTypographyProps={{ fontWeight: 600 }} />
               </MenuItem>
               <MenuItem
-                onClick={() => handleNavigation('/settings')}
+                onClick={() => handleNavigation('/student/settings')}
                 sx={{
                   borderRadius: 2,
                   py: 1.5,
@@ -1044,7 +1031,9 @@ const Navbar = ({ onToggleSidebar }) => {
               </MenuItem>
               <MenuItem
                 onClick={() =>
-                  handleNavigation(`/${user?.role?.toLowerCase() || 'user'}/dashboard`)
+                  handleNavigation(
+                    `/${PATH_PREFIXES[userRole.toUpperCase()] || 'student'}/dashboard`
+                  )
                 }
                 sx={{
                   borderRadius: 2,
@@ -1143,7 +1132,7 @@ const Navbar = ({ onToggleSidebar }) => {
                       {getUserFullName()}
                     </Typography>
                     <Typography variant='caption' sx={{ opacity: 0.95, fontWeight: 500 }}>
-                      {getRoleLabel(profileData?.role || user?.role || 'Utilisateur')}
+                      {getRoleLabel(userRole)}
                       {isStudent &&
                         (profileData?.level || user?.level) &&
                         ` • Niveau ${profileData?.level || user?.level}`}
@@ -1190,7 +1179,9 @@ const Navbar = ({ onToggleSidebar }) => {
               )}
               <Divider sx={{ my: 1.5 }} />
               <MenuItem
-                onClick={() => handleNavigation('/profile')}
+                onClick={() =>
+                  handleNavigation(`/${PATH_PREFIXES[userRole.toUpperCase()] || 'student'}/profile`)
+                }
                 sx={{
                   borderRadius: 2,
                   py: 1.5,
@@ -1208,7 +1199,7 @@ const Navbar = ({ onToggleSidebar }) => {
                 <ListItemText primary='Mon Profil' primaryTypographyProps={{ fontWeight: 600 }} />
               </MenuItem>
               <MenuItem
-                onClick={() => handleNavigation('/settings')}
+                onClick={() => handleNavigation('/student/settings')}
                 sx={{
                   borderRadius: 2,
                   py: 1.5,

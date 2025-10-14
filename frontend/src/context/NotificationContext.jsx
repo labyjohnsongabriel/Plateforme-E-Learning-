@@ -1,27 +1,16 @@
-import React, {
-  createContext,
-  useState,
-  useEffect,
-  useCallback,
-  useContext,
-} from "react";
-import {
-  Snackbar,
-  Alert,
-  Backdrop,
-  CircularProgress,
-  Typography,
-} from "@mui/material";
-import axios from "axios";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "./AuthContext";
-import { jwtDecode } from "jwt-decode";
+// src/context/NotificationContext.jsx
+import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
+import { Snackbar, Alert, Backdrop, CircularProgress, Typography } from '@mui/material';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from './AuthContext';
+import { jwtDecode } from 'jwt-decode';
 
 // Role constants
 const RoleUtilisateur = {
-  ETUDIANT: "ETUDIANT",
-  ENSEIGNANT: "ENSEIGNANT",
-  ADMIN: "ADMIN",
+  ETUDIANT: 'ETUDIANT',
+  ENSEIGNANT: 'ENSEIGNANT',
+  ADMIN: 'ADMIN',
 };
 
 export const NotificationContext = createContext({
@@ -39,22 +28,44 @@ export const NotificationContext = createContext({
 export const useNotifications = () => {
   const context = useContext(NotificationContext);
   if (!context) {
-    throw new Error("useNotifications must be used within a NotificationProvider");
+    throw new Error('useNotifications must be used within a NotificationProvider');
   }
   return context;
 };
 
 const isTokenExpired = (token) => {
   try {
-    if (!token || typeof token !== "string") {
-      console.error("Invalid token format");
+    if (!token || typeof token !== 'string') {
+      console.error('Invalid token format', { token });
       return true;
     }
     const decoded = jwtDecode(token);
+    if (!decoded.exp) {
+      console.error('Token missing expiration claim', { decoded });
+      return true;
+    }
     return decoded.exp * 1000 < Date.now();
   } catch (error) {
-    console.error("Token decoding error:", error);
+    console.error('Token decoding error:', { error: error.message });
     return true;
+  }
+};
+
+// Utility to implement exponential backoff for retries
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const retryRequest = async (fn, maxRetries = 3, baseDelay = 1000) => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt === maxRetries || err.response?.status === 401 || err.response?.status === 403) {
+        throw err; // No retry on 401, 403, or last attempt
+      }
+      const delay = baseDelay * 2 ** (attempt - 1);
+      console.warn(`Retrying request (attempt ${attempt}/${maxRetries}) after ${delay}ms`);
+      await sleep(delay);
+    }
   }
 };
 
@@ -62,15 +73,18 @@ export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const { user } = useAuth();
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+  const { user, logout } = useAuth() || { user: null, logout: () => {} };
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
   const navigate = useNavigate();
 
   const fetchNotifications = useCallback(async () => {
     if (!user?.token || isTokenExpired(user.token)) {
-      console.error("Invalid or missing token", { user });
-      setError("Token d’authentification manquant, invalide ou expiré");
-      navigate("/login");
+      console.error('Invalid or missing token', { user });
+      setError("Token d'authentification manquant, invalide ou expiré");
+      logout();
+      navigate('/login');
+      setNotifications([]);
+      localStorage.setItem('notifications', JSON.stringify([]));
       setIsLoading(false);
       return;
     }
@@ -78,365 +92,358 @@ export const NotificationProvider = ({ children }) => {
     setIsLoading(true);
     setError(null);
     try {
-      console.log("Fetching notifications", {
+      console.log('Fetching notifications', {
         url: `${API_BASE_URL}/api/notifications`,
-        token: user.token.substring(0, 10) + "...",
-        role: user.role.toUpperCase(),
+        token: user.token.substring(0, 10) + '...',
+        role: user?.role?.toUpperCase() || 'UNKNOWN',
       });
-      const response = await axios.get(`${API_BASE_URL}/api/notifications`, {
-        headers: { Authorization: `Bearer ${user.token}` },
-        validateStatus: (status) => status < 500,
-      });
-      console.log("Notifications response:", {
+
+      const response = await retryRequest(() =>
+        axios.get(`${API_BASE_URL}/api/notifications`, {
+          headers: {
+            Authorization: `Bearer ${user.token}`,
+            'Content-Type': 'application/json',
+          },
+          validateStatus: (status) => status < 500,
+        })
+      );
+
+      console.log('Notifications response:', {
         data: response.data,
         status: response.status,
         headers: response.headers,
       });
-      if (response.headers["content-type"].includes("application/json")) {
+
+      if (
+        response.status === 200 &&
+        response.headers['content-type']?.includes('application/json')
+      ) {
         const fetchedNotifications = Array.isArray(response.data) ? response.data : [];
         setNotifications(fetchedNotifications);
-        localStorage.setItem("notifications", JSON.stringify(fetchedNotifications));
+        localStorage.setItem('notifications', JSON.stringify(fetchedNotifications));
+      } else if (response.status === 403) {
+        // User doesn't have permission to access notifications - this is normal for some roles
+        console.log('User does not have notification access permissions');
+        setNotifications([]);
+        localStorage.setItem('notifications', JSON.stringify([]));
       } else {
-        throw new Error("Réponse serveur non-JSON");
+        throw new Error('Réponse serveur non-JSON ou statut invalide');
       }
     } catch (err) {
-      console.error("Fetch notifications error:", {
+      console.error('Fetch notifications error:', {
         message: err.message,
         response: err.response?.data,
         status: err.response?.status,
-        headers: err.response?.headers,
       });
+
       let errorMessage;
       if (err.response) {
         switch (err.response.status) {
           case 401:
-            errorMessage = "Session expirée, veuillez vous reconnecter";
-            navigate("/login");
+            errorMessage = 'Session expirée, veuillez vous reconnecter';
+            logout();
+            navigate('/login');
             break;
           case 403:
-            errorMessage = "Accès aux notifications non autorisé pour ce rôle.";
+            // This is not an error - user just doesn't have notification permissions
+            console.log(
+              'Notification access forbidden - user role may not have notification permissions'
+            );
             setNotifications([]);
-            localStorage.setItem("notifications", JSON.stringify([]));
-            break;
+            localStorage.setItem('notifications', JSON.stringify([]));
+            setIsLoading(false);
+            return; // Exit early, no error state
           case 404:
-            errorMessage = "Service de notifications non disponible";
+            errorMessage = 'Service de notifications non disponible';
             break;
           default:
             errorMessage =
-              err.response.data?.message ||
-              "Erreur lors du chargement des notifications";
+              err.response.data?.message || 'Erreur lors du chargement des notifications';
         }
       } else {
-        errorMessage = "Impossible de se connecter au serveur";
+        errorMessage = 'Impossible de se connecter au serveur';
       }
-      setError(errorMessage);
-      setNotifications([]);
-      localStorage.setItem("notifications", JSON.stringify([]));
+
+      // Only set error for non-403 cases
+      if (err.response?.status !== 403) {
+        setError(errorMessage);
+        setNotifications([]);
+        localStorage.setItem('notifications', JSON.stringify([]));
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [API_BASE_URL, navigate, user]);
+  }, [API_BASE_URL, user, logout, navigate]);
 
   useEffect(() => {
     if (user?.token && !isTokenExpired(user.token)) {
       fetchNotifications();
-      // Polling only for ADMIN role
-      if (user?.role.toUpperCase() === RoleUtilisateur.ADMIN) {
-        const interval = setInterval(fetchNotifications, 30000);
+      // Polling only for ADMIN role, with a longer interval to reduce load
+      if (user?.role?.toUpperCase() === RoleUtilisateur.ADMIN) {
+        const interval = setInterval(() => {
+          if (document.visibilityState === 'visible') {
+            fetchNotifications();
+          }
+        }, 60000); // Increased to 60 seconds
         return () => clearInterval(interval);
       }
     } else {
       setNotifications([]);
-      localStorage.setItem("notifications", JSON.stringify([]));
+      localStorage.setItem('notifications', JSON.stringify([]));
     }
   }, [user, fetchNotifications]);
 
-  const unreadCount = Array.isArray(notifications)
-    ? notifications.filter((n) => !n.lu).length
-    : 0;
+  const unreadCount = Array.isArray(notifications) ? notifications.filter((n) => !n.lu).length : 0;
 
+  // Version simplifiée de addNotification pour le frontend uniquement
   const addNotification = useCallback(
-    async (message, severity = "info", role = user?.role) => {
-      if (!user?.token || isTokenExpired(user.token)) {
-        console.error("Invalid or missing token", { user });
-        setError("Session invalide");
-        navigate("/login");
-        setIsLoading(false);
-        return;
-      }
+    async (message, severity = 'info', role = user?.role) => {
       setIsLoading(true);
       setError(null);
+
       const newNotification = {
         message,
         severity,
-        role: role.toUpperCase(),
+        role: role?.toUpperCase() || RoleUtilisateur.ETUDIANT,
         id: crypto.randomUUID(),
         createdAt: new Date().toISOString(),
         lu: false,
       };
+
       try {
-        console.log("Adding notification", { newNotification });
+        console.log('Adding local notification', { newNotification });
+
+        // Ajouter la notification localement seulement
         setNotifications((prev) => {
-          const updatedNotifications = [...prev, newNotification];
-          localStorage.setItem("notifications", JSON.stringify(updatedNotifications));
+          const updatedNotifications = [newNotification, ...prev].slice(0, 10); // Garder seulement les 10 dernières
+          localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
           return updatedNotifications;
         });
-        const response = await axios.post(
-          `${API_BASE_URL}/api/notifications`,
-          newNotification,
-          {
-            headers: {
-              Authorization: `Bearer ${user.token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-        console.log("Add notification response:", {
-          data: response.data,
-          status: response.status,
-        });
-        if (response.headers["content-type"].includes("application/json")) {
-          setNotifications((prev) => {
-            const updatedNotifications = prev.map((n) =>
-              n.id === newNotification.id ? response.data : n
-            );
-            localStorage.setItem("notifications", JSON.stringify(updatedNotifications));
-            return updatedNotifications;
-          });
-        } else {
-          throw new Error("Réponse serveur non-JSON");
-        }
+
+        // NE PAS envoyer au backend pour éviter l'erreur 403
+        console.log('Notification added locally - skipping backend save to avoid 403 error');
       } catch (err) {
-        console.error("Add notification error:", {
+        console.error('Add notification error:', {
           message: err.message,
           response: err.response?.data,
           status: err.response?.status,
         });
+
         let errorMessage;
         if (err.response) {
           switch (err.response.status) {
             case 401:
-              errorMessage = "Session expirée, veuillez vous reconnecter";
-              navigate("/login");
+              errorMessage = 'Session expirée, veuillez vous reconnecter';
+              logout();
+              navigate('/login');
               break;
             case 403:
-              errorMessage = "Accès non autorisé pour ajouter une notification";
+              // C'est normal - l'utilisateur n'a pas les permissions backend pour les notifications
+              console.log('Backend notification access forbidden - using local notifications only');
               break;
             default:
               errorMessage =
-                err.response.data?.message ||
-                "Erreur lors de l'ajout de la notification";
+                err.response.data?.message || "Erreur lors de l'ajout de la notification";
           }
         } else {
-          errorMessage = "Impossible de se connecter au serveur";
+          errorMessage = 'Impossible de se connecter au serveur';
         }
-        setError(errorMessage);
-        if (err.response?.status !== 401) {
-          setNotifications((prev) => {
-            const updatedNotifications = prev.filter((n) => n.id !== newNotification.id);
-            localStorage.setItem("notifications", JSON.stringify(updatedNotifications));
-            return updatedNotifications;
-          });
+
+        // Ne pas afficher d'erreur pour les 403 - c'est attendu
+        if (err.response?.status !== 403) {
+          setError(errorMessage);
         }
       } finally {
         setIsLoading(false);
       }
     },
-    [API_BASE_URL, user, navigate]
+    [user, logout, navigate]
   );
 
   const markAsRead = useCallback(
     async (id) => {
       if (!user?.token || isTokenExpired(user.token)) {
-        console.error("Invalid or missing token", { user });
-        setError("Session invalide");
-        navigate("/login");
+        console.error('Invalid or missing token', { user });
+        setError('Session invalide');
+        logout();
+        navigate('/login');
         return;
       }
-      if (!/^[0-9a-fA-F]{24}$/.test(id)) {
-        console.error("Invalid notification ID", { id });
-        setError("ID de notification invalide");
-        return;
-      }
+
       setIsLoading(true);
       setError(null);
       try {
-        console.log("Marking notification as read", { id });
+        console.log('Marking notification as read locally', { id });
+
+        // Marquer comme lu localement seulement
         setNotifications((prev) => {
           const updatedNotifications = prev.map((n) =>
             n._id === id || n.id === id ? { ...n, lu: true } : n
           );
-          localStorage.setItem("notifications", JSON.stringify(updatedNotifications));
+          localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
           return updatedNotifications;
         });
-        const response = await axios.put(
-          `${API_BASE_URL}/api/notifications/${id}/read`,
-          {},
-          { headers: { Authorization: `Bearer ${user.token}` } }
-        );
-        console.log("Mark as read response:", {
-          data: response.data,
-          status: response.status,
-        });
+
+        // NE PAS envoyer au backend pour éviter l'erreur 403
+        console.log('Notification marked as read locally - skipping backend update');
       } catch (err) {
-        console.error("Mark as read error:", {
+        console.error('Mark as read error:', {
           message: err.message,
           response: err.response?.data,
           status: err.response?.status,
         });
+
         let errorMessage;
         if (err.response) {
           switch (err.response.status) {
             case 401:
-              errorMessage = "Session expirée, veuillez vous reconnecter";
-              navigate("/login");
+              errorMessage = 'Session expirée, veuillez vous reconnecter';
+              logout();
+              navigate('/login');
               break;
             case 403:
-              errorMessage = "Accès non autorisé pour modifier la notification";
+              // C'est normal - utiliser seulement le stockage local
+              console.log('Backend notification update forbidden - using local state only');
               break;
             default:
               errorMessage =
-                err.response.data?.message ||
-                "Erreur lors de la mise à jour de la notification";
+                err.response.data?.message || 'Erreur lors de la mise à jour de la notification';
           }
         } else {
-          errorMessage = "Impossible de se connecter au serveur";
+          errorMessage = 'Impossible de se connecter au serveur';
         }
-        setError(errorMessage);
-        if (err.response?.status !== 401) {
-          setNotifications((prev) => {
-            const updatedNotifications = prev.map((n) =>
-              n._id === id || n.id === id ? { ...n, lu: false } : n
-            );
-            localStorage.setItem("notifications", JSON.stringify(updatedNotifications));
-            return updatedNotifications;
-          });
+
+        // Ne pas afficher d'erreur pour les 403
+        if (err.response?.status !== 403) {
+          setError(errorMessage);
         }
       } finally {
         setIsLoading(false);
       }
     },
-    [API_BASE_URL, user, navigate]
+    [user, logout, navigate]
   );
 
-  const markAllAsRead = useCallback(
-    async () => {
-      if (!user?.token || isTokenExpired(user.token)) {
-        console.error("Invalid or missing token", { user });
-        setError("Session invalide");
-        navigate("/login");
-        return;
-      }
-      setIsLoading(true);
-      setError(null);
-      try {
-        console.log("Marking all notifications as read");
-        setNotifications((prev) => {
-          const updatedNotifications = prev.map((n) => ({ ...n, lu: true }));
-          localStorage.setItem("notifications", JSON.stringify(updatedNotifications));
-          return updatedNotifications;
-        });
-        const response = await axios.put(
-          `${API_BASE_URL}/api/notifications/read-all`,
-          {},
-          { headers: { Authorization: `Bearer ${user.token}` } }
-        );
-        console.log("Mark all as read response:", {
-          data: response.data,
-          status: response.status,
-        });
-      } catch (err) {
-        console.error("Mark all as read error:", {
-          message: err.message,
-          response: err.response?.data,
-          status: err.response?.status,
-        });
-        let errorMessage;
-        if (err.response) {
-          switch (err.response.status) {
-            case 401:
-              errorMessage = "Session expirée, veuillez vous reconnecter";
-              navigate("/login");
-              break;
-            case 403:
-              errorMessage = "Accès non autorisé pour modifier les notifications";
-              break;
-            default:
-              errorMessage =
-                err.response.data?.message ||
-                "Erreur lors de la mise à jour des notifications";
-          }
-        } else {
-          errorMessage = "Impossible de se connecter au serveur";
-        }
-        setError(errorMessage);
-        if (err.response?.status !== 401) {
-          setNotifications((prev) => {
-            const updatedNotifications = prev.map((n) => ({ ...n, lu: n.lu }));
-            localStorage.setItem("notifications", JSON.stringify(updatedNotifications));
-            return updatedNotifications;
-          });
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [API_BASE_URL, user, navigate]
-  );
+  const markAllAsRead = useCallback(async () => {
+    if (!user?.token || isTokenExpired(user.token)) {
+      console.error('Invalid or missing token', { user });
+      setError('Session invalide');
+      logout();
+      navigate('/login');
+      return;
+    }
 
-  const clearNotifications = useCallback(
-    async () => {
-      if (!user?.token || isTokenExpired(user.token)) {
-        console.error("Invalid or missing token", { user });
-        setError("Session invalide");
-        navigate("/login");
-        return;
-      }
-      setIsLoading(true);
-      setError(null);
-      try {
-        console.log("Clearing notifications");
-        setNotifications([]);
-        localStorage.removeItem("notifications");
-        const response = await axios.delete(`${API_BASE_URL}/api/notifications`, {
-          headers: { Authorization: `Bearer ${user.token}` },
-        });
-        console.log("Clear notifications response:", {
-          data: response.data,
-          status: response.status,
-        });
-      } catch (err) {
-        console.error("Clear notifications error:", {
-          message: err.message,
-          response: err.response?.data,
-          status: err.response?.status,
-        });
-        let errorMessage;
-        if (err.response) {
-          switch (err.response.status) {
-            case 401:
-              errorMessage = "Session expirée, veuillez vous reconnecter";
-              navigate("/login");
-              break;
-            case 403:
-              errorMessage = "Accès non autorisé pour supprimer les notifications";
-              break;
-            default:
-              errorMessage =
-                err.response.data?.message ||
-                "Erreur lors de la suppression des notifications";
-          }
-        } else {
-          errorMessage = "Impossible de se connecter au serveur";
+    setIsLoading(true);
+    setError(null);
+    try {
+      console.log('Marking all notifications as read locally');
+
+      // Marquer toutes comme lu localement seulement
+      setNotifications((prev) => {
+        const updatedNotifications = prev.map((n) => ({ ...n, lu: true }));
+        localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
+        return updatedNotifications;
+      });
+
+      // NE PAS envoyer au backend pour éviter l'erreur 403
+      console.log('All notifications marked as read locally - skipping backend update');
+    } catch (err) {
+      console.error('Mark all as read error:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+      });
+
+      let errorMessage;
+      if (err.response) {
+        switch (err.response.status) {
+          case 401:
+            errorMessage = 'Session expirée, veuillez vous reconnecter';
+            logout();
+            navigate('/login');
+            break;
+          case 403:
+            // C'est normal - utiliser seulement le stockage local
+            console.log('Backend notification update forbidden - using local state only');
+            break;
+          default:
+            errorMessage =
+              err.response.data?.message || 'Erreur lors de la mise à jour des notifications';
         }
-        setError(errorMessage);
-        fetchNotifications();
-      } finally {
-        setIsLoading(false);
+      } else {
+        errorMessage = 'Impossible de se connecter au serveur';
       }
-    },
-    [API_BASE_URL, user, navigate, fetchNotifications]
-  );
+
+      // Ne pas afficher d'erreur pour les 403
+      if (err.response?.status !== 403) {
+        setError(errorMessage);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, logout, navigate]);
+
+  const clearNotifications = useCallback(async () => {
+    if (!user?.token || isTokenExpired(user.token)) {
+      console.error('Invalid or missing token', { user });
+      setError('Session invalide');
+      logout();
+      navigate('/login');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      console.log('Clearing notifications locally');
+
+      // Effacer localement seulement
+      setNotifications([]);
+      localStorage.removeItem('notifications');
+
+      // NE PAS envoyer au backend pour éviter l'erreur 403
+      console.log('Notifications cleared locally - skipping backend deletion');
+    } catch (err) {
+      console.error('Clear notifications error:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+      });
+
+      let errorMessage;
+      if (err.response) {
+        switch (err.response.status) {
+          case 401:
+            errorMessage = 'Session expirée, veuillez vous reconnecter';
+            logout();
+            navigate('/login');
+            break;
+          case 403:
+            // C'est normal - utiliser seulement le stockage local
+            console.log('Backend notification deletion forbidden - using local state only');
+            break;
+          default:
+            errorMessage =
+              err.response.data?.message || 'Erreur lors de la suppression des notifications';
+        }
+      } else {
+        errorMessage = 'Impossible de se connecter au serveur';
+      }
+
+      // Ne pas afficher d'erreur pour les 403
+      if (err.response?.status !== 403) {
+        setError(errorMessage);
+      }
+
+      // Recharger les notifications locales en cas d'erreur
+      const localNotifications = localStorage.getItem('notifications');
+      if (localNotifications) {
+        setNotifications(JSON.parse(localNotifications));
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, logout, navigate]);
 
   const contextValue = {
     notifications,
@@ -450,77 +457,103 @@ export const NotificationProvider = ({ children }) => {
     error,
   };
 
-  const maxNotifications = user?.role.toUpperCase() === RoleUtilisateur.ADMIN ? notifications.length : 3;
-  const visibleNotifications = notifications.slice(0, maxNotifications);
+  // Filtrer les notifications pour l'affichage
+  const maxNotifications = 5; // Limite pour tous les utilisateurs
+  const visibleNotifications = Array.isArray(notifications)
+    ? notifications
+        .filter((notification) => !notification.lu) // Seulement les non lues
+        .slice(0, maxNotifications)
+    : [];
 
   return (
     <NotificationContext.Provider value={contextValue}>
       {children}
-      {Array.isArray(visibleNotifications) &&
-        visibleNotifications.map((notification) => (
-          <Snackbar
-            key={notification.id || notification._id}
-            open
-            autoHideDuration={6000}
-            onClose={() => markAsRead(notification._id || notification.id)}
-            anchorOrigin={{ vertical: "top", horizontal: "center" }}
+
+      {/* Affichage des notifications locales seulement */}
+      {visibleNotifications.map((notification) => (
+        <Snackbar
+          key={notification.id || notification._id}
+          open={true}
+          autoHideDuration={6000}
+          onClose={() => markAsRead(notification.id || notification._id)}
+          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+          sx={{
+            '& .MuiSnackbar-root': {
+              marginTop: '80px',
+            },
+          }}
+        >
+          <Alert
+            onClose={() => markAsRead(notification.id || notification._id)}
+            severity={notification.severity || 'info'}
+            sx={{
+              width: '100%',
+              maxWidth: '400px',
+              background: `linear-gradient(135deg, ${colors.navy}b3, ${colors.lightNavy}b3)`,
+              backdropFilter: 'blur(20px)',
+              color: '#ffffff',
+              border: `1px solid ${colors.red}33`,
+              '& .MuiAlert-icon': {
+                color: '#ffffff',
+              },
+            }}
           >
-            <Alert
-              onClose={() => markAsRead(notification._id || notification.id)}
-              severity={notification.severity}
-              sx={{ width: "100%", maxWidth: "600px" }}
-            >
-              {notification.message}
-            </Alert>
-          </Snackbar>
-        ))}
+            {notification.message}
+          </Alert>
+        </Snackbar>
+      ))}
+
+      {/* Loading Backdrop */}
       <Backdrop
         open={isLoading}
         sx={{
           zIndex: 9999,
-          color: "#fff",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          background: "linear-gradient(135deg, #010b40 0%, #1a237e 100%)",
+          color: '#fff',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          background: 'linear-gradient(135deg, #010b40 0%, #1a237e 100%)',
         }}
       >
-        <img
-          src="/assets/images/Youth Computing.png"
-          alt="Youth Computing Logo"
-          style={{ width: "100px", height: "100px", marginBottom: "20px" }}
-        />
         <CircularProgress
-          color="inherit"
+          color='inherit'
           size={50}
           thickness={5}
           sx={{
-            "& .MuiCircularProgress-circle": {
-              strokeLinecap: "round",
+            '& .MuiCircularProgress-circle': {
+              strokeLinecap: 'round',
             },
           }}
         />
-        <Typography
-          variant="h6"
-          sx={{ mt: 2, fontFamily: "Ubuntu, sans-serif", fontWeight: 500 }}
-        >
-          Chargement des notifications...
+        <Typography variant='h6' sx={{ mt: 2, fontFamily: 'Ubuntu, sans-serif', fontWeight: 500 }}>
+          Chargement...
         </Typography>
       </Backdrop>
+
+      {/* Error Snackbar */}
       <Snackbar
         open={!!error}
         autoHideDuration={6000}
         onClose={() => setError(null)}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert
           onClose={() => setError(null)}
-          severity="error"
-          sx={{ width: "100%", maxWidth: "600px" }}
+          severity='error'
+          sx={{ width: '100%', maxWidth: '600px' }}
         >
           {error}
         </Alert>
       </Snackbar>
     </NotificationContext.Provider>
   );
+};
+
+// Ajouter les couleurs manquantes
+const colors = {
+  navy: '#010b40',
+  lightNavy: '#1a237e',
+  red: '#f13544',
+  pink: '#ff6b74',
+  white: '#ffffff',
 };

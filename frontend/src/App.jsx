@@ -251,83 +251,77 @@ function App() {
           <CourseProvider>
             <NotificationProvider>
               <CssBaseline />
-              <div className="App">
+              <div className='App'>
                 <Routes>
                   {/* Routes publiques */}
-                  <Route path="/" element={<Home />} />
-                  <Route path="/about" element={<About />} />
-                  <Route path="/contact" element={<Contact />} />
-                  <Route path="/catalog" element={<Catalog />} />
+                  <Route path='/' element={<Home />} />
+                  <Route path='/about' element={<About />} />
+                  <Route path='/contact' element={<Contact />} />
+                  <Route path='/catalog' element={<Catalog />} />
 
                   {/* Routes d'authentification */}
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/register" element={<Register />} />
-                  <Route path="/forgot-password" element={<ForgotPassword />} />
+                  <Route path='/login' element={<Login />} />
+                  <Route path='/register' element={<Register />} />
+                  <Route path='/forgot-password' element={<ForgotPassword />} />
 
                   {/* Routes protégées - Étudiant */}
                   <Route
-                    path="/student"
+                    path='/student'
                     element={
-                      <ProtectedRoute requiredRole="etudiant">
+                      <ProtectedRoute requiredRole='etudiant'>
                         <DashboardLayout />
                       </ProtectedRoute>
                     }
                   >
-                    <Route
-                      index
-                      element={<Navigate to="/student/dashboard" />}
-                    />
-                    <Route path="dashboard" element={<StudentDashboard />} />
-                    <Route path="courses" element={<MyCourses />} />
-                    <Route path="course/:id" element={<CourseView />} />
-                    <Route path="progress" element={<Progress />} />
-                    <Route path="certificates" element={<Certificates />} />
-                    <Route path="settings" element={<Settings />} />
-                    <Route path="profile" element={<Profile />} />
+                    <Route index element={<Navigate to='/student/dashboard' />} />
+                    <Route path='dashboard' element={<StudentDashboard />} />
+                    <Route path='courses' element={<MyCourses />} />
+                    <Route path='course/:id' element={<CourseView />} />
+                    <Route path='progress' element={<Progress />} />
+                    <Route path='certificates' element={<Certificates />} />
+                    <Route path='settings' element={<Settings />} />
+                    <Route path='profil' element={<Profile />} />
                   </Route>
 
                   {/* Routes protégées - Instructeur */}
                   <Route
-                    path="/instructor"
+                    path='/instructor'
                     element={
-                      <ProtectedRoute requiredRole="enseignant">
+                      <ProtectedRoute requiredRole='enseignant'>
                         <DashboardLayout />
                       </ProtectedRoute>
                     }
                   >
-                    <Route
-                      index
-                      element={<Navigate to="/instructor/dashboard" />}
-                    />
-                    <Route path="dashboard" element={<InstructorDashboard />} />
-                    <Route path="courses/create" element={<CreateCourse />} />
-                    <Route path="courses/edit/:id" element={<EditCourse />} />
-                    <Route path="analytics" element={<StudentAnalytics />} />
-                    <Route path="profile" element={<Profile />} />
+                    <Route index element={<Navigate to='/instructor/dashboard' />} />
+                    <Route path='dashboard' element={<InstructorDashboard />} />
+                    <Route path='courses/create' element={<CreateCourse />} />
+                    <Route path='courses/edit/:id' element={<EditCourse />} />
+                    <Route path='analytics' element={<StudentAnalytics />} />
+                    <Route path='profil' element={<Profile />} />
                   </Route>
 
                   {/* Routes protégées - Admin */}
                   <Route
-                    path="/admin"
+                    path='/admin'
                     element={
-                      <ProtectedRoute requiredRole="admin">
+                      <ProtectedRoute requiredRole='admin'>
                         <DashboardLayout />
                       </ProtectedRoute>
                     }
                   >
-                    <Route index element={<Navigate to="/admin/dashboard" />} />
-                    <Route path="dashboard" element={<AdminDashboard />} />
-                    <Route path="users" element={<Users />} />
-                    <Route path="courses" element={<Courses />} />
-                    <Route path="reports" element={<Reports />} />
-                    <Route path="config" element={<SystemConfig />} />
-                    <Route path="profile" element={<Profile />} />
+                    <Route index element={<Navigate to='/admin/dashboard' />} />
+                    <Route path='dashboard' element={<AdminDashboard />} />
+                    <Route path='users' element={<Users />} />
+                    <Route path='courses' element={<Courses />} />
+                    <Route path='reports' element={<Reports />} />
+                    <Route path='config' element={<SystemConfig />} />
+                    <Route path='profil' element={<Profile />} />
                   </Route>
 
                   {/* Routes d'erreur */}
-                  <Route path="/unauthorized" element={<Unauthorized />} />
-                  <Route path="/server-error" element={<ServerError />} />
-                  <Route path="*" element={<NotFound />} />
+                  <Route path='/unauthorized' element={<Unauthorized />} />
+                  <Route path='/server-error' element={<ServerError />} />
+                  <Route path='*' element={<NotFound />} />
                 </Routes>
               </div>
             </NotificationProvider>

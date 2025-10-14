@@ -1,10 +1,11 @@
 // src/models/learning/Progression.ts
 import { Schema, model, Document, Types, Model } from 'mongoose';
 import { StatutProgression } from '../../services/learning/ProgressionService';
+import { CourseDocument } from '../../types';
 
 export interface IProgression extends Document {
   apprenant: Types.ObjectId;
-  cours: Types.ObjectId;
+  cours: Types.ObjectId | CourseDocument;
   pourcentage: number;
   dateDebut: Date;
   dateFin?: Date;

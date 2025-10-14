@@ -106,8 +106,8 @@ const PageContent = styled(Box)({
   flex: 1,
   display: 'flex',
   flexDirection: 'column',
-  minHeight: 'calc(100vh - 128px)', // Header + Footer height
-  width: '100%',
+ // minHeight: 'calc(100vh - 128px)', // Header + Footer height
+  //width: '90%',
   overflow: 'auto',
 });
 
@@ -232,7 +232,7 @@ const Layout = ({
           >
             <ContentArea
               sx={{
-                maxWidth: fullScreen ? '10150%' : getContainerMaxWidth(),
+                maxWidth: fullScreen ? '100%' : getContainerMaxWidth(),
                 py: fullScreen ? 0 : 3,
               }}
             >

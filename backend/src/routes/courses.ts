@@ -1,3 +1,4 @@
+// src/routes/course.ts
 import { Router, Request, Response, NextFunction } from 'express';
 import CoursController from '../controllers/course/CoursController';
 import ContenuController from '../controllers/course/ContenuController';
@@ -14,7 +15,7 @@ import createError from 'http-errors';
 
 const router: Router = Router();
 
-// Routes pour Domaine
+/* -------------------- 🔷 ROUTES DOMAINE -------------------- */
 router.post(
   '/domaine',
   authMiddleware,
@@ -24,7 +25,6 @@ router.post(
 );
 
 router.get('/domaine', DomaineController.getAll);
-
 router.get('/domaine/:id', DomaineController.getById);
 
 router.put(
@@ -42,7 +42,6 @@ router.delete(
   DomaineController.delete
 );
 
-// Route for domain statistics
 router.get(
   '/domaine/:id/stats',
   authMiddleware,
@@ -59,7 +58,17 @@ router.get(
   }
 );
 
-// Routes pour Cours
+/* -------------------- 🔷 ROUTES COURS -------------------- */
+
+// 🔸 D’abord la route personnalisée
+router.get(
+  '/my-courses',
+  authMiddleware,
+  authorize([RoleUtilisateur.ETUDIANT]),
+  CoursController.getMyCourses
+);
+
+// 🔸 Puis le CRUD normal
 router.post(
   '/',
   authMiddleware,
@@ -69,7 +78,6 @@ router.post(
 );
 
 router.get('/', CoursController.getAll);
-
 router.get('/:id', CoursController.getById);
 
 router.put(
@@ -87,9 +95,8 @@ router.delete(
   CoursController.delete
 );
 
-// Routes pour Contenu
+/* -------------------- 🔷 ROUTES CONTENU -------------------- */
 router.get('/contenu/:id', authMiddleware, ContenuController.getById);
-
 router.delete(
   '/contenu/:id',
   authMiddleware,
@@ -97,7 +104,7 @@ router.delete(
   ContenuController.delete
 );
 
-// Routes pour Quiz
+/* -------------------- 🔷 ROUTES QUIZ -------------------- */
 router.post(
   '/quiz',
   authMiddleware,
@@ -123,7 +130,6 @@ router.delete(
   QuizController.delete
 );
 
-// Route for learners to submit quiz answers
 router.post(
   '/quiz/:id/soumettre',
   authMiddleware,

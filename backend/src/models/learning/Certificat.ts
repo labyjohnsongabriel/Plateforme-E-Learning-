@@ -5,8 +5,10 @@ import { Schema, model, Document, Types, Model } from 'mongoose';
 export interface ICertificat extends Document {
   apprenant: Types.ObjectId;
   cours: Types.ObjectId;
-  dateEmission: Date; 
+  dateEmission: Date;
   urlCertificat: string;
+  valide: boolean;
+  numero: string;
 }
 
 // Schéma pour Certificat
@@ -26,6 +28,14 @@ const certificatSchema = new Schema<ICertificat>({
     default: Date.now,
   },
   urlCertificat: {
+    type: String,
+    required: true,
+  },
+  valide: {
+    type: Boolean,
+    default: true,
+  },
+  numero: {
     type: String,
     required: true,
   },

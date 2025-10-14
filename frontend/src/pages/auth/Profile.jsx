@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+// src/components/Profile.jsx
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -12,7 +13,14 @@ import {
   Avatar,
   Alert,
   Divider,
-} from "@mui/material";
+  Card,
+  IconButton,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Badge,
+} from '@mui/material';
 import {
   Person,
   Email,
@@ -23,91 +31,478 @@ import {
   School,
   Verified,
   Settings,
-} from "@mui/icons-material";
-import { ThemeProvider, createTheme } from "@mui/material/styles";
-import axios from "axios";
-import { useAuth } from "../../context/AuthContext"; // Importer le contexte d'authentification
-import { useNavigate } from "react-router-dom";
+  Notifications as NotificationsIcon,
+} from '@mui/icons-material';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import axios from 'axios';
+import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
+import { useNavigate } from 'react-router-dom';
 
 const theme = createTheme({
   palette: {
-    primary: { main: "#010b40" }, // Bleu marine
-    secondary: { main: "#f13544" }, // Fuchsia
-    background: { default: "#010b40" },
-    success: { main: "#4CAF50", light: "#E8F5E9" },
-    error: { main: "#F44336", light: "#FFEBEE" },
+    primary: { main: '#1E3A8A' },
+    secondary: { main: '#F43F5E' },
+    background: { default: '#F9FAFB' },
+    success: { main: '#10B981', light: '#D1FAE5' },
+    error: { main: '#EF4444', light: '#FEE2E2' },
   },
   typography: {
-    h4: { fontSize: "2.5rem", fontWeight: 700 },
-    h5: { fontSize: "2rem", fontWeight: 600 },
-    body1: { fontSize: "1.2rem" },
-    body2: { fontSize: "1rem" },
+    h4: { fontSize: '2.25rem', fontWeight: 700 },
+    h5: { fontSize: '1.75rem', fontWeight: 600 },
+    body1: { fontSize: '1.1rem' },
+    body2: { fontSize: '0.9rem' },
+  },
+  components: {
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          borderRadius: 12,
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+        },
+      },
+    },
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+          textTransform: 'none',
+          padding: '10px 20px',
+        },
+      },
+    },
   },
 });
 
+// Composant pour les informations personnelles
+const ProfileInfo = ({
+  user,
+  isEditing,
+  editForm,
+  handleInputChange,
+  handleAvatarChange,
+  handleEditToggle,
+  handleSave,
+  isSaving,
+  message,
+  error,
+}) => (
+  <Paper sx={{ p: 4 }}>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Typography variant='h5' fontWeight='bold'>
+        Informations personnelles
+      </Typography>
+      <IconButton onClick={handleEditToggle} aria-label={isEditing ? 'Annuler' : 'Modifier'}>
+        {isEditing ? <Cancel color='primary' /> : <Edit color='secondary' />}
+      </IconButton>
+    </Box>
+    {message && (
+      <Alert severity='success' sx={{ mb: 3 }}>
+        {message}
+      </Alert>
+    )}
+    {error && (
+      <Alert severity='error' sx={{ mb: 3 }}>
+        {error}
+      </Alert>
+    )}
+    {isEditing ? (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+          <Avatar
+            src={editForm.avatar ? URL.createObjectURL(editForm.avatar) : user.avatar}
+            sx={{ width: 100, height: 100, border: `3px solid ${theme.palette.secondary.main}` }}
+            aria-label='Avatar utilisateur'
+          >
+            {user.prenom[0]}
+            {user.nom[0]}
+          </Avatar>
+        </Box>
+        <Button variant='contained' component='label' color='secondary'>
+          Changer l'avatar
+          <input
+            type='file'
+            hidden
+            accept='image/jpeg,image/png'
+            onChange={handleAvatarChange}
+            aria-label='Télécharger un nouvel avatar'
+          />
+        </Button>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label='Nom'
+              name='nom'
+              value={editForm.nom}
+              onChange={handleInputChange}
+              required
+              variant='outlined'
+              inputProps={{ maxLength: 50 }}
+              aria-required='true'
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position='start'>
+                    <Person />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label='Prénom'
+              name='prenom'
+              value={editForm.prenom}
+              onChange={handleInputChange}
+              required
+              variant='outlined'
+              inputProps={{ maxLength: 50 }}
+              aria-required='true'
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position='start'>
+                    <Person />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label='Email'
+              name='email'
+              value={editForm.email}
+              onChange={handleInputChange}
+              required
+              variant='outlined'
+              inputProps={{ maxLength: 100 }}
+              aria-required='true'
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position='start'>
+                    <Email />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Grid>
+        </Grid>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant='contained'
+            color='secondary'
+            onClick={handleSave}
+            disabled={isSaving}
+            startIcon={isSaving ? <CircularProgress size={20} /> : <Save />}
+            fullWidth
+          >
+            {isSaving ? 'Enregistrement...' : 'Enregistrer'}
+          </Button>
+          <Button
+            variant='outlined'
+            color='primary'
+            onClick={handleEditToggle}
+            startIcon={<Cancel />}
+            fullWidth
+          >
+            Annuler
+          </Button>
+        </Box>
+      </Box>
+    ) : (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Avatar src={user.avatar} sx={{ width: 48, height: 48 }} aria-label='Avatar utilisateur'>
+            {user.prenom[0]}
+            {user.nom[0]}
+          </Avatar>
+          <Box>
+            <Typography variant='body2' color='text.secondary'>
+              Nom complet
+            </Typography>
+            <Typography variant='body1'>
+              {user.prenom} {user.nom}
+            </Typography>
+          </Box>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Email sx={{ fontSize: 24 }} />
+          <Box>
+            <Typography variant='body2' color='text.secondary'>
+              Email
+            </Typography>
+            <Typography variant='body1'>{user.email}</Typography>
+          </Box>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Event sx={{ fontSize: 24 }} />
+          <Box>
+            <Typography variant='body2' color='text.secondary'>
+              Membre depuis
+            </Typography>
+            <Typography variant='body1'>
+              {new Date(user.dateInscription).toLocaleDateString('fr-FR', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </Typography>
+          </Box>
+        </Box>
+      </Box>
+    )}
+  </Paper>
+);
+
+// Composant pour les notifications
+const NotificationsPanel = ({
+  notifications,
+  unreadCount,
+  markAsRead,
+  markAllAsRead,
+  clearNotifications,
+}) => (
+  <Paper sx={{ p: 4, mt: 3 }}>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Typography variant='h5' fontWeight='bold'>
+        Notifications
+        <Badge badgeContent={unreadCount} color='secondary' sx={{ ml: 2 }} />
+      </Typography>
+      <Box>
+        <Button
+          variant='outlined'
+          color='primary'
+          onClick={markAllAsRead}
+          sx={{ mr: 1 }}
+          disabled={unreadCount === 0}
+        >
+          Tout marquer comme lu
+        </Button>
+        <Button
+          variant='outlined'
+          color='error'
+          onClick={clearNotifications}
+          disabled={notifications.length === 0}
+        >
+          Supprimer tout
+        </Button>
+      </Box>
+    </Box>
+    {notifications.length === 0 ? (
+      <Typography variant='body1' color='text.secondary'>
+        Aucune notification
+      </Typography>
+    ) : (
+      <List>
+        {notifications.map((notification) => (
+          <ListItem
+            key={notification._id || notification.id}
+            sx={{
+              bgcolor: notification.lu ? 'transparent' : 'success.light',
+              borderRadius: 2,
+              mb: 1,
+            }}
+            button
+            onClick={() => markAsRead(notification._id || notification.id)}
+          >
+            <ListItemIcon>
+              <NotificationsIcon color={notification.lu ? 'disabled' : 'secondary'} />
+            </ListItemIcon>
+            <ListItemText
+              primary={notification.message}
+              secondary={new Date(notification.createdAt).toLocaleString('fr-FR')}
+            />
+          </ListItem>
+        ))}
+      </List>
+    )}
+  </Paper>
+);
+
+// Composant pour les statistiques des étudiants
+const StudentStats = ({ user }) => (
+  <Paper sx={{ p: 4 }}>
+    <Typography variant='h5' fontWeight='bold' sx={{ mb: 3 }}>
+      Statistiques d'apprentissage
+    </Typography>
+    <Box sx={{ textAlign: 'center', mb: 3 }}>
+      <CircularProgress
+        variant='determinate'
+        value={user.progression}
+        size={100}
+        thickness={5}
+        sx={{ color: 'secondary.main' }}
+      />
+      <Typography variant='h6' sx={{ mt: 1 }}>
+        {user.progression}%
+      </Typography>
+      <Typography variant='body2' color='text.secondary'>
+        Progression
+      </Typography>
+    </Box>
+    <Grid container spacing={2}>
+      <Grid item xs={6}>
+        <Card sx={{ p: 2, textAlign: 'center' }}>
+          <Typography variant='h6'>{user.coursTermines}</Typography>
+          <Typography variant='body2' color='text.secondary'>
+            Cours terminés
+          </Typography>
+        </Card>
+      </Grid>
+      <Grid item xs={6}>
+        <Card sx={{ p: 2, textAlign: 'center' }}>
+          <Typography variant='h6'>{user.certificats || 0}</Typography>
+          <Typography variant='body2' color='text.secondary'>
+            Certificats
+          </Typography>
+        </Card>
+      </Grid>
+    </Grid>
+    <Divider sx={{ my: 3 }} />
+    <Typography variant='h6'>Réalisations récentes</Typography>
+    <Box sx={{ mt: 2, p: 2, bgcolor: 'success.light', borderRadius: 2 }}>
+      <Verified sx={{ fontSize: 20, mr: 1 }} />
+      <Typography variant='body2'>Python Basics terminé - Il y a 2 jours</Typography>
+    </Box>
+  </Paper>
+);
+
+// Composant pour les actions des administrateurs
+const AdminActions = () => (
+  <Paper sx={{ p: 4 }}>
+    <Typography variant='h5' fontWeight='bold' sx={{ mb: 3 }}>
+      Gestion des utilisateurs
+    </Typography>
+    <Grid container spacing={2}>
+      <Grid item xs={12}>
+        <Button
+          variant='contained'
+          color='secondary'
+          startIcon={<Person />}
+          fullWidth
+          href='/admin/users'
+        >
+          Liste des utilisateurs
+        </Button>
+      </Grid>
+      <Grid item xs={12}>
+        <Button
+          variant='contained'
+          color='primary'
+          startIcon={<Settings />}
+          fullWidth
+          href='/admin/settings'
+        >
+          Paramètres de la plateforme
+        </Button>
+      </Grid>
+    </Grid>
+  </Paper>
+);
+
+// Composant pour les actions des enseignants
+const InstructorActions = () => (
+  <Paper sx={{ p: 4 }}>
+    <Typography variant='h5' fontWeight='bold' sx={{ mb: 3 }}>
+      Gestion des cours
+    </Typography>
+    <Grid container spacing={2}>
+      <Grid item xs={12}>
+        <Button
+          variant='contained'
+          color='secondary'
+          startIcon={<School />}
+          fullWidth
+          href='/instructor/courses'
+        >
+          Mes cours
+        </Button>
+      </Grid>
+      <Grid item xs={12}>
+        <Button
+          variant='contained'
+          color='primary'
+          startIcon={<Person />}
+          fullWidth
+          href='/instructor/students'
+        >
+          Suivi des apprenants
+        </Button>
+      </Grid>
+    </Grid>
+  </Paper>
+);
+
 const Profile = ({ userId }) => {
   const { user: authUser, loading: authLoading } = useAuth();
+  const {
+    notifications,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
+    clearNotifications,
+    error: notificationError,
+  } = useNotifications();
   const navigate = useNavigate();
   const [user, setUser] = useState({
-    nom: "",
-    prenom: "",
-    email: "",
-    avatar: "",
-    dateInscription: "",
+    nom: '',
+    prenom: '',
+    email: '',
+    avatar: '',
+    dateInscription: '',
     coursTermines: 0,
     progression: 0,
-    role: "ETUDIANT",
+    role: 'ETUDIANT',
+    certificats: 0,
   });
   const [editForm, setEditForm] = useState({
-    nom: "",
-    prenom: "",
-    email: "",
+    nom: '',
+    prenom: '',
+    email: '',
+    avatar: null,
   });
-  const [newAvatar, setNewAvatar] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (authLoading) return;
     if (!authUser) {
-      navigate("/login");
+      navigate('/login');
       return;
     }
 
     const loadUserProfile = async () => {
       setIsLoading(true);
       try {
-        const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/auth/profile`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-          }
-        );
-
+        const response = await axios.get(`${import.meta.env.VITE_API_URL}/auth/profile`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
         const userData = response.data.data;
         setUser({
           nom: userData.nom,
           prenom: userData.prenom,
           email: userData.email,
-          avatar: userData.avatar || "",
+          avatar: userData.avatar || '',
           dateInscription: userData.createdAt,
-          coursTermines: userData.coursTermines || 0, // À récupérer depuis l'API
-          progression: userData.progression || 0, // À récupérer depuis l'API
-          role: userData.role || "ETUDIANT",
+          coursTermines: userData.coursTermines || 0,
+          progression: userData.progression || 0,
+          role: userData.role || 'ETUDIANT',
+          certificats: userData.certificats || 0,
         });
         setEditForm({
           nom: userData.nom,
           prenom: userData.prenom,
           email: userData.email,
+          avatar: null,
         });
       } catch (err) {
-        setError("Erreur lors de la récupération du profil");
-        console.error("Erreur de chargement du profil:", err);
+        setError('Erreur lors de la récupération du profil');
       } finally {
         setIsLoading(false);
       }
@@ -118,55 +513,47 @@ const Profile = ({ userId }) => {
 
   const handleEditToggle = () => {
     setIsEditing(!isEditing);
-    setMessage("");
-    setError("");
+    setMessage('');
+    setError('');
     if (!isEditing) {
-      setEditForm({
-        nom: user.nom,
-        prenom: user.prenom,
-        email: user.email,
-      });
-      setNewAvatar(null);
+      setEditForm({ nom: user.nom, prenom: user.prenom, email: user.email, avatar: null });
     }
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setEditForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setEditForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleAvatarChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (!["image/jpeg", "image/png", "image/jpg"].includes(file.type)) {
-        setError("Veuillez sélectionner une image JPEG ou PNG");
+      if (!['image/jpeg', 'image/png'].includes(file.type)) {
+        setError('Veuillez sélectionner une image JPEG ou PNG');
         return;
       }
-      if (file.size > 5 * 1024 * 1024) {
-        setError("L'image ne doit pas dépasser 5MB");
+      if (file.size > 2 * 1024 * 1024) {
+        setError("L'image ne doit pas dépasser 2MB");
         return;
       }
-      setNewAvatar(file);
-      setError("");
+      setEditForm((prev) => ({ ...prev, avatar: file }));
+      setError('');
     }
   };
 
   const validateForm = () => {
-    if (!editForm.nom.trim()) return "Le nom est requis";
-    if (!editForm.prenom.trim()) return "Le prénom est requis";
+    if (!editForm.nom.trim()) return 'Le nom est requis';
+    if (!editForm.prenom.trim()) return 'Le prénom est requis';
     if (!editForm.email.trim()) return "L'email est requis";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email))
-      return "Email invalide";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email)) return 'Email invalide';
+    if (editForm.nom.length > 50 || editForm.prenom.length > 50) return 'Nom ou prénom trop long';
+    if (editForm.email.length > 100) return 'Email trop long';
     return null;
   };
 
   const handleSave = async () => {
-    setError("");
-    setMessage("");
-
+    setError('');
+    setMessage('');
     const validationError = validateForm();
     if (validationError) {
       setError(validationError);
@@ -174,69 +561,31 @@ const Profile = ({ userId }) => {
     }
 
     setIsSaving(true);
-
     try {
-      // Mettre à jour les informations du profil
-      await axios.put(
-        `${import.meta.env.VITE_API_URL}/auth/profile`,
-        {
-          nom: editForm.nom,
-          prenom: editForm.prenom,
-          email: editForm.email,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
-
-      // Télécharger l'avatar si sélectionné
-      if (newAvatar) {
-        const formData = new FormData();
-        formData.append("avatar", newAvatar);
-        const avatarResponse = await axios.post(
-          `${import.meta.env.VITE_API_URL}/auth/upload-avatar`,
-          formData,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-              "Content-Type": "multipart/form-data",
-            },
-          }
-        );
-        setUser((prev) => ({
-          ...prev,
-          avatar: avatarResponse.data.data.avatar,
-        }));
+      const formData = new FormData();
+      formData.append('nom', editForm.nom);
+      formData.append('prenom', editForm.prenom);
+      formData.append('email', editForm.email);
+      if (editForm.avatar) {
+        formData.append('avatar', editForm.avatar);
       }
 
-      // Rafraîchir les données du profil
-      const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}/auth/profile`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
-      const userData = response.data.data;
-      setUser({
-        nom: userData.nom,
-        prenom: userData.prenom,
-        email: userData.email,
-        avatar: userData.avatar || "",
-        dateInscription: userData.createdAt,
-        coursTermines: userData.coursTermines || 0,
-        progression: userData.progression || 0,
-        role: userData.role || "ETUDIANT",
+      const response = await axios.put(`${import.meta.env.VITE_API_URL}/auth/profile`, formData, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'multipart/form-data',
+        },
       });
-      setMessage("Profil mis à jour avec succès");
+
+      setUser((prev) => ({
+        ...prev,
+        ...response.data.data,
+        avatar: response.data.data.avatar || prev.avatar,
+      }));
+      setMessage('Profil mis à jour avec succès');
       setIsEditing(false);
     } catch (err) {
-      setError(
-        err.response?.data?.message || "Erreur lors de la mise à jour du profil"
-      );
+      setError(err.response?.data?.message || 'Erreur lors de la mise à jour du profil');
     } finally {
       setIsSaving(false);
     }
@@ -245,21 +594,12 @@ const Profile = ({ userId }) => {
   if (authLoading || isLoading) {
     return (
       <Box
-        sx={{
-          minHeight: "100vh",
-          width: "100vw",
-          bgcolor: "background.default",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
+        sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
-        <Box
-          sx={{ display: "flex", alignItems: "center", gap: 2, color: "white" }}
-        >
-          <CircularProgress color="secondary" size={32} />
-          <Typography variant="h5">Chargement du profil...</Typography>
-        </Box>
+        <CircularProgress color='secondary' />
+        <Typography variant='h6' sx={{ ml: 2 }}>
+          Chargement...
+        </Typography>
       </Box>
     );
   }
@@ -268,636 +608,79 @@ const Profile = ({ userId }) => {
     <ThemeProvider theme={theme}>
       <Box
         sx={{
-          minHeight: "100vh",
-          width: "100vw",
-          background: "linear-gradient(135deg, #010b40 0%, #1E3A8A 100%)",
+          minHeight: '100vh',
+          bgcolor: 'background.default',
           p: 4,
-          position: "relative",
-          overflow: "hidden",
+          position: 'relative',
+          overflow: 'hidden',
         }}
       >
-        {/* Floating Elements */}
-        <Box
-          sx={{
-            position: "absolute",
-            top: 80,
-            right: 120,
-            width: 180,
-            height: 180,
-            bgcolor: "secondary.main",
-            opacity: 0.2,
-            borderRadius: "50%",
-            filter: "blur(50px)",
-            animation: "pulse 4s infinite",
-          }}
-        />
-        <Box
-          sx={{
-            position: "absolute",
-            bottom: 120,
-            left: 100,
-            width: 140,
-            height: 140,
-            bgcolor: "primary.main",
-            opacity: 0.2,
-            borderRadius: "50%",
-            filter: "blur(50px)",
-            animation: "pulse 4s infinite 2s",
-          }}
-        />
-
-        <Container maxWidth="xl">
-          <Box sx={{ textAlign: "center", mb: 6 }}>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 3,
-                mb: 3,
-              }}
-            >
-              <Avatar
-                src={user.avatar}
-                sx={{
-                  width: 80,
-                  height: 80,
-                  border: `3px solid ${theme.palette.secondary.main}`,
-                }}
-              >
-                {user.prenom[0]}{user.nom[0]}
-              </Avatar>
-              <Box>
-                <Typography variant="h4" color="white" fontWeight="bold">
-                  Youth Computing
-                </Typography>
-                <Typography variant="body1" color="white">
-                  Gestion du profil
-                </Typography>
-              </Box>
-            </Box>
+        <Container maxWidth='lg'>
+          <Box sx={{ textAlign: 'center', mb: 4 }}>
+            <Typography variant='h4' fontWeight='bold'>
+              Mon Profil
+            </Typography>
+            <Typography variant='body1' color='text.secondary'>
+              Gérer vos informations personnelles et vos activités
+            </Typography>
           </Box>
-
-          <Grid container spacing={6}>
-            {/* Profile Information Card */}
+          {notificationError && (
+            <Alert severity='error' sx={{ mb: 3 }}>
+              {notificationError}
+            </Alert>
+          )}
+          <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
-              <Paper
-                elevation={4}
-                sx={{
-                  p: 6,
-                  bgcolor: "white",
-                  borderRadius: 4,
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  backdropFilter: "blur(12px)",
-                }}
-              >
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    mb: 4,
-                  }}
-                >
-                  <Typography
-                    variant="h5"
-                    fontWeight="bold"
-                    color="text.primary"
-                  >
-                    Informations personnelles
-                  </Typography>
-                  <Button
-                    variant="contained"
-                    color="secondary"
-                    onClick={handleEditToggle}
-                    startIcon={<Edit />}
-                    sx={{ fontSize: "1.1rem", textTransform: "none" }}
-                  >
-                    {isEditing ? "Annuler" : "Modifier"}
-                  </Button>
-                </Box>
-
-                {message && (
-                  <Alert severity="success" sx={{ mb: 4 }}>
-                    {message}
-                  </Alert>
+              <ProfileInfo
+                user={user}
+                isEditing={isEditing}
+                editForm={editForm}
+                handleInputChange={handleInputChange}
+                handleAvatarChange={handleAvatarChange}
+                handleEditToggle={handleEditToggle}
+                handleSave={handleSave}
+                isSaving={isSaving}
+                message={message}
+                error={error}
+              />
+              <NotificationsPanel
+                notifications={notifications.filter(
+                  (n) => n.role === user.role || user.role === 'ADMIN'
                 )}
-                {error && (
-                  <Alert severity="error" sx={{ mb: 4 }}>
-                    {error}
-                  </Alert>
-                )}
-
-                {isEditing ? (
-                  <Box
-                    sx={{ display: "flex", flexDirection: "column", gap: 4 }}
-                  >
-                    <Box sx={{ display: "flex", justifyContent: "center" }}>
-                      <Avatar
-                        src={
-                          newAvatar
-                            ? URL.createObjectURL(newAvatar)
-                            : user.avatar
-                        }
-                        sx={{
-                          width: 100,
-                          height: 100,
-                          border: `3px solid ${theme.palette.secondary.main}`,
-                        }}
-                      >
-                        {user.prenom[0]}{user.nom[0]}
-                      </Avatar>
-                    </Box>
-                    <Button
-                      variant="contained"
-                      component="label"
-                      color="secondary"
-                      sx={{ mb: 2 }}
-                    >
-                      Changer l'avatar
-                      <input
-                        type="file"
-                        hidden
-                        accept="image/jpeg,image/png,image/jpg"
-                        onChange={handleAvatarChange}
-                      />
-                    </Button>
-                    <Grid container spacing={3}>
-                      <Grid item xs={12} sm={6}>
-                        <TextField
-                          fullWidth
-                          label="Nom"
-                          name="nom"
-                          value={editForm.nom}
-                          onChange={handleInputChange}
-                          required
-                          variant="outlined"
-                          sx={{
-                            "& .MuiInputBase-input": { fontSize: "1.2rem" },
-                          }}
-                          InputProps={{
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <Person sx={{ fontSize: 28 }} />
-                              </InputAdornment>
-                            ),
-                          }}
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <TextField
-                          fullWidth
-                          label="Prénom"
-                          name="prenom"
-                          value={editForm.prenom}
-                          onChange={handleInputChange}
-                          required
-                          variant="outlined"
-                          sx={{
-                            "& .MuiInputBase-input": { fontSize: "1.2rem" },
-                          }}
-                          InputProps={{
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <Person sx={{ fontSize: 28 }} />
-                              </InputAdornment>
-                            ),
-                          }}
-                        />
-                      </Grid>
-                    </Grid>
-                    <TextField
-                      fullWidth
-                      label="Email"
-                      name="email"
-                      value={editForm.email}
-                      onChange={handleInputChange}
-                      required
-                      variant="outlined"
-                      sx={{ "& .MuiInputBase-input": { fontSize: "1.2rem" } }}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <Email sx={{ fontSize: 28 }} />
-                          </InputAdornment>
-                        ),
-                      }}
-                    />
-                    <Box sx={{ display: "flex", gap: 2, pt: 2 }}>
-                      <Button
-                        variant="contained"
-                        color="secondary"
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        startIcon={
-                          isSaving ? (
-                            <CircularProgress size={24} color="inherit" />
-                          ) : (
-                            <Save />
-                          )
-                        }
-                        sx={{
-                          flex: 1,
-                          py: 1.5,
-                          fontSize: "1.1rem",
-                          textTransform: "none",
-                        }}
-                      >
-                        {isSaving ? "Enregistrement..." : "Enregistrer"}
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        color="primary"
-                        onClick={handleEditToggle}
-                        startIcon={<Cancel />}
-                        sx={{
-                          flex: 1,
-                          py: 1.5,
-                          fontSize: "1.1rem",
-                          textTransform: "none",
-                        }}
-                      >
-                        Annuler
-                      </Button>
-                    </Box>
-                  </Box>
-                ) : (
-                  <Box
-                    sx={{ display: "flex", flexDirection: "column", gap: 4 }}
-                  >
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                      <Avatar
-                        src={user.avatar}
-                        sx={{
-                          width: 48,
-                          height: 48,
-                          border: `2px solid ${theme.palette.secondary.main}`,
-                        }}
-                      >
-                        {user.prenom[0]}{user.nom[0]}
-                      </Avatar>
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Nom complet
-                        </Typography>
-                        <Typography variant="body1" fontWeight="medium">
-                          {user.prenom} {user.nom}
-                        </Typography>
-                      </Box>
-                    </Box>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                      <Box
-                        sx={{
-                          width: 48,
-                          height: 48,
-                          bgcolor: "secondary.main",
-                          borderRadius: 2,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <Email sx={{ color: "white", fontSize: 24 }} />
-                      </Box>
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Adresse email
-                        </Typography>
-                        <Typography variant="body1" fontWeight="medium">
-                          {user.email}
-                        </Typography>
-                      </Box>
-                    </Box>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                      <Box
-                        sx={{
-                          width: 48,
-                          height: 48,
-                          bgcolor: "secondary.main",
-                          borderRadius: 2,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <Event sx={{ color: "white", fontSize: 24 }} />
-                      </Box>
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Membre depuis
-                        </Typography>
-                        <Typography variant="body1" fontWeight="medium">
-                          {user.dateInscription
-                            ? new Date(user.dateInscription).toLocaleDateString(
-                                "fr-FR",
-                                {
-                                  year: "numeric",
-                                  month: "long",
-                                  day: "numeric",
-                                }
-                              )
-                            : "Non définie"}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-                )}
-              </Paper>
+                unreadCount={unreadCount}
+                markAsRead={markAsRead}
+                markAllAsRead={markAllAsRead}
+                clearNotifications={clearNotifications}
+              />
             </Grid>
-
-            {/* Role-Specific Content */}
             <Grid item xs={12} md={6}>
-              <Paper
-                elevation={4}
-                sx={{
-                  p: 6,
-                  bgcolor: "white",
-                  borderRadius: 4,
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  backdropFilter: "blur(12px)",
-                }}
-              >
-                <Typography
-                  variant="h5"
-                  fontWeight="bold"
-                  color="text.primary"
-                  sx={{ mb: 4 }}
-                >
-                  {user.role === "ETUDIANT"
-                    ? "Statistiques d'apprentissage"
-                    : user.role === "ADMIN"
-                    ? "Gestion des utilisateurs"
-                    : "Gestion des cours"}
-                </Typography>
-
-                {user.role === "ETUDIANT" && (
-                  <Box
-                    sx={{ display: "flex", flexDirection: "column", gap: 4 }}
-                  >
-                    <Box sx={{ textAlign: "center" }}>
-                      <Box
-                        sx={{
-                          position: "relative",
-                          width: 120,
-                          height: 120,
-                          mx: "auto",
-                        }}
-                      >
-                        <CircularProgress
-                          variant="determinate"
-                          value={user.progression}
-                          size={120}
-                          thickness={5}
-                          sx={{
-                            color: "secondary.main",
-                            transform: "rotate(-90deg)",
-                          }}
-                        />
-                        <Box
-                          sx={{
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <Typography variant="h6" fontWeight="bold">
-                            {user.progression}%
-                          </Typography>
-                        </Box>
-                      </Box>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ mt: 1 }}
-                      >
-                        Progression
-                      </Typography>
-                    </Box>
-
-                    <Grid container spacing={3}>
-                      <Grid item xs={6}>
-                        <Card
-                          sx={{
-                            bgcolor: "primary.light",
-                            textAlign: "center",
-                            p: 2,
-                          }}
-                        >
-                          <Typography
-                            variant="h6"
-                            fontWeight="bold"
-                            color="primary.main"
-                          >
-                            {user.coursTermines}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Cours terminés
-                          </Typography>
-                        </Card>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Card
-                          sx={{
-                            bgcolor: "secondary.light",
-                            textAlign: "center",
-                            p: 2,
-                          }}
-                        >
-                          <Typography
-                            variant="h6"
-                            fontWeight="bold"
-                            color="secondary.main"
-                          >
-                            {user.certificats || 0} {/* À récupérer depuis l'API */}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Certificats
-                          </Typography>
-                        </Card>
-                      </Grid>
-                    </Grid>
-
-                    <Divider sx={{ my: 3 }} />
-
-                    <Box>
-                      <Typography
-                        variant="h6"
-                        fontWeight="medium"
-                        sx={{ mb: 2 }}
-                      >
-                        Réalisations récentes
-                      </Typography>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 2,
-                        }}
-                      >
-                        {/* À remplacer par des données dynamiques depuis l'API */}
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 2,
-                            p: 2,
-                            bgcolor: "warning.light",
-                            borderRadius: 2,
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              width: 32,
-                              height: 32,
-                              bgcolor: "warning.main",
-                              borderRadius: "50%",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <Verified sx={{ color: "white", fontSize: 20 }} />
-                          </Box>
-                          <Box>
-                            <Typography variant="body2" fontWeight="medium">
-                              Python Basics terminé
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              Il y a 2 jours
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </Box>
-                    </Box>
-                  </Box>
-                )}
-
-                {user.role === "ADMIN" && (
-                  <Box
-                    sx={{ display: "flex", flexDirection: "column", gap: 4 }}
-                  >
-                    <Typography variant="body1" color="text.secondary">
-                      Gérer les utilisateurs de la plateforme
-                    </Typography>
-                    <Grid container spacing={3}>
-                      <Grid item xs={12}>
-                        <Button
-                          variant="contained"
-                          color="secondary"
-                          startIcon={<Person />}
-                          sx={{
-                            py: 1.5,
-                            fontSize: "1.1rem",
-                            textTransform: "none",
-                          }}
-                          href="/admin/users"
-                        >
-                          Liste des utilisateurs
-                        </Button>
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          startIcon={<Settings />}
-                          sx={{
-                            py: 1.5,
-                            fontSize: "1.1rem",
-                            textTransform: "none",
-                          }}
-                          href="/admin/settings"
-                        >
-                          Paramètres de la plateforme
-                        </Button>
-                      </Grid>
-                    </Grid>
-                  </Box>
-                )}
-
-                {user.role === "INSTRUCTEUR" && (
-                  <Box
-                    sx={{ display: "flex", flexDirection: "column", gap: 4 }}
-                  >
-                    <Typography variant="body1" color="text.secondary">
-                      Gérer vos cours et suivre les progrès des apprenants
-                    </Typography>
-                    <Grid container spacing={3}>
-                      <Grid item xs={12}>
-                        <Button
-                          variant="contained"
-                          color="secondary"
-                          startIcon={<School />}
-                          sx={{
-                            py: 1.5,
-                            fontSize: "1.1rem",
-                            textTransform: "none",
-                          }}
-                          href="/instructor/courses"
-                        >
-                          Mes cours
-                        </Button>
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          startIcon={<Person />}
-                          sx={{
-                            py: 1.5,
-                            fontSize: "1.1rem",
-                            textTransform: "none",
-                          }}
-                          href="/instructor/students"
-                        >
-                          Suivi des apprenants
-                        </Button>
-                      </Grid>
-                    </Grid>
-                  </Box>
-                )}
-              </Paper>
+              {user.role === 'ETUDIANT' && <StudentStats user={user} />}
+              {user.role === 'ADMIN' && <AdminActions />}
+              {user.role === 'ENSEIGNANT' && <InstructorActions />}
             </Grid>
-
-            {/* Action Buttons */}
             <Grid item xs={12}>
-              <Box
-                sx={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  justifyContent: "center",
-                  gap: 3,
-                  mt: 4,
-                }}
-              >
+              <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 4 }}>
                 <Button
-                  variant="contained"
-                  color="secondary"
+                  variant='contained'
+                  color='secondary'
                   startIcon={<School />}
-                  sx={{ py: 1.5, fontSize: "1.1rem", textTransform: "none" }}
-                  href="/courses"
+                  href='/courses'
                 >
                   Mes cours
                 </Button>
                 <Button
-                  variant="contained"
-                  color="primary"
+                  variant='contained'
+                  color='primary'
                   startIcon={<Verified />}
-                  sx={{ py: 1.5, fontSize: "1.1rem", textTransform: "none" }}
-                  href="/certificates"
+                  href='/certificates'
                 >
                   Certificats
                 </Button>
                 <Button
-                  variant="contained"
-                  color="secondary"
+                  variant='contained'
+                  color='secondary'
                   startIcon={<Settings />}
-                  sx={{ py: 1.5, fontSize: "1.1rem", textTransform: "none" }}
-                  href="/settings"
+                  href='/settings'
                 >
                   Paramètres
                 </Button>
@@ -906,15 +689,6 @@ const Profile = ({ userId }) => {
           </Grid>
         </Container>
       </Box>
-      <style>
-        {`
-          @keyframes pulse {
-            0% { transform: scale(1); opacity: 0.2; }
-            50% { transform: scale(1.3); opacity: 0.3; }
-            100% { transform: scale(1); opacity: 0.2; }
-          }
-        `}
-      </style>
     </ThemeProvider>
   );
 };

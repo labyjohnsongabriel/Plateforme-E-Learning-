@@ -1,12 +1,9 @@
-// src/types/index.ts
 import { Document, Types } from 'mongoose';
 
 // Réexportation des types avec `export type` pour compatibilité avec isolatedModules
 export type { IProgression } from '../models/learning/Progression';
 export type { StatutProgression } from '../services/learning/ProgressionService';
-
-// Alias pour ProgressionDocument
-// export type ProgressionDocument = IProgression;
+import { NiveauFormation } from '../services/learning/CertificationService';
 
 export enum RoleUtilisateur {
   ETUDIANT = 'ETUDIANT',
@@ -14,7 +11,7 @@ export enum RoleUtilisateur {
   ADMIN = 'ADMIN',
 }
 
-export type StatutInscription = 'EN_COURS' | 'TERMINE' | 'ANNULE'; // Added
+export type StatutInscription = 'EN_COURS' | 'TERMINE' | 'ANNULE';
 
 export interface UserDocument extends Document {
   _id: Types.ObjectId;
@@ -63,28 +60,43 @@ export interface DomaineDocument extends Document, DomaineData {
   updatedAt: Date;
 }
 
+export interface IUser {
+  id: string;
+  nom: string;
+  prenom: string;
+  email: string;
+  password?: string;
+  role: RoleUtilisateur;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 export interface CourseDocument extends Document {
+  _id: Types.ObjectId;
   titre: string;
   description?: string;
   duree: number;
-  niveau: string;
-  domaineId: Types.ObjectId;
-  contenu?: any;
+  niveau: NiveauFormation;
+  domaineId: Types.ObjectId | Record<string, any>; // Allow populated domaine object
+  etudiants?: Types.ObjectId[]; // Added for getMyCourses
+  contenu?: any[];
   quizzes: Types.ObjectId[];
   statutApprobation: 'PENDING' | 'APPROVED' | 'REJECTED';
   createur: string | Types.ObjectId;
   estPublie: boolean;
   createdAt: Date;
+  updatedAt: Date;
+  __v?: number; // Added for Mongoose versioning
 }
 
 export interface CourseCreateData {
   titre: string;
   description?: string;
   duree: number;
-  domaineId: Types.ObjectId;
+  domaineId: string | Types.ObjectId;
   niveau: 'ALFA' | 'BETA' | 'GAMMA' | 'DELTA';
   contenu?: any[];
-  quizzes?: any[];
+  quizzes?: (string | Types.ObjectId)[];
   statutApprobation?: 'PENDING' | 'APPROVED' | 'REJECTED';
   estPublie?: boolean;
 }
@@ -94,10 +106,10 @@ export interface CourseUpdateData {
   titre?: string;
   description?: string;
   duree?: number;
-  domaineId?: Types.ObjectId;
+  domaineId?: string | Types.ObjectId;
   niveau?: 'ALFA' | 'BETA' | 'GAMMA' | 'DELTA';
   contenu?: any[];
-  quizzes?: any[];
+  quizzes?: (string | Types.ObjectId)[];
   statutApprobation?: 'PENDING' | 'APPROVED' | 'REJECTED';
   estPublie?: boolean;
 }
@@ -106,7 +118,7 @@ export interface CourseData {
   titre: string;
   description?: string;
   niveau: string;
-  domaineId: string;
+  domaineId: string | Types.ObjectId;
   contenu?: any;
   createur: string | Types.ObjectId;
 }

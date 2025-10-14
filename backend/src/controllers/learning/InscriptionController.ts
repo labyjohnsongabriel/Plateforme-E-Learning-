@@ -2,7 +2,8 @@
 import { Request, Response, NextFunction } from 'express';
 import createError from 'http-errors';
 import InscriptionService from '../../services/learning/InscriptionService';
-import { InscriptionData, StatutInscription } from '../../types'; // Corrected import
+import { InscriptionData } from '../../types';
+import { StatutInscription } from '../../models/enums/StatutInscription'; // Updated import
 
 class InscriptionController {
   /**
@@ -17,11 +18,9 @@ class InscriptionController {
       if (!req.user?.id) {
         throw createError(401, 'Utilisateur non authentifié');
       }
-      console.log(`Enrolling user ${req.user.id} in course ${req.body.coursId}`);
       const inscription = await InscriptionService.enroll(req.user.id, req.body.coursId);
       res.status(201).json(inscription);
     } catch (err) {
-      console.error('Error in enroll:', err);
       next(err);
     }
   };
@@ -38,11 +37,9 @@ class InscriptionController {
       if (!req.user?.id) {
         throw createError(401, 'Utilisateur non authentifié');
       }
-      console.log(`Fetching enrollments for user ${req.user.id}`);
       const enrollments = await InscriptionService.getUserEnrollments(req.user.id);
       res.json(enrollments);
     } catch (err) {
-      console.error('Error in getUserEnrollments:', err);
       next(err);
     }
   };
@@ -59,7 +56,6 @@ class InscriptionController {
       if (!req.user?.id) {
         throw createError(401, 'Utilisateur non authentifié');
       }
-      console.log(`Updating enrollment ${req.params.id} status to ${req.body.statut}`);
       const inscription = await InscriptionService.updateStatus(
         req.params.id,
         req.body.statut,
@@ -67,7 +63,6 @@ class InscriptionController {
       );
       res.json(inscription);
     } catch (err) {
-      console.error('Error in updateStatus:', err);
       next(err);
     }
   };
@@ -84,11 +79,9 @@ class InscriptionController {
       if (!req.user?.id) {
         throw createError(401, 'Utilisateur non authentifié');
       }
-      console.log(`Deleting enrollment ${req.params.id} for user ${req.user.id}`);
       const result = await InscriptionService.deleteEnrollment(req.params.id, req.user.id);
       res.json(result);
     } catch (err) {
-      console.error('Error in deleteEnrollment:', err);
       next(err);
     }
   };

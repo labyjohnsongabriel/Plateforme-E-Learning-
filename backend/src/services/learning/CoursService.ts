@@ -1,4 +1,3 @@
-// src/services/learning/CoursService.ts
 import { Types, model } from 'mongoose';
 import createError from 'http-errors';
 import { CourseDocument, CourseCreateData, CourseUpdateData } from '../../types';
@@ -30,26 +29,32 @@ export class CoursService {
         throw createError(400, 'createurId invalide');
       }
 
+      // Convert string IDs to ObjectId
+      const domaineId = typeof data.domaineId === 'string' ? new Types.ObjectId(data.domaineId) : data.domaineId;
+      const quizzes = data.quizzes?.map(id => (typeof id === 'string' ? new Types.ObjectId(id) : id)) ?? [];
+
       const course = new Cours({
         titre: data.titre,
         description: data.description ?? '',
         duree: data.duree,
-        domaineId: data.domaineId,
+        domaineId,
         niveau: data.niveau as NiveauFormation,
-        createur: createurId,
+        createur: new Types.ObjectId(createurId),
         contenu: data.contenu ?? [],
-        quizzes: data.quizzes ?? [],
+        quizzes,
         estPublie: data.estPublie ?? false,
         statutApprobation: data.statutApprobation ?? 'PENDING',
         createdAt: new Date(),
       });
 
-      return await course.save().then(doc => doc.populate([
+      const savedCourse = await course.save();
+      const populatedCourse = await savedCourse.populate([
         { path: 'domaineId', select: 'nom' },
         { path: 'createur', select: 'id role' },
         { path: 'contenu' },
-        { path: 'quizzes' }
-      ]));
+        { path: 'quizzes' },
+      ]);
+      return populatedCourse as unknown as CourseDocument;
     } catch (err) {
       throw createError(500, `Erreur lors de la création du cours: ${(err as Error).message}`);
     }
@@ -68,12 +73,12 @@ export class CoursService {
         { path: 'createur', select: 'id role' },
         { path: 'domaineId', select: 'nom' },
         { path: 'contenu' },
-        { path: 'quizzes' }
+        { path: 'quizzes' },
       ]);
       if (!course) {
         throw createError(404, 'Cours non trouvé');
       }
-      return course;
+      return course as unknown as CourseDocument;
     } catch (err) {
       throw createError(500, `Erreur lors de la récupération du cours: ${(err as Error).message}`);
     }
@@ -84,12 +89,13 @@ export class CoursService {
    */
   static async getAllCourses(): Promise<CourseDocument[]> {
     try {
-      return await Cours.find({}).populate([
+      const courses = await Cours.find({}).populate([
         { path: 'createur', select: 'id role' },
         { path: 'domaineId', select: 'nom' },
         { path: 'contenu' },
-        { path: 'quizzes' }
+        { path: 'quizzes' },
       ]);
+      return courses as unknown as CourseDocument[];
     } catch (err) {
       throw createError(500, `Erreur lors de la récupération des cours: ${(err as Error).message}`);
     }
@@ -119,7 +125,7 @@ export class CoursService {
         if (!Types.ObjectId.isValid(data.domaineId)) {
           throw createError(400, 'domaineId invalide');
         }
-        course.domaineId = data.domaineId;
+        course.domaineId = typeof data.domaineId === 'string' ? new Types.ObjectId(data.domaineId) : data.domaineId;
       }
       if (data.niveau !== undefined) {
         if (!Object.values(NiveauFormation).includes(data.niveau as NiveauFormation)) {
@@ -128,16 +134,21 @@ export class CoursService {
         course.niveau = data.niveau as NiveauFormation;
       }
       if (data.contenu !== undefined) course.contenu = data.contenu;
-      if (data.quizzes !== undefined) course.quizzes = data.quizzes;
+      if (data.quizzes !== undefined) {
+        const quizzes = data.quizzes?.map(id => (typeof id === 'string' ? new Types.ObjectId(id) : id)) ?? [];
+        course.quizzes = quizzes;
+      }
       if (data.estPublie !== undefined) course.estPublie = data.estPublie;
       if (data.statutApprobation !== undefined) course.statutApprobation = data.statutApprobation;
 
-      return await course.save().then(doc => doc.populate([
+      const updatedCourse = await course.save();
+      const populatedCourse = await updatedCourse.populate([
         { path: 'domaineId', select: 'nom' },
         { path: 'createur', select: 'id role' },
         { path: 'contenu' },
-        { path: 'quizzes' }
-      ]));
+        { path: 'quizzes' },
+      ]);
+      return populatedCourse as unknown as CourseDocument;
     } catch (err) {
       throw createError(500, `Erreur lors de la mise à jour du cours: ${(err as Error).message}`);
     }
@@ -178,12 +189,14 @@ export class CoursService {
       if (!course.contenu.includes(contenuId)) {
         course.contenu.push(contenuId);
       }
-      return await course.save().then(doc => doc.populate([
+      const updatedCourse = await course.save();
+      const populatedCourse = await updatedCourse.populate([
         { path: 'domaineId', select: 'nom' },
         { path: 'createur', select: 'id role' },
         { path: 'contenu' },
-        { path: 'quizzes' }
-      ]));
+        { path: 'quizzes' },
+      ]);
+      return populatedCourse as unknown as CourseDocument;
     } catch (err) {
       throw createError(500, `Erreur lors de l'ajout du contenu: ${(err as Error).message}`);
     }
@@ -205,12 +218,14 @@ export class CoursService {
 
       course.estPublie = true;
       course.datePublication = new Date();
-      return await course.save().then(doc => doc.populate([
+      const updatedCourse = await course.save();
+      const populatedCourse = await updatedCourse.populate([
         { path: 'domaineId', select: 'nom' },
         { path: 'createur', select: 'id role' },
         { path: 'contenu' },
-        { path: 'quizzes' }
-      ]));
+        { path: 'quizzes' },
+      ]);
+      return populatedCourse as unknown as CourseDocument;
     } catch (err) {
       throw createError(500, `Erreur lors de la publication du cours: ${(err as Error).message}`);
     }

@@ -1,6 +1,7 @@
+// src/services/learning/InscriptionService.ts
 import Inscription, { IInscription } from '../../models/learning/Inscription';
 import createError from 'http-errors';
-import { StatutInscription } from '../../types';
+import { StatutInscription } from '../../models/enums/StatutInscription'; // Updated import
 
 class InscriptionService {
   /**
@@ -12,8 +13,8 @@ class InscriptionService {
       if (existing) {
         throw createError(409, 'Utilisateur déjà inscrit à ce cours');
       }
-      const inscription = await Inscription.create({ apprenant, cours, statut: 'EN_COURS' });
-      return inscription.populate('cours', 'titre description');
+      const inscription = await Inscription.create({ apprenant, cours, statut: StatutInscription.EN_COURS }); // Use enum value
+      return inscription.populate('cours', 'title description');
     } catch (error) {
       throw createError(500, 'Erreur lors de l’inscription au cours');
     }
@@ -24,11 +25,9 @@ class InscriptionService {
    */
   static async getUserEnrollments(apprenant: string): Promise<IInscription[]> {
     try {
-      console.log(`Fetching enrollments from DB for user ${apprenant}`);
-      const enrollments = await Inscription.find({ apprenant }).populate('cours', 'titre description');
+      const enrollments = await Inscription.find({ apprenant }).populate('cours', 'title description');
       return enrollments;
     } catch (error) {
-      console.error('Error fetching enrollments:', error);
       throw createError(500, 'Erreur lors de la récupération des inscriptions');
     }
   }
@@ -46,9 +45,9 @@ class InscriptionService {
       if (!inscription) {
         throw createError(404, 'Inscription non trouvée');
       }
-
+      inscription.statut = statut;
       await inscription.save();
-      return inscription.populate('cours', 'titre description');
+      return inscription.populate('cours', 'title description');
     } catch (error) {
       throw createError(500, 'Erreur lors de la mise à jour du statut');
     }
