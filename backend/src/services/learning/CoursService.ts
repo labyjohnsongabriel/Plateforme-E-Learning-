@@ -1,8 +1,10 @@
+// src/services/course/CoursService.ts
 import { Types, model } from 'mongoose';
 import createError from 'http-errors';
 import { CourseDocument, CourseCreateData, CourseUpdateData } from '../../types';
 import Cours from '../../models/course/Cours';
-import { NiveauFormation } from './CertificationService';
+import { NiveauFormation } from '../learning/CertificationService';
+import Progression from '../../models/learning/Progression'; // Ajout pour completion rate
 
 export class CoursService {
   /**
@@ -244,7 +246,6 @@ export class CoursService {
       if (!course) throw createError(404, 'Cours non trouvé');
 
       // Utilisation de l'aggregation pour calculer la moyenne
-      const Progression = model('Progression');
       const result = await Progression.aggregate([
         { $match: { cours: new Types.ObjectId(coursId) } },
         { $group: { _id: null, moyenne: { $avg: '$pourcentage' } } },

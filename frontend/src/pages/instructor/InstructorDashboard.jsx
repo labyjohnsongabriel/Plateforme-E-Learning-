@@ -1,4 +1,3 @@
-// src/components/instructor/InstructorDashboard.jsx
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import {
   Box,
@@ -12,10 +11,6 @@ import {
   Alert,
   ThemeProvider,
   Paper,
-  Divider,
-  Avatar,
-  Chip,
-  createTheme,
   Table,
   TableBody,
   TableCell,
@@ -23,6 +18,8 @@ import {
   TableHead,
   TableRow,
   Pagination,
+  Chip,
+  createTheme,
 } from '@mui/material';
 import { styled, keyframes } from '@mui/material/styles';
 import { Pie, Bar } from 'react-chartjs-2';
@@ -32,12 +29,10 @@ import { AuthContext } from '../../context/AuthContext';
 import { colors } from '../../utils/colors';
 import {
   School as SchoolIcon,
-  Edit as EditIcon,
   People as PeopleIcon,
   Assessment as AssessmentIcon,
   Dashboard as DashboardIcon,
   Settings as SettingsIcon,
-  Delete as DeleteIcon,
   CheckCircle as CheckCircleIcon,
   Schedule as ScheduleIcon,
 } from '@mui/icons-material';
@@ -54,6 +49,7 @@ import {
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
 
+// Thème personnalisé
 const instructorTheme = createTheme({
   palette: {
     primary: { main: colors.fuschia || '#f13544', light: colors.lightFuschia || '#ff6b74' },
@@ -100,10 +96,9 @@ const floatingAnimation = keyframes`
   50% { transform: translateY(-10px); }
 `;
 
-// Styled Components
+// Composants stylisés
 const DashboardContainer = styled(Box)(({ theme }) => ({
   minHeight: '100vh',
-  width: '100vw',
   background: `linear-gradient(135deg, ${colors.navy || '#010b40'}, ${colors.lightNavy || '#1a237e'})`,
   padding: theme.spacing(4),
   position: 'relative',
@@ -173,66 +168,72 @@ const InstructorDashboard = () => {
   }, [user, authLoading, navigate]);
 
   // Récupérer les données
-  const fetchData = useCallback(async (page = 1) => {
-    setIsLoading(true);
-    setError('');
-    try {
-      if (!user) return;
+  const fetchData = useCallback(
+    async (page = 1) => {
+      setIsLoading(true);
+      setError('');
+      try {
+        if (!user) return;
 
-      const baseURL = import.meta.env.VITE_API_BASE_URL;
-      const headers = { Authorization: `Bearer ${user.token}` };
+        const baseURL = import.meta.env.VITE_API_BASE_URL;
+        const headers = { Authorization: `Bearer ${user.token}` };
 
-      // Récupérer le profil
-      const profileRes = await axios.get(
-        `${baseURL}/instructor/${user.id}/profile`,
-        { headers }
-      );
-      const profile = profileRes.data.data || {};
+        // Récupérer le profil avec statistiques
+        const profileRes = await axios.get(`${baseURL}/api/instructors/${user.id}/profile`, {
+          headers,
+        });
 
-      // Récupérer les cours avec pagination
-      const coursesRes = await axios.get(
-        `${baseURL}/instructor/${user.id}/courses?page=${page}&limit=${itemsPerPage}`,
-        { headers }
-      );
-      const coursesData = coursesRes.data.data || [];
-      const pagination = coursesRes.data.pagination || {};
+        const profile = profileRes.data.data || {};
 
-      // Récupérer les cours en cours
-      const inProgressRes = await axios.get(
-        `${baseURL}/instructor/${user.id}/courses-in-progress`,
-        { headers }
-      );
-      const coursesInProgress = inProgressRes.data.data || [];
+        // Calculer les statistiques basées sur les données réelles
+        const totalCourses = profile.coursCrees?.length || 0;
+        const coursesInProgressCount = profile.coursEnCoursEdition?.length || 0;
 
-      // Calculer les statistiques
-      const totalCourses = profile.stats?.totalCourses || 0;
-      const coursesInProgressCount = coursesInProgress.length;
-      const approvalRate = profile.stats?.approvalRate || 0;
+        // Calculer le taux d'approbation
+        const approvedCourses =
+          profile.coursCrees?.filter((course) => course.statutApprobation === 'APPROVED').length ||
+          0;
+        const approvalRate =
+          totalCourses > 0 ? Math.round((approvedCourses / totalCourses) * 100) : 0;
 
-      // Grouper les cours par statut
-      const coursesByStatus = coursesData.reduce((acc, course) => {
-        acc[course.statutApprobation] = (acc[course.statutApprobation] || 0) + 1;
-        return acc;
-      }, {});
+        // Calculer le nombre total d'étudiants
+        const totalStudents =
+          profile.coursCrees?.reduce((total, course) => {
+            return total + (course.etudiantsInscrits?.length || 0);
+          }, 0) || 0;
 
-      setStats({
-        totalCourses,
-        coursesInProgress: coursesInProgressCount,
-        totalStudents: profile.stats?.totalStudents || 0,
-        approvalRate,
-        coursesByStatus,
-        courses: coursesData,
-      });
+        // Grouper les cours par statut
+        const coursesByStatus = {};
+        profile.coursCrees?.forEach((course) => {
+          const status = course.statutApprobation || 'PENDING';
+          coursesByStatus[status] = (coursesByStatus[status] || 0) + 1;
+        });
 
-      setTotalPages(pagination.pages || 1);
-      setCurrentPage(page);
-    } catch (err) {
-      console.error('Erreur lors du chargement:', err);
-      setError('Erreur lors de la récupération des données.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user]);
+        // Paginer les cours
+        const startIndex = (page - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const paginatedCourses = profile.coursCrees?.slice(startIndex, endIndex) || [];
+
+        setStats({
+          totalCourses,
+          coursesInProgress: coursesInProgressCount,
+          totalStudents,
+          approvalRate,
+          coursesByStatus,
+          courses: paginatedCourses,
+        });
+
+        setTotalPages(Math.ceil(totalCourses / itemsPerPage));
+        setCurrentPage(page);
+      } catch (err) {
+        console.error('Erreur lors du chargement:', err);
+        setError(err.response?.data?.message || 'Erreur lors de la récupération des données.');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [user]
+  );
 
   useEffect(() => {
     if (user?.role === 'ENSEIGNANT') {
@@ -242,7 +243,15 @@ const InstructorDashboard = () => {
 
   // Données du graphique circulaire
   const pieChartData = {
-    labels: Object.keys(stats.coursesByStatus),
+    labels: Object.keys(stats.coursesByStatus).map((status) => {
+      const statusMap = {
+        PENDING: 'En attente',
+        APPROVED: 'Approuvé',
+        REJECTED: 'Rejeté',
+        DRAFT: 'Brouillon',
+      };
+      return statusMap[status] || status;
+    }),
     datasets: [
       {
         data: Object.values(stats.coursesByStatus),
@@ -262,7 +271,13 @@ const InstructorDashboard = () => {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: 'bottom', labels: { color: colors.white || '#ffffff' } },
+      legend: {
+        position: 'bottom',
+        labels: {
+          color: colors.white || '#ffffff',
+          font: { size: 12 },
+        },
+      },
       title: {
         display: true,
         text: 'Répartition des cours par statut',
@@ -272,33 +287,51 @@ const InstructorDashboard = () => {
     },
   };
 
+  const handlePageChange = (event, value) => {
+    setCurrentPage(value);
+    fetchData(value);
+  };
+
   if (authLoading || isLoading) {
     return (
-      <Box sx={{
-        minHeight: '100vh',
-        width: '100vw',
-        bgcolor: colors.navy || '#010b40',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-      }}>
+      <Box
+        sx={{
+          minHeight: '100vh',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          bgcolor: colors.navy || '#010b40',
+        }}
+      >
         <CircularProgress sx={{ color: colors.fuschia || '#f13544' }} />
-        <Typography sx={{ ml: 2, color: colors.white || '#ffffff' }}>Chargement...</Typography>
+        <Typography sx={{ ml: 2, color: colors.white || '#ffffff' }}>
+          Chargement du tableau de bord...
+        </Typography>
       </Box>
     );
   }
 
   if (error) {
     return (
-      <Box sx={{
-        minHeight: '100vh',
-        width: '100vw',
-        bgcolor: colors.navy || '#010b40',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-      }}>
-        <Alert severity="error" sx={{ maxWidth: 500 }}>{error}</Alert>
+      <Box
+        sx={{
+          minHeight: '100vh',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          bgcolor: colors.navy || '#010b40',
+        }}
+      >
+        <Alert
+          severity='error'
+          sx={{
+            maxWidth: 500,
+            bgcolor: `${colors.fuschia || '#f13544'}20`,
+            color: colors.white || '#ffffff',
+          }}
+        >
+          {error}
+        </Alert>
       </Box>
     );
   }
@@ -307,33 +340,53 @@ const InstructorDashboard = () => {
     <ThemeProvider theme={instructorTheme}>
       <DashboardContainer>
         {/* Background Decorations */}
-        <Box sx={{
-          position: 'absolute',
-          inset: 0,
-          background: `linear-gradient(${colors.fuschia || '#f13544'}0a 1px, transparent 1px)`,
-          backgroundSize: '40px 40px',
-          opacity: 0.05,
-          pointerEvents: 'none',
-        }} />
-        <Box sx={{
-          position: 'absolute',
-          bottom: 60,
-          right: 30,
-          width: 120,
-          height: 120,
-          background: `linear-gradient(135deg, ${colors.fuschia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`,
-          borderRadius: '50%',
-          opacity: 0.15,
-          animation: `${floatingAnimation} 4s ease-in-out infinite`,
-          pointerEvents: 'none',
-        }} />
+        <Box
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            background: `linear-gradient(${colors.fuschia || '#f13544'}0a 1px, transparent 1px)`,
+            backgroundSize: '40px 40px',
+            opacity: 0.05,
+            pointerEvents: 'none',
+          }}
+        />
+        <Box
+          sx={{
+            position: 'absolute',
+            bottom: 60,
+            right: 30,
+            width: 120,
+            height: 120,
+            background: `linear-gradient(135deg, ${colors.fuschia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`,
+            borderRadius: '50%',
+            opacity: 0.15,
+            animation: `${floatingAnimation} 4s ease-in-out infinite`,
+            pointerEvents: 'none',
+          }}
+        />
 
-        <Container maxWidth={false} disableGutters>
+        <Container maxWidth='xl'>
           {/* Header */}
-          <Box sx={{ p: 4, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
+          <Box
+            sx={{
+              p: 4,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              flexWrap: 'wrap',
+              position: 'relative',
+              zIndex: 1,
+            }}
+          >
             <DashboardIcon sx={{ fontSize: 40, color: colors.fuschia || '#f13544' }} />
             <Box>
-              <Typography variant="h3" sx={{ color: colors.white || '#ffffff', fontSize: { xs: '1.5rem', md: '2.5rem' } }}>
+              <Typography
+                variant='h3'
+                sx={{
+                  color: colors.white || '#ffffff',
+                  fontSize: { xs: '1.5rem', md: '2.5rem' },
+                }}
+              >
                 Tableau de Bord Instructeur
               </Typography>
               <Typography sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
@@ -341,7 +394,7 @@ const InstructorDashboard = () => {
               </Typography>
             </Box>
             <Chip
-              label="Instructeur"
+              label='Instructeur'
               sx={{
                 bgcolor: `${colors.fuschia || '#f13544'}33`,
                 color: colors.white || '#ffffff',
@@ -352,70 +405,111 @@ const InstructorDashboard = () => {
 
           {/* Stats Grid */}
           <Grid container spacing={3} sx={{ p: 4, position: 'relative', zIndex: 1 }}>
-            <Grid item xs={12} sm={6} md={4}>
+            <Grid item xs={12} sm={6} md={3}>
               <StatCard>
-                <CardContent>
+                <CardContent sx={{ textAlign: 'center' }}>
                   <SchoolIcon sx={{ fontSize: 40, color: colors.fuschia || '#f13544', mb: 2 }} />
-                  <Typography sx={{ color: colors.white || '#ffffff', mb: 1 }}>
+                  <Typography variant='h6' sx={{ color: colors.white || '#ffffff', mb: 1 }}>
                     Cours créés
                   </Typography>
-                  <Typography variant="h4" sx={{ color: colors.fuschia || '#f13544', mb: 2 }}>
+                  <Typography variant='h4' sx={{ color: colors.fuschia || '#f13544', mb: 2 }}>
                     {stats.totalCourses}
                   </Typography>
-                  <StyledButton fullWidth component={Link} to="/instructor/courses" size="small">
-                    Gérer
+                  <StyledButton fullWidth component={Link} to='/instructor/courses' size='small'>
+                    Gérer les cours
                   </StyledButton>
                 </CardContent>
               </StatCard>
             </Grid>
 
-            <Grid item xs={12} sm={6} md={4}>
+            <Grid item xs={12} sm={6} md={3}>
               <StatCard>
-                <CardContent>
+                <CardContent sx={{ textAlign: 'center' }}>
                   <ScheduleIcon sx={{ fontSize: 40, color: colors.fuschia || '#f13544', mb: 2 }} />
-                  <Typography sx={{ color: colors.white || '#ffffff', mb: 1 }}>
-                    Cours en cours
+                  <Typography variant='h6' sx={{ color: colors.white || '#ffffff', mb: 1 }}>
+                    Cours en édition
                   </Typography>
-                  <Typography variant="h4" sx={{ color: colors.fuschia || '#f13544', mb: 2 }}>
+                  <Typography variant='h4' sx={{ color: colors.fuschia || '#f13544', mb: 2 }}>
                     {stats.coursesInProgress}
                   </Typography>
-                  <StyledButton fullWidth component={Link} to="/instructor/courses-in-progress" size="small">
-                    Éditer
+                  <StyledButton
+                    fullWidth
+                    component={Link}
+                    to='/instructor/courses-in-progress'
+                    size='small'
+                  >
+                    Continuer l'édition
                   </StyledButton>
                 </CardContent>
               </StatCard>
             </Grid>
 
-            <Grid item xs={12} sm={6} md={4}>
+            <Grid item xs={12} sm={6} md={3}>
               <StatCard>
-                <CardContent>
-                  <CheckCircleIcon sx={{ fontSize: 40, color: colors.fuschia || '#f13544', mb: 2 }} />
-                  <Typography sx={{ color: colors.white || '#ffffff', mb: 1 }}>
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <PeopleIcon sx={{ fontSize: 40, color: colors.fuschia || '#f13544', mb: 2 }} />
+                  <Typography variant='h6' sx={{ color: colors.white || '#ffffff', mb: 1 }}>
+                    Étudiants inscrits
+                  </Typography>
+                  <Typography variant='h4' sx={{ color: colors.fuschia || '#f13544', mb: 2 }}>
+                    {stats.totalStudents}
+                  </Typography>
+                  <StyledButton fullWidth component={Link} to='/instructor/students' size='small'>
+                    Voir les étudiants
+                  </StyledButton>
+                </CardContent>
+              </StatCard>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <StatCard>
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <CheckCircleIcon
+                    sx={{ fontSize: 40, color: colors.fuschia || '#f13544', mb: 2 }}
+                  />
+                  <Typography variant='h6' sx={{ color: colors.white || '#ffffff', mb: 1 }}>
                     Taux d'approbation
                   </Typography>
-                  <Typography variant="h4" sx={{ color: colors.fuschia || '#f13544', mb: 2 }}>
+                  <Typography variant='h4' sx={{ color: colors.fuschia || '#f13544', mb: 2 }}>
                     {stats.approvalRate}%
                   </Typography>
-                  <Chip label="Approuvés" size="small" variant="outlined" />
+                  <Chip
+                    label={stats.approvalRate >= 80 ? 'Excellent' : 'À améliorer'}
+                    size='small'
+                    variant='outlined'
+                    sx={{
+                      color: colors.white || '#ffffff',
+                      borderColor: colors.fuschia || '#f13544',
+                    }}
+                  />
                 </CardContent>
               </StatCard>
             </Grid>
           </Grid>
 
-          {/* Charts */}
+          {/* Charts and Recent Courses */}
           <Grid container spacing={3} sx={{ p: 4, position: 'relative', zIndex: 1 }}>
             <Grid item xs={12} md={6}>
               <ChartCard>
-                <Typography variant="h6" sx={{ color: colors.white || '#ffffff', mb: 2 }}>
-                  Répartition des cours
+                <Typography variant='h6' sx={{ color: colors.white || '#ffffff', mb: 2 }}>
+                  Répartition des cours par statut
                 </Typography>
                 <Box sx={{ height: 300 }}>
-                  {stats.coursesByStatus && Object.keys(stats.coursesByStatus).length > 0 ? (
+                  {Object.keys(stats.coursesByStatus).length > 0 ? (
                     <Pie data={pieChartData} options={pieChartOptions} />
                   ) : (
-                    <Typography sx={{ color: 'rgba(255, 255, 255, 0.6)', textAlign: 'center', py: 10 }}>
-                      Aucune donnée disponible
-                    </Typography>
+                    <Box
+                      sx={{
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Typography sx={{ color: 'rgba(255, 255, 255, 0.6)', textAlign: 'center' }}>
+                        Aucun cours créé pour le moment
+                      </Typography>
+                    </Box>
                   )}
                 </Box>
               </ChartCard>
@@ -423,34 +517,74 @@ const InstructorDashboard = () => {
 
             <Grid item xs={12} md={6}>
               <ChartCard>
-                <Typography variant="h6" sx={{ color: colors.white || '#ffffff', mb: 2 }}>
+                <Typography variant='h6' sx={{ color: colors.white || '#ffffff', mb: 2 }}>
                   Vos cours récents
                 </Typography>
                 <Box sx={{ height: 300, overflowY: 'auto' }}>
                   {stats.courses.length > 0 ? (
                     <TableContainer>
-                      <Table size="small">
+                      <Table size='small'>
                         <TableHead>
                           <TableRow>
-                            <TableCell sx={{ color: colors.white || '#ffffff' }}>Titre</TableCell>
-                            <TableCell sx={{ color: colors.white || '#ffffff' }}>Statut</TableCell>
+                            <TableCell
+                              sx={{ color: colors.white || '#ffffff', fontWeight: 'bold' }}
+                            >
+                              Titre du cours
+                            </TableCell>
+                            <TableCell
+                              sx={{ color: colors.white || '#ffffff', fontWeight: 'bold' }}
+                            >
+                              Statut
+                            </TableCell>
+                            <TableCell
+                              sx={{ color: colors.white || '#ffffff', fontWeight: 'bold' }}
+                            >
+                              Étudiants
+                            </TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
                           {stats.courses.map((course) => (
-                            <TableRow key={course._id} sx={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}>
-                              <TableCell sx={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.9rem' }}>
+                            <TableRow
+                              key={course._id}
+                              sx={{
+                                borderColor: 'rgba(255, 255, 255, 0.1)',
+                                '&:hover': {
+                                  bgcolor: 'rgba(241, 53, 68, 0.1)',
+                                },
+                              }}
+                            >
+                              <TableCell sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
                                 {course.titre}
                               </TableCell>
                               <TableCell>
                                 <Chip
-                                  label={course.statutApprobation}
-                                  size="small"
+                                  label={
+                                    course.statutApprobation === 'APPROVED'
+                                      ? 'Approuvé'
+                                      : course.statutApprobation === 'PENDING'
+                                        ? 'En attente'
+                                        : course.statutApprobation === 'REJECTED'
+                                          ? 'Rejeté'
+                                          : 'Brouillon'
+                                  }
+                                  size='small'
                                   sx={{
-                                    bgcolor: course.statutApprobation === 'APPROVED' ? '#4caf50' : '#ff9800',
+                                    bgcolor:
+                                      course.statutApprobation === 'APPROVED'
+                                        ? '#4caf50'
+                                        : course.statutApprobation === 'PENDING'
+                                          ? '#ff9800'
+                                          : course.statutApprobation === 'REJECTED'
+                                            ? '#f44336'
+                                            : '#9e9e9e',
                                     color: colors.white || '#ffffff',
+                                    fontWeight: 'bold',
                                   }}
                                 />
+                              </TableCell>
+                              <TableCell sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                                {course.etudiantsInscrits?.length || 0}
                               </TableCell>
                             </TableRow>
                           ))}
@@ -458,9 +592,18 @@ const InstructorDashboard = () => {
                       </Table>
                     </TableContainer>
                   ) : (
-                    <Typography sx={{ color: 'rgba(255, 255, 255, 0.6)', textAlign: 'center', py: 10 }}>
-                      Aucun cours créé
-                    </Typography>
+                    <Box
+                      sx={{
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Typography sx={{ color: 'rgba(255, 255, 255, 0.6)', textAlign: 'center' }}>
+                        Aucun cours créé pour le moment
+                      </Typography>
+                    </Box>
                   )}
                 </Box>
               </ChartCard>
@@ -469,18 +612,24 @@ const InstructorDashboard = () => {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4, position: 'relative', zIndex: 1 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
               <Pagination
                 count={totalPages}
                 page={currentPage}
-                onChange={(e, page) => fetchData(page)}
+                onChange={handlePageChange}
                 sx={{
                   '& .MuiPaginationItem-root': {
                     color: colors.white || '#ffffff',
                     borderColor: `${colors.fuschia || '#f13544'}33`,
+                    '&:hover': {
+                      bgcolor: `${colors.fuschia || '#f13544'}33`,
+                    },
                   },
                   '& .MuiPaginationItem-root.Mui-selected': {
                     backgroundColor: colors.fuschia || '#f13544',
+                    '&:hover': {
+                      backgroundColor: colors.lightFuschia || '#ff6b74',
+                    },
                   },
                 }}
               />
@@ -488,77 +637,85 @@ const InstructorDashboard = () => {
           )}
 
           {/* Quick Actions */}
-          <ChartCard sx={{ p: 4, mb: 4, position: 'relative', zIndex: 1 }}>
-            <Typography variant="h5" sx={{ color: colors.white || '#ffffff', mb: 3 }}>
+          <ChartCard sx={{ p: 4, mb: 4 }}>
+            <Typography variant='h5' sx={{ color: colors.white || '#ffffff', mb: 3 }}>
               Actions rapides
             </Typography>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6} md={3}>
                 <Button
                   fullWidth
-                  variant="outlined"
+                  variant='outlined'
                   component={Link}
-                  to="/instructor/courses/create"
+                  to='/instructor/courses/create'
                   startIcon={<SchoolIcon />}
                   sx={{
                     color: colors.white || '#ffffff',
                     borderColor: `${colors.fuschia || '#f13544'}66`,
+                    py: 1.5,
                     '&:hover': {
                       backgroundColor: `${colors.fuschia || '#f13544'}33`,
+                      borderColor: colors.fuschia || '#f13544',
                     },
                   }}
                 >
-                  Créer cours
+                  Créer un nouveau cours
                 </Button>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
                 <Button
                   fullWidth
-                  variant="outlined"
+                  variant='outlined'
                   component={Link}
-                  to="/instructor/reports"
+                  to='/instructor/analytics'
                   startIcon={<AssessmentIcon />}
                   sx={{
                     color: colors.white || '#ffffff',
                     borderColor: `${colors.fuschia || '#f13544'}66`,
+                    py: 1.5,
                     '&:hover': {
                       backgroundColor: `${colors.fuschia || '#f13544'}33`,
+                      borderColor: colors.fuschia || '#f13544',
                     },
                   }}
                 >
-                  Rapports
+                  Analytics étudiants
                 </Button>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
                 <Button
                   fullWidth
-                  variant="outlined"
+                  variant='outlined'
                   component={Link}
-                  to="/instructor/students"
-                  startIcon={<PeopleIcon />}
+                  to='/instructor/courses-in-progress'
+                  startIcon={<ScheduleIcon />}
                   sx={{
                     color: colors.white || '#ffffff',
                     borderColor: `${colors.fuschia || '#f13544'}66`,
+                    py: 1.5,
                     '&:hover': {
                       backgroundColor: `${colors.fuschia || '#f13544'}33`,
+                      borderColor: colors.fuschia || '#f13544',
                     },
                   }}
                 >
-                  Étudiants
+                  Cours en édition
                 </Button>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
                 <Button
                   fullWidth
-                  variant="outlined"
+                  variant='outlined'
                   component={Link}
-                  to="/instructor/settings"
+                  to='/instructor/settings'
                   startIcon={<SettingsIcon />}
                   sx={{
                     color: colors.white || '#ffffff',
                     borderColor: `${colors.fuschia || '#f13544'}66`,
+                    py: 1.5,
                     '&:hover': {
                       backgroundColor: `${colors.fuschia || '#f13544'}33`,
+                      borderColor: colors.fuschia || '#f13544',
                     },
                   }}
                 >

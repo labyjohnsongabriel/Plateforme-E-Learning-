@@ -1,5 +1,6 @@
 // src/controllers/learning/ProgressionController.ts
 import { Request, Response, NextFunction } from 'express';
+import { validationResult } from 'express-validator';
 import createError from 'http-errors';
 import { Types } from 'mongoose';
 import ProgressionService from '../../services/learning/ProgressionService';
@@ -7,19 +8,18 @@ import CertificatService from '../../services/learning/CertificationService';
 import { getIO } from '../../utils/socket';
 import { IProgression, ProgressionUpdateData, CourseDocument } from '../../types';
 
-/**
- * Contrôleur pour la gestion de la progression d’un utilisateur dans un cours.
- */
 class ProgressionController {
-  /**
-   * 🔹 Récupère la progression d’un utilisateur pour un cours spécifique.
-   */
   static getByUserAndCourse = async (
     req: Request<{ coursId: string }>,
     res: Response,
     next: NextFunction
   ): Promise<void> => {
     try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw createError(400, 'Validation failed', { errors: errors.array() });
+      }
+
       if (!req.user?._id) {
         throw createError(401, 'Utilisateur non authentifié');
       }
@@ -32,22 +32,35 @@ class ProgressionController {
 
       const progression = await ProgressionService.getByUserAndCourse(req.user._id, req.params.coursId);
 
-      res.status(200).json(progression || { pourcentage: 0 });
-    } catch (err) {
-      console.error('❌ Erreur dans getByUserAndCourse :', err);
-      next(err);
+      // Return default progress if none found
+      res.status(200).json(progression || { pourcentage: 0, dateDebut: null, dateFin: null });
+    } catch (err: any) {
+      console.error('❌ Erreur dans getByUserAndCourse :', {
+        message: err.message,
+        stack: err.stack,
+        userId: req.user?._id,
+        coursId: req.params.coursId,
+      });
+      if (err.message === 'Progression non trouvée') {
+        // Handle "not found" case gracefully
+        res.status(200).json({ pourcentage: 0, dateDebut: null, dateFin: null });
+      } else {
+        next(createError(err.status || 500, err.message || 'Erreur serveur lors de la récupération de la progression'));
+      }
     }
   };
 
-  /**
-   * 🔹 Met à jour la progression d’un utilisateur et génère un certificat si le cours est terminé.
-   */
   static update = async (
     req: Request<{ coursId: string }, {}, ProgressionUpdateData>,
     res: Response,
     next: NextFunction
   ): Promise<void> => {
     try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw createError(400, 'Validation failed', { errors: errors.array() });
+      }
+
       if (!req.user?._id) {
         throw createError(401, 'Utilisateur non authentifié');
       }
@@ -64,7 +77,6 @@ class ProgressionController {
         req.body.pourcentage
       );
 
-      // 🎓 Génère un certificat si la progression atteint 100 %
       if (progression.pourcentage === 100) {
         const cert = await CertificatService.generateIfEligible(progression);
         if (cert) {
@@ -78,15 +90,17 @@ class ProgressionController {
       }
 
       res.status(200).json(progression);
-    } catch (err) {
-      console.error('❌ Erreur dans update progression :', err);
-      next(err);
+    } catch (err: any) {
+      console.error('❌ Erreur dans update progression :', {
+        message: err.message,
+        stack: err.stack,
+        userId: req.user?._id,
+        coursId: req.params.coursId,
+      });
+      next(createError(err.status || 500, err.message || 'Erreur serveur lors de la mise à jour de la progression'));
     }
   };
 
-  /**
-   * 🔹 Récupère la progression globale (tous les cours) pour un utilisateur connecté.
-   */
   static getGlobalProgress = async (
     req: Request,
     res: Response,
@@ -115,7 +129,11 @@ class ProgressionController {
         }),
       });
     } catch (err: any) {
-      console.error('❌ Erreur dans getGlobalProgress :', err);
+      console.error('❌ Erreur dans getGlobalProgress :', {
+        message: err.message,
+        stack: err.stack,
+        userId: req.user?._id,
+      });
       next(createError(500, err.message || 'Erreur serveur lors de la récupération de la progression globale'));
     }
   };

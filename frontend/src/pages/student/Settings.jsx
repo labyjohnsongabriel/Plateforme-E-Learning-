@@ -78,7 +78,12 @@ const StyledButton = styled(Button)({
 });
 
 const Settings = () => {
-  const { user, logout } = useAuth() || { user: null, logout: () => {} };
+  const { user, logout, refreshToken, isAuthenticated } = useAuth() || {
+    user: null,
+    logout: () => {},
+    refreshToken: async () => false,
+    isAuthenticated: false,
+  };
   const navigate = useNavigate();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -86,14 +91,15 @@ const Settings = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
   /**
    * Charge les paramètres actuels de l'utilisateur
    */
   const loadSettings = useCallback(async () => {
-    if (!user?.token) {
+    if (!isAuthenticated || !user?.token || !user?.id) {
       setError('Authentification requise');
+      navigate('/login');
       setLoading(false);
       return;
     }
@@ -102,19 +108,22 @@ const Settings = () => {
       setLoading(true);
       setError(null);
 
-      const response = await axios.get(`${API_BASE_URL}/users/settings`, {
+      console.log('📥 Fetching settings for user:', user.id);
+      const response = await axios.get(`${API_BASE_URL}/api/users/settings`, {
         headers: {
           Authorization: `Bearer ${user.token}`,
           'Content-Type': 'application/json',
         },
+        params: { userId: user.id }, // Add userId parameter
         timeout: 10000,
       });
 
+      console.log('📊 Settings response:', response.data);
       const settings = response.data;
       setNotificationsEnabled(settings.notificationsEnabled ?? true);
       setSuccess(null);
     } catch (err) {
-      console.error('Erreur lors du chargement des paramètres:', {
+      console.error('❌ Erreur lors du chargement des paramètres:', {
         message: err.message,
         status: err.response?.status,
         data: err.response?.data,
@@ -122,31 +131,41 @@ const Settings = () => {
 
       let errorMessage = 'Erreur lors du chargement des paramètres';
       if (err.response?.status === 401) {
+        console.log('🔄 Attempting token refresh');
+        const refreshed = await refreshToken();
+        if (refreshed) {
+          console.log('✅ Token refreshed, retrying settings load');
+          return loadSettings(); // Retry after refresh
+        }
         errorMessage = 'Session expirée, veuillez vous reconnecter';
         logout();
         navigate('/login');
+      } else if (err.response?.status === 400) {
+        errorMessage =
+          err.response.data.message || 'Requête invalide, veuillez vérifier vos données';
       } else if (err.response?.status === 403) {
         errorMessage = 'Accès non autorisé';
       } else if (err.response?.status === 404) {
-        errorMessage = 'Service indisponible';
-      } else if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      } else if (err.message === 'Network Error') {
+        errorMessage = 'Paramètres non trouvés';
+      } else if (err.code === 'ERR_NETWORK') {
         errorMessage = 'Erreur réseau - vérifiez votre connexion Internet';
+      } else {
+        errorMessage = err.response?.data?.message || 'Erreur inattendue';
       }
 
       setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  }, [user, logout, navigate, API_BASE_URL]);
+  }, [user, isAuthenticated, logout, refreshToken, navigate, API_BASE_URL]);
 
   /**
    * Sauvegarde les paramètres
    */
   const handleSave = useCallback(async () => {
-    if (!user?.token) {
+    if (!isAuthenticated || !user?.token || !user?.id) {
       setError('Authentification requise');
+      navigate('/login');
       return;
     }
 
@@ -155,9 +174,10 @@ const Settings = () => {
     setSuccess(null);
 
     try {
+      console.log('📤 Saving settings for user:', user.id, { notificationsEnabled });
       const response = await axios.post(
-        `${API_BASE_URL}/users/settings`,
-        { notificationsEnabled },
+        `${API_BASE_URL}/api/users/settings`,
+        { userId: user.id, notificationsEnabled },
         {
           headers: {
             Authorization: `Bearer ${user.token}`,
@@ -167,9 +187,10 @@ const Settings = () => {
         }
       );
 
+      console.log('✅ Settings saved:', response.data);
       setSuccess(response.data.message || 'Paramètres sauvegardés avec succès');
     } catch (err) {
-      console.error('Erreur lors de la sauvegarde des paramètres:', {
+      console.error('❌ Erreur lors de la sauvegarde des paramètres:', {
         message: err.message,
         status: err.response?.status,
         data: err.response?.data,
@@ -177,34 +198,44 @@ const Settings = () => {
 
       let errorMessage = 'Erreur lors de la sauvegarde des paramètres';
       if (err.response?.status === 401) {
+        console.log('🔄 Attempting token refresh');
+        const refreshed = await refreshToken();
+        if (refreshed) {
+          console.log('✅ Token refreshed, retrying settings save');
+          return handleSave(); // Retry after refresh
+        }
         errorMessage = 'Session expirée, veuillez vous reconnecter';
         logout();
         navigate('/login');
+      } else if (err.response?.status === 400) {
+        errorMessage =
+          err.response.data.message || 'Requête invalide, veuillez vérifier vos données';
       } else if (err.response?.status === 403) {
         errorMessage = 'Accès non autorisé';
       } else if (err.response?.status === 404) {
         errorMessage = 'Service indisponible';
-      } else if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      } else if (err.message === 'Network Error') {
+      } else if (err.code === 'ERR_NETWORK') {
         errorMessage = 'Erreur réseau - vérifiez votre connexion Internet';
+      } else {
+        errorMessage = err.response?.data?.message || 'Erreur inattendue';
       }
 
       setError(errorMessage);
     } finally {
       setSaving(false);
     }
-  }, [notificationsEnabled, user, logout, navigate, API_BASE_URL]);
+  }, [notificationsEnabled, user, isAuthenticated, logout, refreshToken, navigate, API_BASE_URL]);
 
   useEffect(() => {
-    if (user) {
-      loadSettings();
-    } else {
+    if (!user || !isAuthenticated) {
+      console.log('🚫 No user or not authenticated, redirecting to login');
       navigate('/login');
+    } else {
+      loadSettings();
     }
-  }, [user, loadSettings, navigate]);
+  }, [user, isAuthenticated, loadSettings, navigate]);
 
-  if (!user) {
+  if (!user || !isAuthenticated) {
     return null; // Redirect handled in useEffect
   }
 

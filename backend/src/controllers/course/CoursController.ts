@@ -1,3 +1,4 @@
+// src/controllers/course/CoursController.ts
 import { Request, Response, NextFunction } from 'express';
 import createError from 'http-errors';
 import mongoose from 'mongoose';
@@ -7,6 +8,7 @@ import Contenu from '../../models/course/Contenu';
 import Quiz from '../../models/course/Quiz';
 import logger from '../../utils/logger';
 import { CourseDocument, CourseData, CourseResponse } from '../../types';
+import Progression from '../../models/learning/Progression'; // Ajout pour la progression
 
 /**
  * ==============================
@@ -77,7 +79,7 @@ class CoursService {
 
       logger.info(`📘 Récupération des cours pour l'utilisateur ${userId}`);
 
-      const courses = await Cours.find({ etudiants: userId })
+      let courses = await Cours.find({ etudiants: userId })
         .populate({
           path: 'domaineId',
           select: 'nom',
@@ -93,6 +95,12 @@ class CoursService {
         .lean();
 
       const total = await Cours.countDocuments({ etudiants: userId });
+
+      // Ajouter la progression individuelle à chaque cours
+      for (let course of courses) {
+        const progression = await Progression.findOne({ user: userId, cours: course._id });
+        course.progression = progression ? progression.pourcentage : 0;
+      }
 
       return {
         data: courses as unknown as CourseDocument[],

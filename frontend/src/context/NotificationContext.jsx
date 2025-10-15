@@ -1,4 +1,3 @@
-// src/context/NotificationContext.jsx
 import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import { Snackbar, Alert, Backdrop, CircularProgress, Typography } from '@mui/material';
 import axios from 'axios';
@@ -60,7 +59,7 @@ const retryRequest = async (fn, maxRetries = 3, baseDelay = 1000) => {
       return await fn();
     } catch (err) {
       if (attempt === maxRetries || err.response?.status === 401 || err.response?.status === 403) {
-        throw err; // No retry on 401, 403, or last attempt
+        throw err;
       }
       const delay = baseDelay * 2 ** (attempt - 1);
       console.warn(`Retrying request (attempt ${attempt}/${maxRetries}) after ${delay}ms`);
@@ -95,7 +94,7 @@ export const NotificationProvider = ({ children }) => {
       console.log('Fetching notifications', {
         url: `${API_BASE_URL}/api/notifications`,
         token: user.token.substring(0, 10) + '...',
-        role: user?.role?.toUpperCase() || 'UNKNOWN',
+        role: typeof user?.role === 'string' ? user.role.toUpperCase() : 'UNKNOWN',
       });
 
       const response = await retryRequest(() =>
@@ -122,7 +121,6 @@ export const NotificationProvider = ({ children }) => {
         setNotifications(fetchedNotifications);
         localStorage.setItem('notifications', JSON.stringify(fetchedNotifications));
       } else if (response.status === 403) {
-        // User doesn't have permission to access notifications - this is normal for some roles
         console.log('User does not have notification access permissions');
         setNotifications([]);
         localStorage.setItem('notifications', JSON.stringify([]));
@@ -145,14 +143,11 @@ export const NotificationProvider = ({ children }) => {
             navigate('/login');
             break;
           case 403:
-            // This is not an error - user just doesn't have notification permissions
-            console.log(
-              'Notification access forbidden - user role may not have notification permissions'
-            );
+            console.log('Notification access forbidden - user role may not have notification permissions');
             setNotifications([]);
             localStorage.setItem('notifications', JSON.stringify([]));
             setIsLoading(false);
-            return; // Exit early, no error state
+            return;
           case 404:
             errorMessage = 'Service de notifications non disponible';
             break;
@@ -164,7 +159,6 @@ export const NotificationProvider = ({ children }) => {
         errorMessage = 'Impossible de se connecter au serveur';
       }
 
-      // Only set error for non-403 cases
       if (err.response?.status !== 403) {
         setError(errorMessage);
         setNotifications([]);
@@ -178,13 +172,12 @@ export const NotificationProvider = ({ children }) => {
   useEffect(() => {
     if (user?.token && !isTokenExpired(user.token)) {
       fetchNotifications();
-      // Polling only for ADMIN role, with a longer interval to reduce load
-      if (user?.role?.toUpperCase() === RoleUtilisateur.ADMIN) {
+      if (typeof user?.role === 'string' && user.role.toUpperCase() === RoleUtilisateur.ADMIN) {
         const interval = setInterval(() => {
           if (document.visibilityState === 'visible') {
             fetchNotifications();
           }
-        }, 60000); // Increased to 60 seconds
+        }, 60000);
         return () => clearInterval(interval);
       }
     } else {
@@ -195,16 +188,15 @@ export const NotificationProvider = ({ children }) => {
 
   const unreadCount = Array.isArray(notifications) ? notifications.filter((n) => !n.lu).length : 0;
 
-  // Version simplifiée de addNotification pour le frontend uniquement
   const addNotification = useCallback(
-    async (message, severity = 'info', role = user?.role) => {
+    async (message, severity = 'info', role = user?.role || RoleUtilisateur.ETUDIANT) => {
       setIsLoading(true);
       setError(null);
 
       const newNotification = {
         message,
         severity,
-        role: role?.toUpperCase() || RoleUtilisateur.ETUDIANT,
+        role: typeof role === 'string' ? role.toUpperCase() : RoleUtilisateur.ETUDIANT,
         id: crypto.randomUUID(),
         createdAt: new Date().toISOString(),
         lu: false,
@@ -212,15 +204,12 @@ export const NotificationProvider = ({ children }) => {
 
       try {
         console.log('Adding local notification', { newNotification });
-
-        // Ajouter la notification localement seulement
         setNotifications((prev) => {
-          const updatedNotifications = [newNotification, ...prev].slice(0, 10); // Garder seulement les 10 dernières
+          const updatedNotifications = [newNotification, ...prev].slice(0, 10);
           localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
           return updatedNotifications;
         });
 
-        // NE PAS envoyer au backend pour éviter l'erreur 403
         console.log('Notification added locally - skipping backend save to avoid 403 error');
       } catch (err) {
         console.error('Add notification error:', {
@@ -238,7 +227,6 @@ export const NotificationProvider = ({ children }) => {
               navigate('/login');
               break;
             case 403:
-              // C'est normal - l'utilisateur n'a pas les permissions backend pour les notifications
               console.log('Backend notification access forbidden - using local notifications only');
               break;
             default:
@@ -249,7 +237,6 @@ export const NotificationProvider = ({ children }) => {
           errorMessage = 'Impossible de se connecter au serveur';
         }
 
-        // Ne pas afficher d'erreur pour les 403 - c'est attendu
         if (err.response?.status !== 403) {
           setError(errorMessage);
         }
@@ -274,8 +261,6 @@ export const NotificationProvider = ({ children }) => {
       setError(null);
       try {
         console.log('Marking notification as read locally', { id });
-
-        // Marquer comme lu localement seulement
         setNotifications((prev) => {
           const updatedNotifications = prev.map((n) =>
             n._id === id || n.id === id ? { ...n, lu: true } : n
@@ -284,7 +269,6 @@ export const NotificationProvider = ({ children }) => {
           return updatedNotifications;
         });
 
-        // NE PAS envoyer au backend pour éviter l'erreur 403
         console.log('Notification marked as read locally - skipping backend update');
       } catch (err) {
         console.error('Mark as read error:', {
@@ -302,7 +286,6 @@ export const NotificationProvider = ({ children }) => {
               navigate('/login');
               break;
             case 403:
-              // C'est normal - utiliser seulement le stockage local
               console.log('Backend notification update forbidden - using local state only');
               break;
             default:
@@ -313,7 +296,6 @@ export const NotificationProvider = ({ children }) => {
           errorMessage = 'Impossible de se connecter au serveur';
         }
 
-        // Ne pas afficher d'erreur pour les 403
         if (err.response?.status !== 403) {
           setError(errorMessage);
         }
@@ -337,15 +319,12 @@ export const NotificationProvider = ({ children }) => {
     setError(null);
     try {
       console.log('Marking all notifications as read locally');
-
-      // Marquer toutes comme lu localement seulement
       setNotifications((prev) => {
         const updatedNotifications = prev.map((n) => ({ ...n, lu: true }));
         localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
         return updatedNotifications;
       });
 
-      // NE PAS envoyer au backend pour éviter l'erreur 403
       console.log('All notifications marked as read locally - skipping backend update');
     } catch (err) {
       console.error('Mark all as read error:', {
@@ -363,7 +342,6 @@ export const NotificationProvider = ({ children }) => {
             navigate('/login');
             break;
           case 403:
-            // C'est normal - utiliser seulement le stockage local
             console.log('Backend notification update forbidden - using local state only');
             break;
           default:
@@ -374,7 +352,6 @@ export const NotificationProvider = ({ children }) => {
         errorMessage = 'Impossible de se connecter au serveur';
       }
 
-      // Ne pas afficher d'erreur pour les 403
       if (err.response?.status !== 403) {
         setError(errorMessage);
       }
@@ -396,12 +373,9 @@ export const NotificationProvider = ({ children }) => {
     setError(null);
     try {
       console.log('Clearing notifications locally');
-
-      // Effacer localement seulement
       setNotifications([]);
       localStorage.removeItem('notifications');
 
-      // NE PAS envoyer au backend pour éviter l'erreur 403
       console.log('Notifications cleared locally - skipping backend deletion');
     } catch (err) {
       console.error('Clear notifications error:', {
@@ -419,7 +393,6 @@ export const NotificationProvider = ({ children }) => {
             navigate('/login');
             break;
           case 403:
-            // C'est normal - utiliser seulement le stockage local
             console.log('Backend notification deletion forbidden - using local state only');
             break;
           default:
@@ -430,12 +403,10 @@ export const NotificationProvider = ({ children }) => {
         errorMessage = 'Impossible de se connecter au serveur';
       }
 
-      // Ne pas afficher d'erreur pour les 403
       if (err.response?.status !== 403) {
         setError(errorMessage);
       }
 
-      // Recharger les notifications locales en cas d'erreur
       const localNotifications = localStorage.getItem('notifications');
       if (localNotifications) {
         setNotifications(JSON.parse(localNotifications));
@@ -457,19 +428,16 @@ export const NotificationProvider = ({ children }) => {
     error,
   };
 
-  // Filtrer les notifications pour l'affichage
-  const maxNotifications = 5; // Limite pour tous les utilisateurs
+  const maxNotifications = 5;
   const visibleNotifications = Array.isArray(notifications)
     ? notifications
-        .filter((notification) => !notification.lu) // Seulement les non lues
+        .filter((notification) => !notification.lu)
         .slice(0, maxNotifications)
     : [];
 
   return (
     <NotificationContext.Provider value={contextValue}>
       {children}
-
-      {/* Affichage des notifications locales seulement */}
       {visibleNotifications.map((notification) => (
         <Snackbar
           key={notification.id || notification._id}
@@ -502,8 +470,6 @@ export const NotificationProvider = ({ children }) => {
           </Alert>
         </Snackbar>
       ))}
-
-      {/* Loading Backdrop */}
       <Backdrop
         open={isLoading}
         sx={{
@@ -529,8 +495,6 @@ export const NotificationProvider = ({ children }) => {
           Chargement...
         </Typography>
       </Backdrop>
-
-      {/* Error Snackbar */}
       <Snackbar
         open={!!error}
         autoHideDuration={6000}
@@ -549,7 +513,6 @@ export const NotificationProvider = ({ children }) => {
   );
 };
 
-// Ajouter les couleurs manquantes
 const colors = {
   navy: '#010b40',
   lightNavy: '#1a237e',

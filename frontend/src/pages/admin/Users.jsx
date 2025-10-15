@@ -26,8 +26,10 @@ import {
   Select,
   MenuItem,
   Snackbar,
+  InputAdornment,
+  Fade,
 } from '@mui/material';
-import { Delete, Edit, Add } from '@mui/icons-material';
+import { Delete, Edit, Add, Search } from '@mui/icons-material';
 import { styled, keyframes } from '@mui/material/styles';
 import { alpha } from '@mui/material';
 import axios from 'axios';
@@ -40,9 +42,15 @@ const fadeInUp = keyframes`
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 `;
+
 const floatingAnimation = keyframes`
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
+`;
+
+const pulse = keyframes`
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 `;
 
 // Styled Components
@@ -80,7 +88,10 @@ const StyledTableCell = styled(TableCell)(({ theme }) => ({
 
 const StyledTableRow = styled(TableRow)(({ theme }) => ({
   transition: 'all 0.3s ease',
-  '&:hover': { backgroundColor: alpha(colors.fuschia || '#f13544', 0.08), transform: 'scale(1.01)' },
+  '&:hover': {
+    backgroundColor: alpha(colors.fuschia || '#f13544', 0.08),
+    transform: 'scale(1.01)',
+  },
   '&:last-child td': { borderBottom: 0 },
 }));
 
@@ -109,7 +120,10 @@ const ActionButton = styled(IconButton)(({ theme }) => ({
   color: colors.white || '#ffffff',
   transition: 'all 0.3s ease',
   margin: theme.spacing(0, 0.5),
-  '&:hover': { transform: 'scale(1.2)', backgroundColor: alpha(colors.fuschia || '#f13544', 0.2) },
+  '&:hover': {
+    transform: 'scale(1.2)',
+    backgroundColor: alpha(colors.fuschia || '#f13544', 0.2),
+  },
 }));
 
 const StyledDialog = styled(Dialog)(({ theme }) => ({
@@ -149,15 +163,26 @@ const Users = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [snackbarOpen, setSnackbarOpen] = useState(false);
-
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [formData, setFormData] = useState({ nom: '', prenom: '', email: '', password: '', role: 'ETUDIANT' });
+  const [formData, setFormData] = useState({
+    nom: '',
+    prenom: '',
+    email: '',
+    password: '',
+    role: 'ETUDIANT',
+  });
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState('');
+  const [roles, setRoles] = useState([
+    { value: 'ETUDIANT', label: 'Étudiant' },
+    { value: 'ENSEIGNANT', label: 'Enseignant' },
+    { value: 'ADMIN', label: 'Administrateur' },
+  ]);
 
+  // Vérification admin
   useEffect(() => {
     if (authLoading) return;
     if (!user || user.role !== 'ADMIN') {
@@ -166,18 +191,52 @@ const Users = () => {
     }
   }, [user, authLoading, navigate]);
 
+  // Récupération des rôles (optionnel, si le backend fournit une liste dynamique)
+  const fetchRoles = useCallback(async () => {
+    if (!user?.token) return;
+    try {
+      const response = await axios.get('http://localhost:3001/api/admin/roles', {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      const rolesData = Array.isArray(response.data) ? response.data : [];
+      setRoles(
+        rolesData.map((role) => ({
+          value: role.value || role,
+          label: role.label || role.charAt(0).toUpperCase() + role.slice(1).toLowerCase(),
+        }))
+      );
+    } catch (err) {
+      console.warn('Erreur lors du chargement des rôles, utilisation des rôles par défaut:', err);
+      // Fallback to predefined roles
+    }
+  }, [user]);
+
+  // Récupération des utilisateurs
   const fetchUsers = useCallback(async () => {
     if (!user?.token) return;
     setIsLoading(true);
     setError('');
     try {
-      const response = await axios.get('http://localhost:3001/api/admin/users', { headers: { Authorization: `Bearer ${user.token}` } });
+      const response = await axios.get('http://localhost:3001/api/admin/users', {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
       const usersData = Array.isArray(response.data) ? response.data : [];
-      setUsers(usersData);
-      setFilteredUsers(usersData);
+      const normalizedUsers = usersData.map((u) => ({
+        ...u,
+        _id: u._id.toString(),
+        nom: u.nom || 'N/A',
+        prenom: u.prenom || 'N/A',
+        email: u.email || 'N/A',
+        role: u.role || 'ETUDIANT',
+      }));
+      setUsers(normalizedUsers);
+      setFilteredUsers(normalizedUsers);
     } catch (err) {
       console.error('Erreur fetchUsers:', err);
-      const errorMessage = err.response?.status === 401 ? 'Session expirée. Veuillez vous reconnecter.' : err.response?.data?.message || 'Erreur lors du chargement des utilisateurs';
+      const errorMessage =
+        err.response?.status === 401
+          ? 'Session expirée. Veuillez vous reconnecter.'
+          : err.response?.data?.message || 'Erreur lors du chargement des utilisateurs';
       setError(errorMessage);
       if (err.response?.status === 401) setTimeout(() => navigate('/login'), 2000);
     } finally {
@@ -185,16 +244,26 @@ const Users = () => {
     }
   }, [user, navigate]);
 
+  // Chargement initial
   useEffect(() => {
-    if (user?.role === 'ADMIN') fetchUsers();
-  }, [fetchUsers]);
+    if (user?.role === 'ADMIN') {
+      fetchRoles();
+      fetchUsers();
+    }
+  }, [user, fetchRoles, fetchUsers]);
 
+  // Filtrage des utilisateurs
   useEffect(() => {
-    const filtered = users.filter(u => `${u.nom || ''} ${u.prenom || ''}`.toLowerCase().includes(search.toLowerCase()) || (u.email || '').toLowerCase().includes(search.toLowerCase()));
+    const filtered = users.filter(
+      (u) =>
+        `${u.nom || ''} ${u.prenom || ''}`.toLowerCase().includes(search.toLowerCase()) ||
+        (u.email || '').toLowerCase().includes(search.toLowerCase())
+    );
     setFilteredUsers(filtered);
     setPage(0);
   }, [search, users]);
 
+  // Gestion des modales
   const openAddModal = () => {
     setFormData({ nom: '', prenom: '', email: '', password: '', role: 'ETUDIANT' });
     setFormError('');
@@ -203,27 +272,41 @@ const Users = () => {
 
   const openEditModal = (user) => {
     setSelectedUser(user);
-    setFormData({ nom: user.nom || '', prenom: user.prenom || '', email: user.email || '', password: '', role: user.role || 'ETUDIANT' });
+    setFormData({
+      nom: user.nom || '',
+      prenom: user.prenom || '',
+      email: user.email || '',
+      password: '',
+      role: user.role || 'ETUDIANT',
+    });
     setFormError('');
     setEditModalOpen(true);
   };
 
   const handleDeleteClick = (user) => {
+    if (!user?._id) {
+      setError('ID de l’utilisateur invalide');
+      setSnackbarOpen(true);
+      return;
+    }
     setSelectedUser(user);
     setDeleteDialogOpen(true);
   };
 
+  // Validation du formulaire
   const validateForm = (isEdit = false) => {
-    if (!formData.nom) return 'Le nom est requis';
-    if (!formData.prenom) return 'Le prénom est requis';
-    if (!formData.email) return "L'email est requis";
-    if (!isEdit && !formData.password) return 'Le mot de passe est requis pour la création';
+    if (!formData.nom.trim()) return 'Le nom est requis';
+    if (!formData.prenom.trim()) return 'Le prénom est requis';
+    if (!formData.email.trim()) return "L'email est requis";
+    if (!isEdit && !formData.password.trim()) return 'Le mot de passe est requis pour la création';
     if (!formData.role) return 'Le rôle est requis';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) return "L'email est invalide";
-    if (!isEdit && formData.password.length < 6) return 'Le mot de passe doit contenir au moins 6 caractères';
+    if (!isEdit && formData.password.length < 6)
+      return 'Le mot de passe doit contenir au moins 6 caractères';
     return '';
   };
 
+  // Soumission du formulaire
   const handleFormSubmit = async (isEdit) => {
     setFormError('');
     setFormLoading(true);
@@ -234,13 +317,22 @@ const Users = () => {
       return;
     }
     try {
-      const data = { nom: formData.nom, prenom: formData.prenom, email: formData.email, role: formData.role };
-      if (!isEdit || formData.password) data.password = formData.password;
+      const data = {
+        nom: formData.nom.trim(),
+        prenom: formData.prenom.trim(),
+        email: formData.email.trim(),
+        role: formData.role,
+      };
+      if (!isEdit || formData.password.trim()) data.password = formData.password.trim();
       if (isEdit) {
-        await axios.put(`http://localhost:3001/api/admin/users/${selectedUser._id}`, data, { headers: { Authorization: `Bearer ${user.token}` } });
+        await axios.put(`http://localhost:3001/api/admin/users/${selectedUser._id}`, data, {
+          headers: { Authorization: `Bearer ${user.token}` },
+        });
         setSuccess('Utilisateur mis à jour avec succès');
       } else {
-        await axios.post('http://localhost:3001/api/admin/users', data, { headers: { Authorization: `Bearer ${user.token}` } });
+        await axios.post('http://localhost:3001/api/admin/users', data, {
+          headers: { Authorization: `Bearer ${user.token}` },
+        });
         setSuccess('Utilisateur créé avec succès');
       }
       setSnackbarOpen(true);
@@ -249,17 +341,29 @@ const Users = () => {
       fetchUsers();
     } catch (err) {
       console.error('Erreur handleFormSubmit:', err);
-      const errorMessage = err.response?.status === 409 ? 'Cet email est déjà utilisé' : err.response?.data?.message || "Erreur lors de l'opération";
+      const errorMessage =
+        err.response?.status === 409
+          ? 'Cet email est déjà utilisé'
+          : err.response?.data?.message || "Erreur lors de l'opération";
       setFormError(errorMessage);
+      setSnackbarOpen(true);
     } finally {
       setFormLoading(false);
     }
   };
 
+  // Suppression d'un utilisateur
   const handleDeleteConfirm = async () => {
-    if (!selectedUser) return;
+    if (!selectedUser?._id) {
+      setError('ID de l’utilisateur invalide');
+      setSnackbarOpen(true);
+      setDeleteDialogOpen(false);
+      return;
+    }
     try {
-      await axios.delete(`http://localhost:3001/api/admin/users/${selectedUser._id}`, { headers: { Authorization: `Bearer ${user.token}` } });
+      await axios.delete(`http://localhost:3001/api/admin/users/${selectedUser._id}`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
       setSuccess('Utilisateur supprimé avec succès');
       setSnackbarOpen(true);
       fetchUsers();
@@ -274,162 +378,486 @@ const Users = () => {
     }
   };
 
+  // Formatage du rôle pour l'affichage
+  const formatRole = (role) => {
+    const roleObj = roles.find((r) => r.value === role);
+    return roleObj ? roleObj.label : 'N/A';
+  };
+
+  // Écran de chargement
   if (authLoading || isLoading) {
     return (
-      <Box sx={{ minHeight: '100vh', width: '100vw', display: 'flex', justifyContent: 'center', alignItems: 'center', background: `linear-gradient(135deg, ${colors.navy || '#0a0a2a'}, ${colors.lightNavy || '#1a237e'})` }}>
-        <CircularProgress sx={{ color: colors.fuschia || '#f13544' }} />
-        <Typography sx={{ ml: 2, color: colors.white || '#ffffff' }}>Chargement des utilisateurs...</Typography>
+      <Box
+        sx={{
+          minHeight: '100vh',
+          width: '100vw',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          background: `linear-gradient(135deg, ${colors.navy || '#0a0a2a'}, ${colors.lightNavy || '#1a237e'})`,
+        }}
+      >
+        <CircularProgress
+          sx={{
+            color: colors.fuschia || '#f13544',
+            animation: `${pulse} 1.5s ease-in-out infinite`,
+          }}
+        />
+        <Typography sx={{ ml: 2, color: colors.white || '#ffffff' }}>
+          Chargement des utilisateurs...
+        </Typography>
       </Box>
     );
   }
 
   return (
     <UsersContainer>
-      <Box sx={{ position: 'absolute', inset: 0, backgroundImage: `linear-gradient(${alpha(colors.fuschia || '#f13544', 0.1)} 1px, transparent 1px), linear-gradient(90deg, ${alpha(colors.fuschia || '#f13544', 0.1)} 1px, transparent 1px)`, backgroundSize: '40px 40px', opacity: 0.05 }} />
-      <Box sx={{ position: 'absolute', bottom: 60, right: 30, width: 120, height: 120, background: `linear-gradient(135deg, ${colors.fuschia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`, borderRadius: '50%', opacity: 0.15, animation: `${floatingAnimation} 4s ease-in-out infinite` }} />
+      <Box
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: `radial-gradient(circle at 20% 50%, ${alpha(
+            colors.fuschia || '#f13544',
+            0.1
+          )} 0%, transparent 50%), radial-gradient(circle at 80% 80%, ${alpha(
+            colors.lightFuschia || '#ff6b74',
+            0.1
+          )} 0%, transparent 50%)`,
+          pointerEvents: 'none',
+        }}
+      />
+      <Box
+        sx={{
+          position: 'absolute',
+          bottom: 60,
+          right: 30,
+          width: 120,
+          height: 120,
+          background: `linear-gradient(135deg, ${colors.fuschia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`,
+          borderRadius: '50%',
+          opacity: 0.15,
+          animation: `${floatingAnimation} 4s ease-in-out infinite`,
+        }}
+      />
 
       <Container maxWidth={false} disableGutters>
-        <UsersCard>
-          <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-            <Typography variant="h3" sx={{ fontWeight: 800, color: colors.white || '#ffffff', mb: 1, fontSize: { xs: '1.5rem', md: '2.5rem' } }}>
-              Gestion des Utilisateurs
-            </Typography>
-     {  /*     <PrimaryButton startIcon={<Add />} onClick={openAddModal}>
-              Ajouter un Utilisateur
-            </PrimaryButton>*/}
-          </Box>
+        <Fade in timeout={800}>
+          <UsersCard>
+            <Box
+              sx={{
+                mb: 4,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 2,
+              }}
+            >
+              <Typography
+                variant='h3'
+                sx={{
+                  fontWeight: 800,
+                  color: colors.white || '#ffffff',
+                  mb: 1,
+                  fontSize: { xs: '1.5rem', md: '2.5rem' },
+                }}
+              >
+                Gestion des Utilisateurs
+              </Typography>
+              <PrimaryButton startIcon={<Add />} onClick={openAddModal}>
+                Ajouter un Utilisateur
+              </PrimaryButton>
+            </Box>
 
-          {error && <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setError('')}>{error}</Alert>}
+            {error && (
+              <Alert severity='error' sx={{ mb: 3, borderRadius: 2 }} onClose={() => setError('')}>
+                {error}
+              </Alert>
+            )}
 
-          <TextField
-            placeholder="Rechercher par nom, prénom ou email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            sx={{ flex: 1, minWidth: 300, mb: 4, '& .MuiOutlinedInput-root': { color: colors.white || '#ffffff', borderRadius: 8, '& fieldset': { borderColor: alpha(colors.fuschia || '#f13544', 0.3) }, '&:hover fieldset': { borderColor: colors.fuschia || '#f13544' }, '&.Mui-focused fieldset': { borderColor: colors.fuschia || '#f13544' } }, '& .MuiInputLabel-root': { color: alpha(colors.white || '#ffffff', 0.7) } }}
-            fullWidth
-          />
+            <TextField
+              placeholder='Rechercher par nom, prénom ou email...'
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              fullWidth
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position='start'>
+                    <Search sx={{ color: alpha(colors.white || '#ffffff', 0.5) }} />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{
+                flex: 1,
+                minWidth: 300,
+                mb: 4,
+                '& .MuiOutlinedInput-root': {
+                  color: colors.white || '#ffffff',
+                  borderRadius: 8,
+                  '& fieldset': { borderColor: alpha(colors.fuschia || '#f13544', 0.3) },
+                  '&:hover fieldset': { borderColor: colors.fuschia || '#f13544' },
+                  '&.Mui-focused fieldset': { borderColor: colors.fuschia || '#f13544' },
+                },
+                '& .MuiInputLabel-root': { color: alpha(colors.white || '#ffffff', 0.7) },
+              }}
+            />
 
-          <TableContainer sx={{ borderRadius: 2, mb: 2, mt: 4, background: 'transparent' }}>
-            <Table>
-              <TableHead>
-                <TableRow sx={{ bgcolor: alpha(colors.fuschia || '#f13544', 0.1) }}>
-                  <StyledTableCell>Nom</StyledTableCell>
-                  <StyledTableCell>Prénom</StyledTableCell>
-                  <StyledTableCell>Email</StyledTableCell>
-                  <StyledTableCell>Rôle</StyledTableCell>
-                  <StyledTableCell align="center">Actions</StyledTableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((user) => (
-                  <StyledTableRow key={user._id}>
-                    <StyledTableCell>{user.nom || 'N/A'}</StyledTableCell>
-                    <StyledTableCell>{user.prenom || 'N/A'}</StyledTableCell>
-                    <StyledTableCell>{user.email || 'N/A'}</StyledTableCell>
-                    <StyledTableCell>
-                      {user.role === 'ETUDIANT' ? 'Étudiant' : user.role === 'ENSEIGNANT' ? 'Enseignant' : user.role === 'ADMIN' ? 'Administrateur' : 'N/A'}
-                    </StyledTableCell>
-                    <StyledTableCell align="center">
-                      <Tooltip title="Modifier" arrow>
-                        <ActionButton onClick={() => openEditModal(user)} sx={{ bgcolor: alpha('#f59e0b', 0.2), '&:hover': { bgcolor: alpha('#f59e0b', 0.3) } }}>
-                          <Edit />
-                        </ActionButton>
-                      </Tooltip>
-                      <Tooltip title="Supprimer" arrow>
-                        <ActionButton onClick={() => handleDeleteClick(user)} sx={{ bgcolor: alpha('#ef4444', 0.2), '&:hover': { bgcolor: alpha('#ef4444', 0.3) } }}>
-                          <Delete />
-                        </ActionButton>
-                      </Tooltip>
-                    </StyledTableCell>
-                  </StyledTableRow>
-                ))}
-                {filteredUsers.length === 0 && (
-                  <TableRow>
-                    <StyledTableCell colSpan={5} align="center">
-                      Aucun utilisateur trouvé
-                    </StyledTableCell>
+            <TableContainer sx={{ borderRadius: 2, mb: 2, mt: 4, background: 'transparent' }}>
+              <Table aria-label='Tableau des utilisateurs'>
+                <TableHead>
+                  <TableRow sx={{ bgcolor: alpha(colors.fuschia || '#f13544', 0.1) }}>
+                    <StyledTableCell>Nom</StyledTableCell>
+                    <StyledTableCell>Prénom</StyledTableCell>
+                    <StyledTableCell>Email</StyledTableCell>
+                    <StyledTableCell>Rôle</StyledTableCell>
+                    <StyledTableCell align='center'>Actions</StyledTableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {filteredUsers.length > 0 ? (
+                    filteredUsers
+                      .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                      .map((user) => (
+                        <StyledTableRow key={user._id}>
+                          <StyledTableCell>{user.nom}</StyledTableCell>
+                          <StyledTableCell>{user.prenom}</StyledTableCell>
+                          <StyledTableCell>{user.email}</StyledTableCell>
+                          <StyledTableCell>{formatRole(user.role)}</StyledTableCell>
+                          <StyledTableCell align='center'>
+                            <Tooltip title="Modifier l'utilisateur" arrow>
+                              <ActionButton
+                                onClick={() => openEditModal(user)}
+                                sx={{
+                                  bgcolor: alpha('#f59e0b', 0.2),
+                                  '&:hover': { bgcolor: alpha('#f59e0b', 0.3) },
+                                }}
+                                aria-label={`Modifier ${user.nom} ${user.prenom}`}
+                              >
+                                <Edit />
+                              </ActionButton>
+                            </Tooltip>
+                            <Tooltip title="Supprimer l'utilisateur" arrow>
+                              <ActionButton
+                                onClick={() => handleDeleteClick(user)}
+                                sx={{
+                                  bgcolor: alpha('#ef4444', 0.2),
+                                  '&:hover': { bgcolor: alpha('#ef4444', 0.3) },
+                                }}
+                                aria-label={`Supprimer ${user.nom} ${user.prenom}`}
+                              >
+                                <Delete />
+                              </ActionButton>
+                            </Tooltip>
+                          </StyledTableCell>
+                        </StyledTableRow>
+                      ))
+                  ) : (
+                    <TableRow>
+                      <StyledTableCell colSpan={5} align='center'>
+                        <Box sx={{ py: 8 }}>
+                          <Typography
+                            variant='h6'
+                            sx={{ color: alpha(colors.white || '#ffffff', 0.5) }}
+                          >
+                            Aucun utilisateur trouvé
+                          </Typography>
+                        </Box>
+                      </StyledTableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
 
-          <TablePagination
-            component="div"
-            count={filteredUsers.length}
-            page={page}
-            onPageChange={(e, newPage) => setPage(newPage)}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-            labelRowsPerPage="Lignes par page"
-            sx={{ color: colors.white || '#ffffff', '& .MuiTablePagination-select': { color: colors.white || '#ffffff' }, '& .MuiTablePagination-selectIcon': { color: colors.white || '#ffffff' }, '& .MuiTablePagination-actions button': { color: colors.white || '#ffffff' } }}
-          />
-        </UsersCard>
+            <TablePagination
+              component='div'
+              count={filteredUsers.length}
+              page={page}
+              onPageChange={(e, newPage) => setPage(newPage)}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPage(parseInt(e.target.value, 10));
+                setPage(0);
+              }}
+              labelRowsPerPage='Lignes par page'
+              labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count}`}
+              sx={{
+                color: colors.white || '#ffffff',
+                '& .MuiTablePagination-select': { color: colors.white || '#ffffff' },
+                '& .MuiTablePagination-selectIcon': { color: colors.white || '#ffffff' },
+                '& .MuiTablePagination-actions button': { color: colors.white || '#ffffff' },
+              }}
+            />
+          </UsersCard>
+        </Fade>
       </Container>
 
       {/* Modal Ajout */}
-      <StyledDialog open={addModalOpen} onClose={() => setAddModalOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700, color: colors.white || '#ffffff' }}>Ajouter un Utilisateur</DialogTitle>
+      <StyledDialog
+        open={addModalOpen}
+        onClose={() => setAddModalOpen(false)}
+        maxWidth='sm'
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 700, color: colors.white || '#ffffff' }}>
+          Ajouter un Utilisateur
+        </DialogTitle>
         <DialogContent>
-          {formError && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{formError}</Alert>}
-          <StyledTextField label="Nom" value={formData.nom} onChange={(e) => setFormData({ ...formData, nom: e.target.value })} fullWidth required sx={{ mb: 2, mt: 2 }} />
-          <StyledTextField label="Prénom" value={formData.prenom} onChange={(e) => setFormData({ ...formData, prenom: e.target.value })} fullWidth required sx={{ mb: 2 }} />
-          <StyledTextField label="Email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} fullWidth required type="email" sx={{ mb: 2 }} />
-          <StyledTextField label="Mot de passe" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} fullWidth required type="password" sx={{ mb: 2 }} />
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}>Rôle</InputLabel>
-            <Select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })} sx={{ color: colors.white || '#ffffff', '& .MuiSvgIcon-root': { color: colors.white || '#ffffff' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: alpha(colors.fuschia || '#f13544', 0.3) }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: colors.fuschia || '#f13544' }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: colors.fuschia || '#f13544' } }}>
-              <MenuItem value="ETUDIANT">Étudiant</MenuItem>
-              <MenuItem value="ENSEIGNANT">Enseignant</MenuItem>
-              <MenuItem value="ADMIN">Administrateur</MenuItem>
-            </Select>
-          </FormControl>
+          {formError && (
+            <Alert
+              severity='error'
+              sx={{ mb: 2, borderRadius: 2 }}
+              onClose={() => setFormError('')}
+            >
+              {formError}
+            </Alert>
+          )}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleFormSubmit(false);
+            }}
+          >
+            <StyledTextField
+              label='Nom'
+              value={formData.nom}
+              onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+              fullWidth
+              required
+              sx={{ mb: 2, mt: 2 }}
+              aria-required='true'
+            />
+            <StyledTextField
+              label='Prénom'
+              value={formData.prenom}
+              onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
+              fullWidth
+              required
+              sx={{ mb: 2 }}
+              aria-required='true'
+            />
+            <StyledTextField
+              label='Email'
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              fullWidth
+              required
+              type='email'
+              sx={{ mb: 2 }}
+              aria-required='true'
+            />
+            <StyledTextField
+              label='Mot de passe'
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              fullWidth
+              required
+              type='password'
+              sx={{ mb: 2 }}
+              aria-required='true'
+            />
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}>Rôle</InputLabel>
+              <Select
+                value={formData.role}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                required
+                sx={{
+                  color: colors.white || '#ffffff',
+                  '& .MuiSvgIcon-root': { color: colors.white || '#ffffff' },
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: alpha(colors.fuschia || '#f13544', 0.3),
+                  },
+                  '&:hover .MuiOutlinedInput-notchedOutline': {
+                    borderColor: colors.fuschia || '#f13544',
+                  },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                    borderColor: colors.fuschia || '#f13544',
+                  },
+                }}
+              >
+                {roles.map((role) => (
+                  <MenuItem key={role.value} value={role.value}>
+                    {role.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </form>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAddModalOpen(false)} sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}>Annuler</Button>
-          <PrimaryButton onClick={() => handleFormSubmit(false)} disabled={formLoading}>{formLoading ? <CircularProgress size={24} /> : 'Créer'}</PrimaryButton>
+          <Button
+            onClick={() => setAddModalOpen(false)}
+            sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}
+          >
+            Annuler
+          </Button>
+          <PrimaryButton onClick={() => handleFormSubmit(false)} disabled={formLoading}>
+            {formLoading ? <CircularProgress size={24} /> : 'Créer'}
+          </PrimaryButton>
         </DialogActions>
       </StyledDialog>
 
       {/* Modal Édition */}
-      <StyledDialog open={editModalOpen} onClose={() => setEditModalOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700, color: colors.white || '#ffffff' }}>Modifier l'Utilisateur</DialogTitle>
+      <StyledDialog
+        open={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        maxWidth='sm'
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 700, color: colors.white || '#ffffff' }}>
+          Modifier l'Utilisateur
+        </DialogTitle>
         <DialogContent>
-          {formError && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{formError}</Alert>}
-          <StyledTextField label="Nom" value={formData.nom} onChange={(e) => setFormData({ ...formData, nom: e.target.value })} fullWidth required sx={{ mb: 2, mt: 2 }} />
-          <StyledTextField label="Prénom" value={formData.prenom} onChange={(e) => setFormData({ ...formData, prenom: e.target.value })} fullWidth required sx={{ mb: 2 }} />
-          <StyledTextField label="Email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} fullWidth required type="email" sx={{ mb: 2 }} />
-          <StyledTextField label="Mot de passe (optionnel)" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} fullWidth type="password" sx={{ mb: 2 }} />
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}>Rôle</InputLabel>
-            <Select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })} sx={{ color: colors.white || '#ffffff', '& .MuiSvgIcon-root': { color: colors.white || '#ffffff' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: alpha(colors.fuschia || '#f13544', 0.3) }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: colors.fuschia || '#f13544' }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: colors.fuschia || '#f13544' } }}>
-              <MenuItem value="ETUDIANT">Étudiant</MenuItem>
-              <MenuItem value="ENSEIGNANT">Enseignant</MenuItem>
-              <MenuItem value="ADMIN">Administrateur</MenuItem>
-            </Select>
-          </FormControl>
+          {formError && (
+            <Alert
+              severity='error'
+              sx={{ mb: 2, borderRadius: 2 }}
+              onClose={() => setFormError('')}
+            >
+              {formError}
+            </Alert>
+          )}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleFormSubmit(true);
+            }}
+          >
+            <StyledTextField
+              label='Nom'
+              value={formData.nom}
+              onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+              fullWidth
+              required
+              sx={{ mb: 2, mt: 2 }}
+              aria-required='true'
+            />
+            <StyledTextField
+              label='Prénom'
+              value={formData.prenom}
+              onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
+              fullWidth
+              required
+              sx={{ mb: 2 }}
+              aria-required='true'
+            />
+            <StyledTextField
+              label='Email'
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              fullWidth
+              required
+              type='email'
+              sx={{ mb: 2 }}
+              aria-required='true'
+            />
+            <StyledTextField
+              label='Mot de passe (optionnel)'
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              fullWidth
+              type='password'
+              sx={{ mb: 2 }}
+              helperText='Laissez vide pour ne pas modifier le mot de passe'
+            />
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}>Rôle</InputLabel>
+              <Select
+                value={formData.role}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                required
+                sx={{
+                  color: colors.white || '#ffffff',
+                  '& .MuiSvgIcon-root': { color: colors.white || '#ffffff' },
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: alpha(colors.fuschia || '#f13544', 0.3),
+                  },
+                  '&:hover .MuiOutlinedInput-notchedOutline': {
+                    borderColor: colors.fuschia || '#f13544',
+                  },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                    borderColor: colors.fuschia || '#f13544',
+                  },
+                }}
+              >
+                {roles.map((role) => (
+                  <MenuItem key={role.value} value={role.value}>
+                    {role.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </form>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditModalOpen(false)} sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}>Annuler</Button>
-          <PrimaryButton onClick={() => handleFormSubmit(true)} disabled={formLoading}>{formLoading ? <CircularProgress size={24} /> : 'Mettre à jour'}</PrimaryButton>
+          <Button
+            onClick={() => setEditModalOpen(false)}
+            sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}
+          >
+            Annuler
+          </Button>
+          <PrimaryButton onClick={() => handleFormSubmit(true)} disabled={formLoading}>
+            {formLoading ? <CircularProgress size={24} /> : 'Mettre à jour'}
+          </PrimaryButton>
         </DialogActions>
       </StyledDialog>
 
       {/* Dialog Suppression */}
-      <StyledDialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700, color: colors.white || '#ffffff' }}>Confirmer la suppression</DialogTitle>
+      <StyledDialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        maxWidth='sm'
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 700, color: colors.white || '#ffffff' }}>
+          Confirmer la suppression
+        </DialogTitle>
         <DialogContent>
-          <Typography sx={{ color: colors.white || '#ffffff' }}>Êtes-vous sûr de vouloir supprimer l'utilisateur <strong>{selectedUser?.nom} {selectedUser?.prenom}</strong> ? Cette action est irréversible.</Typography>
+          <Typography sx={{ color: colors.white || '#ffffff' }}>
+            Êtes-vous sûr de vouloir supprimer l'utilisateur{' '}
+            <strong>
+              {selectedUser?.nom} {selectedUser?.prenom}
+            </strong>{' '}
+            ? Cette action est irréversible.
+          </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)} sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}>Annuler</Button>
-          <PrimaryButton onClick={handleDeleteConfirm} sx={{ background: 'linear-gradient(135deg, #ef4444, #f87171)' }}>Supprimer</PrimaryButton>
+          <Button
+            onClick={() => setDeleteDialogOpen(false)}
+            sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}
+          >
+            Annuler
+          </Button>
+          <PrimaryButton
+            onClick={handleDeleteConfirm}
+            sx={{ background: 'linear-gradient(135deg, #ef4444, #f87171)' }}
+          >
+            Supprimer
+          </PrimaryButton>
         </DialogActions>
       </StyledDialog>
 
       {/* Snackbar */}
-      <Snackbar open={snackbarOpen} autoHideDuration={4000} onClose={() => setSnackbarOpen(false)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
-        <Alert onClose={() => setSnackbarOpen(false)} severity={error ? 'error' : 'success'} sx={{ boxShadow: 3, background: error ? 'linear-gradient(135deg, #ef4444, #f87171)' : 'linear-gradient(135deg, #10b981, #34d399)', color: colors.white || '#ffffff' }}>{error || success}</Alert>
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={4000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity={error ? 'error' : 'success'}
+          sx={{
+            boxShadow: 3,
+            background: error
+              ? 'linear-gradient(135deg, #ef4444, #f87171)'
+              : 'linear-gradient(135deg, #10b981, #34d399)',
+            color: colors.white || '#ffffff',
+          }}
+        >
+          {error || success}
+        </Alert>
       </Snackbar>
     </UsersContainer>
   );

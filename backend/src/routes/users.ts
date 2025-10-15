@@ -59,7 +59,7 @@ router.get(
   }
 );
 
-// Routes pour Cours
+
 router.post(
   '/',
   authMiddleware,

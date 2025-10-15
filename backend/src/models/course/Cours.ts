@@ -1,3 +1,4 @@
+// src/models/course/Cours.ts
 import { Schema, model, Document, Types, Model } from 'mongoose';
 import { ProgressionUpdateData } from '../../types';
 import { NiveauFormation } from '../../services/learning/CertificationService';
@@ -11,21 +12,21 @@ export interface ICours extends Document {
   domaineId: Types.ObjectId;
   niveau: NiveauFormation;
   createur: Types.ObjectId;
-  etudiants: Types.ObjectId[]; // CORRECTION: Changé de 'etudiants?' à 'etudiants'
+  etudiants: Types.ObjectId[]; 
   contenu: Types.ObjectId[];
   quizzes: Types.ObjectId[];
   datePublication?: Date;
   estPublie: boolean;
   statutApprobation: 'PENDING' | 'APPROVED' | 'REJECTED';
-  progression?: number; // AJOUT: Pour la progression individuelle
-  instructeurId?: Types.ObjectId; // AJOUT: Pour l'instructeur
-  dateCreation?: Date; // AJOUT: Pour la date de création
+  progression?: number; 
+  instructeurId?: Types.ObjectId; 
+  dateCreation?: Date; 
   updatedAt: Date;
   createdAt: Date;
   ajouterContenu(contenuId: Types.ObjectId): Promise<ICours>;
   publier(): Promise<ICours>;
   calculerCompletionMoyenne(): Promise<number>;
-  ajouterEtudiant(etudiantId: Types.ObjectId): Promise<ICours>; // AJOUT: Méthode pour ajouter un étudiant
+  ajouterEtudiant(etudiantId: Types.ObjectId): Promise<ICours>; 
 }
 
 // Schéma pour Cours
@@ -62,7 +63,7 @@ const coursSchema = new Schema<ICours>(
       ref: 'User', 
       required: [true, 'Le créateur est requis'] 
     },
-    instructeurId: { // AJOUT: Champ pour l'instructeur
+    instructeurId: { 
       type: Schema.Types.ObjectId, 
       ref: 'User',
       default: null
@@ -82,7 +83,7 @@ const coursSchema = new Schema<ICours>(
       ref: 'Quiz', 
       default: [] 
     }],
-    progression: { // AJOUT: Progression globale du cours
+    progression: { 
       type: Number,
       default: 0,
       min: 0,

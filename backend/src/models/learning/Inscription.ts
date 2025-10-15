@@ -1,6 +1,6 @@
 // src/models/learning/Inscription.ts
 import { Schema, model, Document, Types, Model } from 'mongoose';
-import { StatutInscription } from '../../models/enums/StatutInscription'; // Adjust path as needed
+import { StatutInscription } from '../../models/enums/StatutInscription';
 
 // Interface pour le document Inscription
 export interface IInscription extends Document {

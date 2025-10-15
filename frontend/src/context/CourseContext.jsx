@@ -3,12 +3,13 @@ import { Backdrop, CircularProgress, Alert, Snackbar, Typography } from '@mui/ma
 import axios from 'axios';
 import { useAuth } from './AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode';
 
-// Role constants for frontend consistency
+// Role constants for frontend consistency (aligned with French backend naming)
 const Roles = {
-  STUDENT: 'student',
-  INSTRUCTOR: 'instructor',
-  ADMIN: 'admin',
+  ETUDIANT: 'ETUDIANT',
+  ENSEIGNANT: 'ENSEIGNANT',
+  ADMIN: 'ADMIN',
 };
 
 /**
@@ -39,109 +40,258 @@ export const CourseProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isDomainesLoading, setIsDomainesLoading] = useState(false);
   const [error, setError] = useState(null);
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const { user, isLoading: isAuthLoading, logout, refreshToken } = useAuth();
   const navigate = useNavigate();
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+
+  const isTokenExpired = (token) => {
+    try {
+      if (!token || typeof token !== 'string') {
+        console.error('Invalid token format:', token);
+        return true;
+      }
+      const decoded = jwtDecode(token);
+      if (!decoded.exp) {
+        console.error('Token has no expiration field');
+        return true;
+      }
+      return decoded.exp * 1000 < Date.now();
+    } catch (error) {
+      console.error('Token decoding error:', error.message);
+      return true;
+    }
+  };
+
+  /**
+   * Validate token before making API calls
+   */
+  const validateToken = useCallback(async () => {
+    const token = user?.token || localStorage.getItem('token');
+    if (!token) {
+      console.warn('⚠️ No token found, user may not be authenticated');
+      return false;
+    }
+    const storedUser = localStorage.getItem('user');
+    if (!storedUser) {
+      console.warn('⚠️ No user in localStorage, clearing token');
+      localStorage.removeItem('token');
+      return false;
+    }
+    try {
+      const userData = JSON.parse(storedUser);
+      if (isTokenExpired(userData.token)) {
+        console.log('🔄 Token expired, attempting refresh');
+        const storedRefreshToken = localStorage.getItem('refreshToken');
+        if (storedRefreshToken) {
+          const success = await refreshToken();
+          if (success) {
+            console.log('✅ Token refreshed successfully');
+            return true;
+          }
+        }
+        console.warn('⚠️ No refresh token or refresh failed');
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error('❌ Token validation error:', err);
+      return false;
+    }
+  }, [user, refreshToken]);
 
   /**
    * Fetch domaines from the API
    */
   const fetchDomaines = useCallback(async () => {
-    if (!user?.token) {
-      console.log('No user or token, skipping domaines fetch');
+    if (!(await validateToken())) {
+      setError('Veuillez vous connecter pour accéder aux domaines');
       setDomaines([]);
+      navigate('/login');
       return;
     }
 
     setIsDomainesLoading(true);
     setError(null);
     try {
+      console.log('📥 Fetching domaines from:', `${API_BASE_URL}/api/courses/domaine`);
       const response = await axios.get(`${API_BASE_URL}/api/courses/domaine`, {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${user.token}`,
+          Authorization: `Bearer ${user.token || localStorage.getItem('token')}`,
         },
         validateStatus: (status) => status < 500,
       });
 
+      console.log('📊 Domaines response:', response.data);
       if (response.status >= 200 && response.status < 300) {
-        const data = Array.isArray(response.data) ? response.data : [];
+        const data = Array.isArray(response.data) ? response.data : response.data?.data || [];
         setDomaines(data);
+      } else if (response.status === 401) {
+        const refreshed = await refreshToken();
+        if (refreshed) {
+          const retryResponse = await axios.get(`${API_BASE_URL}/api/courses/domaine`, {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${localStorage.getItem('token')}`,
+            },
+            validateStatus: (status) => status < 500,
+          });
+          const retryData = Array.isArray(retryResponse.data)
+            ? retryResponse.data
+            : retryResponse.data?.data || [];
+          setDomaines(retryData);
+        } else {
+          throw new Error('Session expirée');
+        }
+      } else if (response.status === 404) {
+        setDomaines([]);
+        setError('Aucun domaine trouvé');
       } else {
         throw new Error(`Unexpected status code: ${response.status}`);
       }
     } catch (err) {
-      console.error('Fetch domaines error:', err);
-      const errorMessage = handleApiError(err, navigate);
+      console.error('❌ Fetch domaines error:', err);
+      const errorMessage = handleApiError(err, navigate, 'domaines');
       setError(errorMessage);
       setDomaines([]);
     } finally {
       setIsDomainesLoading(false);
     }
-  }, [user, navigate, API_BASE_URL]);
+  }, [user, navigate, API_BASE_URL, validateToken, refreshToken]);
 
   /**
    * Fetch courses from the API
    */
   const fetchCourses = useCallback(async () => {
-    if (!user?.token || user.role === Roles.ETUDIANT) {
-      console.log('No user, token, or student role, skipping courses fetch');
+    if (!(await validateToken())) {
+      console.log('🚫 No valid token, skipping courses fetch');
       setCourses([]);
-      localStorage.setItem('courses', JSON.stringify([]));
+      try {
+        localStorage.setItem('courses', JSON.stringify([]));
+      } catch (err) {
+        console.warn('⚠️ Failed to update localStorage:', err.message);
+      }
+      setError('Veuillez vous connecter pour accéder aux cours');
+      navigate('/login');
       return;
     }
 
     setIsLoading(true);
     setError(null);
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/courses`, {
+      let url =
+        user.role === Roles.ETUDIANT
+          ? `${API_BASE_URL}/api/learning/enrollments`
+          : `${API_BASE_URL}/api/courses`;
+      console.log('📥 Fetching courses from:', url);
+      const response = await axios.get(url, {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${user.token}`,
+          Authorization: `Bearer ${user.token || localStorage.getItem('token')}`,
         },
-        params: { role: user.role },
+        params: user.role !== Roles.ETUDIANT ? { role: user.role } : undefined,
         validateStatus: (status) => status < 500,
       });
 
+      console.log('📊 Courses response:', response.data);
       if (response.status >= 200 && response.status < 300) {
         const data = Array.isArray(response.data)
           ? response.data
           : Array.isArray(response.data?.data)
             ? response.data.data
             : [];
-        setCourses(data);
-        localStorage.setItem('courses', JSON.stringify(data));
+        // Normaliser les données pour les étudiants (extraire les cours des inscriptions)
+        const normalizedData =
+          user.role === Roles.ETUDIANT
+            ? data.map((enrollment) => ({
+                ...enrollment.cours,
+                enrollmentId: enrollment._id,
+                statut: enrollment.statut,
+              }))
+            : data;
+        setCourses(normalizedData);
+        try {
+          localStorage.setItem('courses', JSON.stringify(normalizedData));
+        } catch (err) {
+          console.warn('⚠️ Failed to update localStorage:', err.message);
+        }
+      } else if (response.status === 401) {
+        const refreshed = await refreshToken();
+        if (refreshed) {
+          const retryResponse = await axios.get(url, {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${localStorage.getItem('token')}`,
+            },
+            params: user.role !== Roles.ETUDIANT ? { role: user.role } : undefined,
+            validateStatus: (status) => status < 500,
+          });
+          const retryData = Array.isArray(retryResponse.data)
+            ? retryResponse.data
+            : Array.isArray(retryResponse.data?.data)
+              ? retryResponse.data.data
+              : [];
+          const normalizedRetryData =
+            user.role === Roles.ETUDIANT
+              ? retryData.map((enrollment) => ({
+                  ...enrollment.cours,
+                  enrollmentId: enrollment._id,
+                  statut: enrollment.statut,
+                }))
+              : retryData;
+          setCourses(normalizedRetryData);
+          try {
+            localStorage.setItem('courses', JSON.stringify(normalizedRetryData));
+          } catch (err) {
+            console.warn('⚠️ Failed to update localStorage:', err.message);
+          }
+        } else {
+          throw new Error('Session expirée');
+        }
+      } else if (response.status === 404) {
+        setCourses([]);
+        setError('Aucun cours trouvé');
       } else {
         throw new Error(`Unexpected status code: ${response.status}`);
       }
     } catch (err) {
-      console.error('Fetch courses error:', err);
-      const errorMessage = handleApiError(err, navigate);
+      console.error('❌ Fetch courses error:', err);
+      const errorMessage = handleApiError(err, navigate, 'courses');
       setError(errorMessage);
       setCourses([]);
-      localStorage.setItem('courses', JSON.stringify([]));
+      try {
+        localStorage.setItem('courses', JSON.stringify([]));
+      } catch (err) {
+        console.warn('⚠️ Failed to update localStorage:', err.message);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [user, navigate, API_BASE_URL]);
+  }, [user, navigate, API_BASE_URL, validateToken, refreshToken]);
 
   /**
    * Handle API errors consistently
    */
-  const handleApiError = (err, navigate) => {
+  const handleApiError = (err, navigate, context = 'generic') => {
     if (err.response) {
       switch (err.response.status) {
         case 401:
+          console.warn('⚠️ Unauthorized access, logging out');
+          logout();
           navigate('/login');
           return 'Session expirée, veuillez vous reconnecter';
         case 403:
           setCourses([]);
-          localStorage.setItem('courses', JSON.stringify([]));
+          try {
+            localStorage.setItem('courses', JSON.stringify([]));
+          } catch (err) {
+            console.warn('⚠️ Failed to update localStorage:', err.message);
+          }
           return 'Accès non autorisé';
         case 404:
-          return 'Service non disponible';
+          return context === 'domaines' ? 'Aucun domaine trouvé' : 'Aucun cours trouvé';
         default:
-          return err.response.data?.message || 'Erreur serveur';
+          return err.response.data?.message || `Erreur lors de la récupération des ${context}`;
       }
     }
     return 'Impossible de se connecter au serveur';
@@ -152,49 +302,57 @@ export const CourseProvider = ({ children }) => {
    */
   useEffect(() => {
     if (isAuthLoading) {
-      console.log('Authentication still loading, waiting...');
+      console.log('⏳ Authentication still loading, waiting...');
       return;
     }
 
-    if (!user?.token) {
-      console.log('No user or token, resetting courses and domaines');
+    if (!user || !user.token) {
+      console.log('🚫 No user or token, resetting courses and domaines');
       setCourses([]);
       setDomaines([]);
-      localStorage.setItem('courses', JSON.stringify([]));
-      setError('Veuillez vous connecter pour voir les cours et domaines');
+      try {
+        localStorage.setItem('courses', JSON.stringify([]));
+      } catch (err) {
+        console.warn('⚠️ Failed to update localStorage:', err.message);
+      }
+      if (!isAuthLoading) {
+        setError('Veuillez vous connecter pour voir les cours et domaines');
+        navigate('/login');
+      }
       return;
     }
 
-    // Load courses from localStorage
-    const storedCourses = localStorage.getItem('courses');
-    if (storedCourses) {
-      try {
+    try {
+      const storedCourses = localStorage.getItem('courses');
+      if (storedCourses) {
         const parsedCourses = JSON.parse(storedCourses);
         if (Array.isArray(parsedCourses)) {
           setCourses(parsedCourses);
         } else {
-          console.warn('Stored courses is not an array, clearing localStorage');
+          console.warn('⚠️ Stored courses is not an array, clearing localStorage');
           localStorage.removeItem('courses');
         }
-      } catch (err) {
-        console.error('Failed to parse stored courses:', err);
-        localStorage.removeItem('courses');
       }
+    } catch (err) {
+      console.error('❌ Failed to parse stored courses:', err);
+      localStorage.removeItem('courses');
     }
 
-    // Fetch data for non-student roles
     if (user.role !== Roles.ETUDIANT) {
       fetchCourses();
       fetchDomaines();
+    } else {
+      console.log('📚 Fetching student-specific courses for:', user.email);
+      fetchCourses();
     }
-  }, [user, isAuthLoading, fetchCourses, fetchDomaines]);
+  }, [user, isAuthLoading, fetchCourses, fetchDomaines, navigate]);
 
   /**
    * Add a new course
    */
   const addCourse = useCallback(
     async (course) => {
-      if (!user?.token || ![Roles.ENSEIGNANT, Roles.ADMIN].includes(user.role)) {
+      if (!(await validateToken()) || ![Roles.ENSEIGNANT, Roles.ADMIN].includes(user?.role)) {
         const errorMessage =
           "Vous devez être connecté et avoir le rôle d'instructeur ou d'administrateur";
         setError(errorMessage);
@@ -208,43 +366,91 @@ export const CourseProvider = ({ children }) => {
         ...course,
         _id: crypto.randomUUID(),
         createdAt: new Date().toISOString(),
-        createur: user._id,
+        createur: user.id, // Changé de _id à id pour correspondre au format de l'utilisateur
       };
 
       try {
         setCourses((prev) => {
           const updatedCourses = [...prev, newCourse];
-          localStorage.setItem('courses', JSON.stringify(updatedCourses));
+          try {
+            localStorage.setItem('courses', JSON.stringify(updatedCourses));
+          } catch (err) {
+            console.warn('⚠️ Failed to update localStorage:', err.message);
+          }
           return updatedCourses;
         });
 
+        console.log('📤 Adding course:', newCourse);
         const response = await axios.post(`${API_BASE_URL}/api/courses`, newCourse, {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${user.token}`,
+            Authorization: `Bearer ${user.token || localStorage.getItem('token')}`,
           },
         });
 
+        console.log('✅ Course added:', response.data);
         const savedCourse = response.data.data || response.data;
         setCourses((prev) => {
           const updatedCourses = prev.map((c) => (c._id === newCourse._id ? savedCourse : c));
-          localStorage.setItem('courses', JSON.stringify(updatedCourses));
+          try {
+            localStorage.setItem('courses', JSON.stringify(updatedCourses));
+          } catch (err) {
+            console.warn('⚠️ Failed to update localStorage:', err.message);
+          }
           return updatedCourses;
         });
       } catch (err) {
-        console.error('Add course error:', err);
-        const errorMessage = handleApiError(err, navigate);
-        setError(errorMessage);
-        setCourses((prev) => {
-          const updatedCourses = prev.filter((c) => c._id !== newCourse._id);
-          localStorage.setItem('courses', JSON.stringify(updatedCourses));
-          return updatedCourses;
-        });
+        console.error('❌ Add course error:', err);
+        if (err.response?.status === 401) {
+          const refreshed = await refreshToken();
+          if (refreshed) {
+            const retryResponse = await axios.post(`${API_BASE_URL}/api/courses`, newCourse, {
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${localStorage.getItem('token')}`,
+              },
+            });
+            const savedCourse = retryResponse.data.data || retryResponse.data;
+            setCourses((prev) => {
+              const updatedCourses = prev.map((c) => (c._id === newCourse._id ? savedCourse : c));
+              try {
+                localStorage.setItem('courses', JSON.stringify(updatedCourses));
+              } catch (err) {
+                console.warn('⚠️ Failed to update localStorage:', err.message);
+              }
+              return updatedCourses;
+            });
+          } else {
+            const errorMessage = handleApiError(err, navigate, 'cours');
+            setError(errorMessage);
+            setCourses((prev) => {
+              const updatedCourses = prev.filter((c) => c._id !== newCourse._id);
+              try {
+                localStorage.setItem('courses', JSON.stringify(updatedCourses));
+              } catch (err) {
+                console.warn('⚠️ Failed to update localStorage:', err.message);
+              }
+              return updatedCourses;
+            });
+          }
+        } else {
+          const errorMessage = handleApiError(err, navigate, 'cours');
+          setError(errorMessage);
+          setCourses((prev) => {
+            const updatedCourses = prev.filter((c) => c._id !== newCourse._id);
+            try {
+              localStorage.setItem('courses', JSON.stringify(updatedCourses));
+            } catch (err) {
+              console.warn('⚠️ Failed to update localStorage:', err.message);
+            }
+            return updatedCourses;
+          });
+        }
       } finally {
         setIsLoading(false);
       }
     },
-    [user, navigate, API_BASE_URL]
+    [user, navigate, API_BASE_URL, validateToken, refreshToken]
   );
 
   /**
@@ -252,7 +458,7 @@ export const CourseProvider = ({ children }) => {
    */
   const updateCourse = useCallback(
     async (id, updates) => {
-      if (!user?.token || ![Roles.ENSEIGNANT, Roles.ADMIN].includes(user.role)) {
+      if (!(await validateToken()) || ![Roles.ENSEIGNANT, Roles.ADMIN].includes(user?.role)) {
         const errorMessage =
           "Vous devez être connecté et avoir le rôle d'instructeur ou d'administrateur";
         setError(errorMessage);
@@ -265,37 +471,85 @@ export const CourseProvider = ({ children }) => {
       try {
         setCourses((prev) => {
           const updatedCourses = prev.map((c) => (c._id === id ? { ...c, ...updates } : c));
-          localStorage.setItem('courses', JSON.stringify(updatedCourses));
+          try {
+            localStorage.setItem('courses', JSON.stringify(updatedCourses));
+          } catch (err) {
+            console.warn('⚠️ Failed to update localStorage:', err.message);
+          }
           return updatedCourses;
         });
 
+        console.log('📤 Updating course:', id, updates);
         const response = await axios.put(`${API_BASE_URL}/api/courses/${id}`, updates, {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${user.token}`,
+            Authorization: `Bearer ${user.token || localStorage.getItem('token')}`,
           },
         });
 
+        console.log('✅ Course updated:', response.data);
         const updatedCourse = response.data.data || response.data;
         setCourses((prev) => {
           const updatedCourses = prev.map((c) => (c._id === id ? updatedCourse : c));
-          localStorage.setItem('courses', JSON.stringify(updatedCourses));
+          try {
+            localStorage.setItem('courses', JSON.stringify(updatedCourses));
+          } catch (err) {
+            console.warn('⚠️ Failed to update localStorage:', err.message);
+          }
           return updatedCourses;
         });
       } catch (err) {
-        console.error('Update course error:', err);
-        const errorMessage = handleApiError(err, navigate);
-        setError(errorMessage);
-        setCourses((prev) => {
-          const updatedCourses = prev.map((c) => (c._id === id ? { ...c } : c));
-          localStorage.setItem('courses', JSON.stringify(updatedCourses));
-          return updatedCourses;
-        });
+        console.error('❌ Update course error:', err);
+        if (err.response?.status === 401) {
+          const refreshed = await refreshToken();
+          if (refreshed) {
+            const retryResponse = await axios.put(`${API_BASE_URL}/api/courses/${id}`, updates, {
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${localStorage.getItem('token')}`,
+              },
+            });
+            const updatedCourse = retryResponse.data.data || retryResponse.data;
+            setCourses((prev) => {
+              const updatedCourses = prev.map((c) => (c._id === id ? updatedCourse : c));
+              try {
+                localStorage.setItem('courses', JSON.stringify(updatedCourses));
+              } catch (err) {
+                console.warn('⚠️ Failed to update localStorage:', err.message);
+              }
+              return updatedCourses;
+            });
+          } else {
+            const errorMessage = handleApiError(err, navigate, 'cours');
+            setError(errorMessage);
+            setCourses((prev) => {
+              const updatedCourses = prev.map((c) => (c._id === id ? { ...c } : c));
+              try {
+                localStorage.setItem('courses', JSON.stringify(updatedCourses));
+              } catch (err) {
+                console.warn('⚠️ Failed to update localStorage:', err.message);
+              }
+              return updatedCourses;
+            });
+          }
+        } else {
+          const errorMessage = handleApiError(err, navigate, 'cours');
+          setError(errorMessage);
+          setCourses((prev) => {
+            const updatedCourses = prev.map((c) => (c._id === id ? { ...c } : c));
+            try {
+              localStorage.setItem('courses', JSON.stringify(updatedCourses));
+            } catch (err) {
+              console.warn('⚠️ Failed to update localStorage:', err.message);
+            }
+            return updatedCourses;
+          });
+        }
       } finally {
         setIsLoading(false);
       }
     },
-    [user, navigate, API_BASE_URL]
+    [user, navigate, API_BASE_URL, validateToken, refreshToken]
   );
 
   /**
@@ -303,7 +557,7 @@ export const CourseProvider = ({ children }) => {
    */
   const deleteCourse = useCallback(
     async (id) => {
-      if (!user?.token || ![Roles.ENSEIGNANT, Roles.ADMIN].includes(user.role)) {
+      if (!(await validateToken()) || ![Roles.ENSEIGNANT, Roles.ADMIN].includes(user?.role)) {
         const errorMessage =
           "Vous devez être connecté et avoir le rôle d'instructeur ou d'administrateur";
         setError(errorMessage);
@@ -316,30 +570,55 @@ export const CourseProvider = ({ children }) => {
       try {
         setCourses((prev) => {
           const updatedCourses = prev.filter((c) => c._id !== id);
-          localStorage.setItem('courses', JSON.stringify(updatedCourses));
+          try {
+            localStorage.setItem('courses', JSON.stringify(updatedCourses));
+          } catch (err) {
+            console.warn('⚠️ Failed to update localStorage:', err.message);
+          }
           return updatedCourses;
         });
 
+        console.log('📤 Deleting course:', id);
         const response = await axios.delete(`${API_BASE_URL}/api/courses/${id}`, {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${user.token}`,
+            Authorization: `Bearer ${user.token || localStorage.getItem('token')}`,
           },
         });
 
+        console.log('✅ Course deleted:', response.data);
         if (response.status !== 204 && response.status !== 200) {
           throw new Error('Erreur lors de la suppression du cours');
         }
       } catch (err) {
-        console.error('Delete course error:', err);
-        const errorMessage = handleApiError(err, navigate);
-        setError(errorMessage);
-        fetchCourses();
+        console.error('❌ Delete course error:', err);
+        if (err.response?.status === 401) {
+          const refreshed = await refreshToken();
+          if (refreshed) {
+            const retryResponse = await axios.delete(`${API_BASE_URL}/api/courses/${id}`, {
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${localStorage.getItem('token')}`,
+              },
+            });
+            if (retryResponse.status !== 204 && retryResponse.status !== 200) {
+              throw new Error('Erreur lors de la suppression du cours');
+            }
+          } else {
+            const errorMessage = handleApiError(err, navigate, 'cours');
+            setError(errorMessage);
+            fetchCourses();
+          }
+        } else {
+          const errorMessage = handleApiError(err, navigate, 'cours');
+          setError(errorMessage);
+          fetchCourses();
+        }
       } finally {
         setIsLoading(false);
       }
     },
-    [user, fetchCourses, navigate, API_BASE_URL]
+    [user, fetchCourses, navigate, API_BASE_URL, validateToken, refreshToken]
   );
 
   const contextValue = {
@@ -390,7 +669,7 @@ export const CourseProvider = ({ children }) => {
       </Backdrop>
       <Snackbar
         open={!!error}
-        autoHideDuration={6000}
+        autoHideDuration={10000}
         onClose={() => setError(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
@@ -405,3 +684,5 @@ export const CourseProvider = ({ children }) => {
     </CourseContext.Provider>
   );
 };
+
+export default CourseProvider;

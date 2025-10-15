@@ -14,19 +14,29 @@ declare module 'express-serve-static-core' {
 const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = (req.headers.authorization || req.headers.Authorization) as string | undefined;
+    logger.info('Auth header reçu:', { authHeader }); // Ajout pour debug
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      logger.error('Aucun jeton fourni', { authHeader });
       return res.status(401).json({ message: 'Aucun jeton fourni' });
     }
 
     const token = authHeader.split(' ')[1];
-    if (!token) return res.status(401).json({ message: 'Format du jeton invalide' });
+    if (!token) {
+      logger.error('Format du jeton invalide', { authHeader });
+      return res.status(401).json({ message: 'Format du jeton invalide' });
+    }
 
     const secretKey = process.env.JWT_SECRET;
-    if (!secretKey) return res.status(500).json({ message: 'Configuration JWT manquante' });
+    if (!secretKey) {
+      logger.error('Configuration JWT manquante');
+      return res.status(500).json({ message: 'Configuration JWT manquante' });
+    }
 
     const decoded = jwt.verify(token, secretKey) as JwtPayload;
+    logger.info('Token décodé:', { decoded }); // Ajout pour debug
 
     if (!decoded || typeof decoded !== 'object' || !decoded.id || !decoded.role) {
+      logger.error('Jeton invalide : données manquantes', { decoded });
       return res.status(401).json({ message: 'Jeton invalide : données manquantes' });
     }
 
@@ -40,7 +50,7 @@ const authMiddleware = async (req: Request, res: Response, next: NextFunction) =
     logger.info('Utilisateur authentifié', { user: req.user });
     next();
   } catch (error: any) {
-    logger.error('Erreur auth:', error.message);
+    logger.error('Erreur auth:', { message: error.message, name: error.name, stack: error.stack });
     res.status(401).json({
       message: error.name === 'TokenExpiredError' ? 'Jeton expiré' : 'Jeton invalide',
     });

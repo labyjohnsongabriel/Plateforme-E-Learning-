@@ -1,4 +1,3 @@
-// src/components/Catalog.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
@@ -147,7 +146,7 @@ const Catalog = () => {
   useEffect(() => {
     setIsVisible(true);
     fetchCatalogData();
-  }, [page]);
+  }, [page, filterLevel, filterDomain, searchTerm]);
 
   const fetchCatalogData = async () => {
     setLoading(true);
@@ -160,7 +159,13 @@ const Catalog = () => {
         })),
         axios
           .get(`${API_BASE_URL}/courses`, {
-            params: { page, limit: coursesPerPage },
+            params: {
+              page,
+              limit: coursesPerPage,
+              level: filterLevel !== 'all' ? filterLevel : undefined,
+              domain: filterDomain !== 'all' ? filterDomain : undefined,
+              search: searchTerm || undefined,
+            },
           })
           .catch(() => ({ data: { data: [], totalPages: 1 } })),
         axios.get(`${API_BASE_URL}/courses/domaine`).catch(() => ({
@@ -168,18 +173,34 @@ const Catalog = () => {
         })),
       ]);
 
+      console.log('📊 Réponse des cours:', coursesResponse.data);
       setStats(statsResponse.data);
-      setCourses(coursesResponse.data.data || []);
-      setTotalPages(coursesResponse.data.totalPages || 1);
-
+      const coursesData = coursesResponse.data.data || [];
       const domainsData = domainsResponse.data.data || [];
       setDomains([{ _id: 'all', nom: 'Tous les domaines' }, ...domainsData]);
+
+      // Normaliser les cours pour inclure le nom du domaine si domaineId est un ID string
+      const normalizedCourses = coursesData.map(course => {
+        let domaineNom = 'N/A';
+        if (course.domaineId?._id && course.domaineId?.nom) {
+          domaineNom = course.domaineId.nom;
+        } else if (typeof course.domaineId === 'string') {
+          const matchingDomain = domainsData.find(d => d._id === course.domaineId);
+          domaineNom = matchingDomain ? matchingDomain.nom : 'Domaine non défini';
+        }
+        return {
+          ...course,
+          domaineNom,
+        };
+      });
+      setCourses(normalizedCourses);
+      setTotalPages(coursesResponse.data.totalPages || 1);
     } catch (err) {
-      console.error('Erreur lors du chargement des données:', err);
+      console.error('❌ Erreur lors du chargement des données:', err);
       const errorMessage =
         err.response?.data?.message || 'Impossible de charger le catalogue. Veuillez réessayer.';
       setError(errorMessage);
-      addNotification(errorMessage, 'error');
+      addNotification(errorMessage, 'error', { autoHideDuration: 5000 });
     } finally {
       setLoading(false);
     }
@@ -187,16 +208,14 @@ const Catalog = () => {
 
   const filteredCourses = useMemo(() => {
     return courses.filter((course) => {
-      const matchesLevel =
-        filterLevel === 'all' || course.level === filterLevel || course.niveau?.nom === filterLevel;
-      const matchesDomain =
-        filterDomain === 'all' ||
-        course.domaineId === filterDomain ||
-        course.domaineId?._id === filterDomain;
+      const courseLevel = course.level || course.niveau?.nom || '';
+      const courseDomain = course.domaineId?._id || course.domaineId || '';
+      const matchesLevel = filterLevel === 'all' || courseLevel === filterLevel;
+      const matchesDomain = filterDomain === 'all' || courseDomain === filterDomain;
       const matchesSearch =
         searchTerm === '' ||
-        course.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.description?.toLowerCase().includes(searchTerm.toLowerCase());
+        (course.title && course.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (course.description && course.description.toLowerCase().includes(searchTerm.toLowerCase()));
       return matchesLevel && matchesDomain && matchesSearch;
     });
   }, [courses, filterLevel, filterDomain, searchTerm]);
@@ -211,36 +230,57 @@ const Catalog = () => {
   };
 
   const handleDiscover = (courseId) => {
-    navigate(`/course/${courseId}`);
+    if (courseId) {
+      navigate(`/course/${courseId}`);
+    } else {
+      console.warn('⚠️ ID du cours manquant pour découvrir');
+      addNotification('Erreur: Cours non valide', 'error');
+    }
   };
 
   const handleEnrollClick = (course) => {
+    if (!course || !course._id) {
+      console.warn('⚠️ Cours sélectionné invalide:', course);
+      addNotification('Erreur: Cours non valide', 'error');
+      return;
+    }
+    console.log("🖱️ Clic sur S'inscrire pour le cours:", course._id, course.title);
     setSelectedCourse(course);
     setEnrollDialogOpen(true);
   };
 
   const handleEnrollConfirm = async () => {
-    if (!selectedCourse) return;
+    if (!selectedCourse || !selectedCourse._id) {
+      console.warn("⚠️ Aucun cours sélectionné pour l'inscription");
+      addNotification('Erreur: Aucun cours sélectionné', 'error');
+      setEnrollDialogOpen(false);
+      return;
+    }
 
+    console.log("🚀 Déclenchement de l'inscription pour le cours:", selectedCourse._id);
     setEnrollLoading(true);
     try {
       const token = localStorage.getItem('token');
+      console.log('🔑 Token utilisé:', token);
+      console.log('👤 Utilisateur:', user);
 
       if (!token || !user) {
-        addNotification('Veuillez vous connecter pour vous inscrire', 'warning');
+        console.warn('⚠️ Utilisateur non connecté ou token manquant');
+        addNotification('Veuillez vous connecter pour vous inscrire', 'warning', {
+          autoHideDuration: 5000,
+        });
         navigate('/login', {
           state: {
             returnUrl: `/course/${selectedCourse._id}`,
           },
         });
         setEnrollDialogOpen(false);
-        setEnrollLoading(false);
         return;
       }
 
       const response = await axios.post(
         `${API_BASE_URL}/learning/enroll`,
-        { courseId: selectedCourse._id },
+        { coursId: selectedCourse._id },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -249,14 +289,17 @@ const Catalog = () => {
         }
       );
 
+      console.log("✅ Réponse de l'inscription:", response.data);
       if (response.data.success || response.status === 200 || response.status === 201) {
-        addNotification(`Inscription au cours "${selectedCourse.title}" réussie !`, 'success');
+        addNotification(`Inscription au cours "${selectedCourse.title}" réussie !`, 'success', {
+          autoHideDuration: 5000,
+        });
         setEnrollDialogOpen(false);
         setSelectedCourse(null);
         navigate('/student/courses');
       }
     } catch (err) {
-      console.error("Erreur lors de l'inscription:", err);
+      console.error("❌ Erreur lors de l'inscription:", err.response?.data || err.message);
       let errorMessage = "Erreur lors de l'inscription au cours";
       if (err.response) {
         switch (err.response.status) {
@@ -284,7 +327,7 @@ const Catalog = () => {
       } else if (err.request) {
         errorMessage = 'Impossible de se connecter au serveur';
       }
-      addNotification(errorMessage, 'error');
+      addNotification(errorMessage, 'error', { autoHideDuration: 5000 });
     } finally {
       setEnrollLoading(false);
     }
@@ -408,7 +451,7 @@ const Catalog = () => {
 
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 4 }}>
                     <Stack direction='row' spacing={2} sx={{ flexWrap: 'wrap' }}>
-                      {['all', 'ALFA', 'BÊTA'].map((level) => (
+                      {['all', 'ALFA', 'BÊTA', 'GAMMA'].map((level) => (
                         <Button
                           key={level}
                           variant={filterLevel === level ? 'contained' : 'outlined'}
@@ -708,6 +751,18 @@ const Catalog = () => {
                                   backgroundColor: `${colors.navy}33`,
                                   color: colors.white,
                                   fontWeight: 500,
+                                  mb: 1,
+                                  fontSize: '0.9rem',
+                                  alignSelf: 'flex-start',
+                                }}
+                              />
+                              <Chip
+                                label={`Domaine: ${course.domaineNom || course.domaineId?.nom || 'N/A'}`}
+                                size='small'
+                                sx={{
+                                  backgroundColor: `${colors.navy}33`,
+                                  color: colors.white,
+                                  fontWeight: 500,
                                   mb: 2,
                                   fontSize: '0.9rem',
                                   alignSelf: 'flex-start',
@@ -944,10 +999,10 @@ const Catalog = () => {
             {selectedCourse && (
               <GlassCard sx={{ p: 3 }}>
                 <Typography variant='h6' sx={{ color: colors.white, fontWeight: 600, mb: 1 }}>
-                  {selectedCourse.title}
+                  {selectedCourse.title || 'Titre non disponible'}
                 </Typography>
                 <Typography variant='body2' sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                  {selectedCourse.description}
+                  {selectedCourse.description || 'Description non disponible'}
                 </Typography>
                 <Chip
                   label={`Niveau: ${selectedCourse.level || selectedCourse.niveau?.nom || 'N/A'}`}
@@ -1013,6 +1068,8 @@ const Catalog = () => {
               '&:disabled': {
                 opacity: 0.6,
               },
+
+
             }}
           >
             {enrollLoading ? 'Inscription en cours...' : "Confirmer l'inscription"}

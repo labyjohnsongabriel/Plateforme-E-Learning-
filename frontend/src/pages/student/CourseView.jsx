@@ -177,8 +177,8 @@ const CourseView = () => {
         'Content-Type': 'application/json',
       };
 
-      // Récupérer le cours
-      const courseResponse = await axios.get(`${API_BASE_URL}/courses/${id}`, {
+      // Récupérer le cours avec les modules inclus
+      const courseResponse = await axios.get(`${API_BASE_URL}/courses/${id}?includeModules=true`, {
         headers,
         timeout: 10000,
       });
@@ -188,20 +188,26 @@ const CourseView = () => {
       const courseData = courseResponse.data?.data || courseResponse.data;
       setCourse(courseData);
 
-      // Récupérer les modules du cours
-      try {
-        const modulesResponse = await axios.get(`${API_BASE_URL}/courses/${id}/modules`, {
-          headers,
-          timeout: 10000,
-        });
-        const modulesList = modulesResponse.data?.data || [];
-        setModules(Array.isArray(modulesList) ? modulesList : []);
-      } catch (err) {
-        console.warn('Erreur récupération modules:', err.message);
-        setModules([]);
+      // Récupérer les modules depuis la réponse du cours ou via endpoint séparé
+      if (courseData.modules && Array.isArray(courseData.modules)) {
+        setModules(courseData.modules);
+      } else {
+        // Fallback: essayer de récupérer les modules via endpoint séparé
+        try {
+          const modulesResponse = await axios.get(`${API_BASE_URL}/modules`, {
+            params: { courseId: id },
+            headers,
+            timeout: 10000,
+          });
+          const modulesList = modulesResponse.data?.data || modulesResponse.data || [];
+          setModules(Array.isArray(modulesList) ? modulesList : []);
+        } catch (modulesErr) {
+          console.warn('Erreur récupération modules:', modulesErr.message);
+          setModules([]);
+        }
       }
 
-      // Récupérer la progression
+      // Récupérer la progression avec gestion d'erreur améliorée
       try {
         const progressResponse = await axios.get(`${API_BASE_URL}/learning/progress/${id}`, {
           headers,
@@ -209,15 +215,23 @@ const CourseView = () => {
         });
         const progressData = progressResponse.data?.data || progressResponse.data;
         setProgress(progressData);
-      } catch (err) {
-        console.warn('Erreur récupération progression:', err.message);
-        setProgress(null);
+      } catch (progressErr) {
+        console.warn('Erreur récupération progression:', progressErr.message);
+        // Créer un objet progression par défaut
+        setProgress({
+          pourcentage: 0,
+          dateDebut: null,
+          dateFin: null,
+          cours: id,
+          apprenant: user._id
+        });
       }
     } catch (err) {
       console.error('Erreur chargement cours:', {
         message: err.message,
         status: err.response?.status,
         code: err.code,
+        data: err.response?.data
       });
 
       let errorMessage = 'Erreur lors du chargement du cours';
@@ -237,10 +251,14 @@ const CourseView = () => {
         errorMessage = 'Impossible de se connecter au serveur';
       } else if (err.response?.data?.message) {
         errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
       }
 
       setError(errorMessage);
       setCourse(null);
+      setModules([]);
+      setProgress(null);
     } finally {
       setLoading(false);
       setRetrying(false);
@@ -259,6 +277,18 @@ const CourseView = () => {
     setRetrying(true);
     await fetchCourseData();
   }, [fetchCourseData]);
+
+  /**
+   * Navigue vers le player du cours
+   */
+  const handleStartLearning = useCallback(() => {
+    if (modules.length > 0) {
+      const firstModuleId = modules[0]._id || modules[0].id;
+      navigate(`/student/learn/${id}/module/${firstModuleId}`);
+    } else {
+      navigate(`/student/learn/${id}`);
+    }
+  }, [navigate, id, modules]);
 
   /**
    * ========== AFFICHAGE CHARGEMENT ==========
@@ -497,10 +527,20 @@ const CourseView = () => {
                 </Grid>
               )}
             </Grid>
+
+            {/* Bouton commencer l'apprentissage */}
+            <StyledButton
+              fullWidth
+              onClick={handleStartLearning}
+              endIcon={<ArrowRight size={18} />}
+              aria-label="Commencer l'apprentissage"
+            >
+              Commencer l'Apprentissage
+            </StyledButton>
           </CourseCard>
 
           {/* Modules */}
-          {modules.length > 0 && (
+          {modules.length > 0 ? (
             <Box>
               <Typography
                 variant="h5"
@@ -517,7 +557,7 @@ const CourseView = () => {
               <Stack spacing={2}>
                 {modules.map((module, index) => (
                   <ModuleCard
-                    key={module._id || index}
+                    key={module._id || module.id || index}
                     elevation={0}
                     sx={{
                       animation: `${slideInRight} 0.6s ease-out ${index * 0.1}s forwards`,
@@ -532,7 +572,7 @@ const CourseView = () => {
                         mb: 1,
                       }}
                     >
-                      {module.ordre || index + 1}. {module.titre}
+                      {module.ordre || index + 1}. {module.titre || module.title}
                     </Typography>
                     <Typography
                       sx={{
@@ -544,7 +584,7 @@ const CourseView = () => {
                         overflow: 'hidden',
                       }}
                     >
-                      {module.contenu || 'Aucun contenu disponible'}
+                      {module.contenu || module.content || module.description || 'Aucun contenu disponible'}
                     </Typography>
                     {module.dateCreation && (
                       <Typography
@@ -561,109 +601,121 @@ const CourseView = () => {
                 ))}
               </Stack>
             </Box>
+          ) : (
+            <Alert
+              severity="info"
+              sx={{
+                bgcolor: `${colors.purple}1a`,
+                color: '#ffffff',
+                borderRadius: '12px',
+                '& .MuiAlert-icon': {
+                  color: colors.purple,
+                },
+              }}
+            >
+              Aucun module disponible pour ce cours.
+            </Alert>
           )}
         </Grid>
 
         {/* Colonne latérale - Progression et Actions */}
         <Grid item xs={12} md={4}>
           {/* Progression */}
-          {progress && (
-            <Box sx={{ mb: 4 }}>
+          <Box sx={{ mb: 4 }}>
+            <Typography
+              sx={{
+                color: '#ffffff',
+                fontWeight: 700,
+                mb: 2,
+                fontSize: { xs: '1rem', sm: '1.1rem' },
+              }}
+            >
+              Votre Progression
+            </Typography>
+
+            <StatBox>
               <Typography
                 sx={{
-                  color: '#ffffff',
+                  color: colors.success,
                   fontWeight: 700,
-                  mb: 2,
-                  fontSize: { xs: '1rem', sm: '1.1rem' },
+                  fontSize: { xs: '2rem', sm: '2.5rem' },
+                  mb: 1,
                 }}
               >
-                Votre Progression
+                {progress?.pourcentage || 0}%
               </Typography>
+              <Typography
+                sx={{
+                  color: 'rgba(255, 255, 255, 0.6)',
+                  fontSize: { xs: '0.85rem', sm: '0.95rem' },
+                }}
+              >
+                Complété
+              </Typography>
+            </StatBox>
 
-              <StatBox>
-                <Typography
-                  sx={{
-                    color: colors.success,
-                    fontWeight: 700,
-                    fontSize: { xs: '2rem', sm: '2.5rem' },
-                    mb: 1,
-                  }}
-                >
-                  {progress.pourcentage || 0}%
-                </Typography>
+            {progress?.dateDebut && (
+              <Box
+                sx={{
+                  mt: 3,
+                  p: 2,
+                  backgroundColor: `${colors.purple}1a`,
+                  borderRadius: '12px',
+                  border: `1px solid ${colors.purple}33`,
+                }}
+              >
                 <Typography
                   sx={{
                     color: 'rgba(255, 255, 255, 0.6)',
-                    fontSize: { xs: '0.85rem', sm: '0.95rem' },
+                    fontSize: { xs: '0.85rem', sm: '0.9rem' },
+                    mb: 1,
                   }}
                 >
-                  Complété
+                  Commencé le:
                 </Typography>
-              </StatBox>
-
-              {progress.dateDebut && (
-                <Box
+                <Typography
                   sx={{
-                    mt: 3,
-                    p: 2,
-                    backgroundColor: `${colors.purple}1a`,
-                    borderRadius: '12px',
-                    border: `1px solid ${colors.purple}33`,
+                    color: '#ffffff',
+                    fontWeight: 600,
+                    fontSize: { xs: '0.85rem', sm: '0.9rem' },
                   }}
                 >
-                  <Typography
-                    sx={{
-                      color: 'rgba(255, 255, 255, 0.6)',
-                      fontSize: { xs: '0.85rem', sm: '0.9rem' },
-                      mb: 1,
-                    }}
-                  >
-                    Commencé le:
-                  </Typography>
-                  <Typography
-                    sx={{
-                      color: '#ffffff',
-                      fontWeight: 600,
-                      fontSize: { xs: '0.85rem', sm: '0.9rem' },
-                    }}
-                  >
-                    {new Date(progress.dateDebut).toLocaleDateString('fr-FR')}
-                  </Typography>
-                </Box>
-              )}
+                  {new Date(progress.dateDebut).toLocaleDateString('fr-FR')}
+                </Typography>
+              </Box>
+            )}
 
-              {progress.dateFin && (
-                <Box
+            {progress?.dateFin && (
+              <Box
+                sx={{
+                  mt: 2,
+                  p: 2,
+                  backgroundColor: `${colors.success}1a`,
+                  borderRadius: '12px',
+                  border: `1px solid ${colors.success}33`,
+                }}
+              >
+                <Typography
                   sx={{
-                    mt: 2,
-                    p: 2,
-                    backgroundColor: `${colors.success}1a`,
-                    borderRadius: '12px',
-                    border: `1px solid ${colors.success}33`,
+                    color: 'rgba(255, 255, 255, 0.6)',
+                    fontSize: { xs: '0.85rem', sm: '0.9rem' },
+                    mb: 1,
                   }}
                 >
-                  <Typography
-                    sx={{
-                      color: 'rgba(255, 255, 255, 0.6)',
-                      fontSize: { xs: '0.85rem', sm: '0.9rem' },
-                      mb: 1,
-                    }}
-                  >
-                    Terminé le:
-                  </Typography>
-                  <Typography
-                    sx={{
-                      color: colors.success,
-                      fontWeight: 600,
-                      fontSize: { xs: '0.85rem', sm: '0.9rem' },
-                    }}
-                  >
-                    {new Date(progress.dateFin).toLocaleDateString('fr-FR')}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-          )}
+                  Terminé le:
+                </Typography>
+                <Typography
+                  sx={{
+                    color: colors.success,
+                    fontWeight: 600,
+                    fontSize: { xs: '0.85rem', sm: '0.9rem' },
+                  }}
+                >
+                  {new Date(progress.dateFin).toLocaleDateString('fr-FR')}
+                </Typography>
+              </Box>
+            )}
+          </Box>
 
           {/* Boutons d'action */}
           <Stack spacing={2}>
