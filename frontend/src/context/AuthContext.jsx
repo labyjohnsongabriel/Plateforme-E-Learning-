@@ -122,6 +122,7 @@ export const AuthProvider = ({ children }) => {
   }, [navigate, addNotification]);
 
   const initializeAuth = useCallback(async () => {
+    setIsLoading(true); // Ensure loading is true at start
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
       console.log('🚫 No user in localStorage, setting loading to false');
@@ -141,6 +142,7 @@ export const AuthProvider = ({ children }) => {
         if (!refreshed) {
           console.log('❌ Refresh failed, logging out');
           logout();
+          setIsLoading(false);
           return;
         }
         // Si refresh réussi, user est déjà mis à jour via refreshToken
@@ -199,11 +201,11 @@ export const AuthProvider = ({ children }) => {
       if (err.code !== 'ERR_NETWORK') {
         logout();
       }
-      navigate('/login');
+      navigate('/login', { replace: true }); // Use replace to avoid loops
     } finally {
       setIsLoading(false);
     }
-  }, [addNotification, API_BASE_URL, navigate, refreshToken]);
+  }, [addNotification, API_BASE_URL, navigate, refreshToken, logout]);
 
   const login = useCallback(
     async (email, password, rememberMe) => {

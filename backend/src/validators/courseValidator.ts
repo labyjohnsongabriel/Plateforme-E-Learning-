@@ -1,5 +1,4 @@
 import { body, ValidationChain } from 'express-validator';
-import { NiveauFormation } from '../models/enums/NiveauFormation'; // ✅ import nommé
 
 /**
  * @desc Validation for creating a course
@@ -8,7 +7,9 @@ export const create: ValidationChain[] = [
   body('titre').trim().notEmpty().withMessage('Le titre est requis'),
   body('description').trim().notEmpty().withMessage('La description est requise'),
   body('domaine').isMongoId().withMessage('Domaine ID invalide'),
-  body('niveau').isIn(Object.values(NiveauFormation)).withMessage('Niveau de formation invalide'),
+  body('niveau')
+    .isIn(['ALFA', 'BETA', 'GAMMA', 'DELTA'])
+    .withMessage('Niveau de formation invalide. Doit être ALFA, BETA, GAMMA ou DELTA'),
 ];
 
 /**
@@ -18,7 +19,10 @@ export const update: ValidationChain[] = [
   body('titre').optional().trim().notEmpty().withMessage('Le titre ne peut pas être vide'),
   body('description').optional().trim().notEmpty().withMessage('La description ne peut pas être vide'),
   body('domaine').optional().isMongoId().withMessage('Domaine ID invalide'),
-  body('niveau').optional().isIn(Object.values(NiveauFormation)).withMessage('Niveau de formation invalide'),
+  body('niveau')
+    .optional()
+    .isIn(['ALFA', 'BETA', 'GAMMA', 'DELTA'])
+    .withMessage('Niveau de formation invalide. Doit être ALFA, BETA, GAMMA ou DELTA'),
 ];
 
 /**

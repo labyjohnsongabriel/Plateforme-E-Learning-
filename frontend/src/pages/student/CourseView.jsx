@@ -127,9 +127,12 @@ const StatBox = styled(Box)({
  * ==================== COMPOSANT PRINCIPAL ====================
  */
 const CourseView = () => {
-  const { id } = useParams();
+  const { id, courseId } = useParams();
   const navigate = useNavigate();
   const { user, logout } = useAuth() || { user: null, logout: () => {} };
+
+  // Utiliser soit id soit courseId, en priorisant id
+  const courseIdentifier = id || courseId;
 
   // État
   const [course, setCourse] = useState(null);
@@ -154,14 +157,14 @@ const CourseView = () => {
         return;
       }
 
-      if (!id) {
+      if (!courseIdentifier) {
         setError('ID du cours manquant');
         setLoading(false);
         return;
       }
 
       // Valider l'ObjectId
-      if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+      if (!courseIdentifier.match(/^[0-9a-fA-F]{24}$/)) {
         setError('ID du cours invalide');
         setLoading(false);
         return;
@@ -170,7 +173,7 @@ const CourseView = () => {
       setLoading(true);
       setError(null);
 
-      console.log('Récupération du cours:', id);
+      console.log('Récupération du cours:', courseIdentifier);
 
       const headers = {
         Authorization: `Bearer ${user.token}`,
@@ -178,10 +181,13 @@ const CourseView = () => {
       };
 
       // Récupérer le cours avec les modules inclus
-      const courseResponse = await axios.get(`${API_BASE_URL}/courses/${id}?includeModules=true`, {
-        headers,
-        timeout: 10000,
-      });
+      const courseResponse = await axios.get(
+        `${API_BASE_URL}/courses/${courseIdentifier}?includeModules=true`,
+        {
+          headers,
+          timeout: 10000,
+        }
+      );
 
       console.log('Réponse cours:', courseResponse.data);
 
@@ -189,30 +195,42 @@ const CourseView = () => {
       setCourse(courseData);
 
       // Récupérer les modules depuis la réponse du cours ou via endpoint séparé
+      let modulesList = [];
+
       if (courseData.modules && Array.isArray(courseData.modules)) {
-        setModules(courseData.modules);
+        modulesList = courseData.modules;
       } else {
         // Fallback: essayer de récupérer les modules via endpoint séparé
         try {
           const modulesResponse = await axios.get(`${API_BASE_URL}/modules`, {
-            params: { courseId: id },
+            params: { courseId: courseIdentifier },
             headers,
             timeout: 10000,
           });
-          const modulesList = modulesResponse.data?.data || modulesResponse.data || [];
-          setModules(Array.isArray(modulesList) ? modulesList : []);
+          modulesList = modulesResponse.data?.data || modulesResponse.data || [];
         } catch (modulesErr) {
           console.warn('Erreur récupération modules:', modulesErr.message);
-          setModules([]);
+          modulesList = [];
         }
       }
 
+      // S'assurer que modulesList est un tableau et a des IDs valides
+      const validModules = Array.isArray(modulesList)
+        ? modulesList.filter((module) => module && (module._id || module.id))
+        : [];
+
+      console.log('Modules valides:', validModules);
+      setModules(validModules);
+
       // Récupérer la progression avec gestion d'erreur améliorée
       try {
-        const progressResponse = await axios.get(`${API_BASE_URL}/learning/progress/${id}`, {
-          headers,
-          timeout: 10000,
-        });
+        const progressResponse = await axios.get(
+          `${API_BASE_URL}/learning/progress/${courseIdentifier}`,
+          {
+            headers,
+            timeout: 10000,
+          }
+        );
         const progressData = progressResponse.data?.data || progressResponse.data;
         setProgress(progressData);
       } catch (progressErr) {
@@ -222,8 +240,8 @@ const CourseView = () => {
           pourcentage: 0,
           dateDebut: null,
           dateFin: null,
-          cours: id,
-          apprenant: user._id
+          cours: courseIdentifier,
+          apprenant: user._id,
         });
       }
     } catch (err) {
@@ -231,7 +249,7 @@ const CourseView = () => {
         message: err.message,
         status: err.response?.status,
         code: err.code,
-        data: err.response?.data
+        data: err.response?.data,
       });
 
       let errorMessage = 'Erreur lors du chargement du cours';
@@ -263,7 +281,7 @@ const CourseView = () => {
       setLoading(false);
       setRetrying(false);
     }
-  }, [id, user, logout, navigate, API_BASE_URL]);
+  }, [courseIdentifier, user, logout, navigate, API_BASE_URL]);
 
   // Charger les données au montage
   useEffect(() => {
@@ -283,12 +301,39 @@ const CourseView = () => {
    */
   const handleStartLearning = useCallback(() => {
     if (modules.length > 0) {
-      const firstModuleId = modules[0]._id || modules[0].id;
-      navigate(`/student/learn/${id}/module/${firstModuleId}`);
+      // Trouver le premier module valide avec un ID
+      const firstModule = modules.find((module) => module && (module._id || module.id));
+
+      if (firstModule) {
+        const firstModuleId = firstModule._id || firstModule.id;
+        console.log('Navigation vers le module:', firstModuleId);
+        navigate(`/student/learn/${courseIdentifier}/module/${firstModuleId}`);
+      } else {
+        console.error('Aucun module valide trouvé');
+        setError('Aucun module valide disponible pour ce cours');
+      }
     } else {
-      navigate(`/student/learn/${id}`);
+      console.log('Aucun module, navigation vers la vue générale');
+      navigate(`/student/learn/${courseIdentifier}`);
     }
-  }, [navigate, id, modules]);
+  }, [navigate, courseIdentifier, modules]);
+
+  /**
+   * Navigue vers un module spécifique
+   */
+  const handleModuleClick = useCallback(
+    (module) => {
+      if (module && (module._id || module.id)) {
+        const moduleId = module._id || module.id;
+        console.log('Navigation vers le module:', moduleId);
+        navigate(`/student/learn/${courseIdentifier}/module/${moduleId}`);
+      } else {
+        console.error('Module invalide:', module);
+        setError('Module invalide');
+      }
+    },
+    [navigate, courseIdentifier]
+  );
 
   /**
    * ========== AFFICHAGE CHARGEMENT ==========
@@ -341,7 +386,7 @@ const CourseView = () => {
         }}
       >
         <Alert
-          severity="error"
+          severity='error'
           sx={{
             width: { xs: '100%', sm: '80%', md: '50%' },
             bgcolor: `${colors.red}1a`,
@@ -359,11 +404,11 @@ const CourseView = () => {
           icon={<AlertCircle size={24} />}
           action={
             <StyledButton
-              size="small"
+              size='small'
               onClick={handleRetry}
               disabled={retrying}
               endIcon={<RotateCcw size={16} />}
-              aria-label="Réessayer"
+              aria-label='Réessayer'
             >
               {retrying ? 'Réessai...' : 'Réessayer'}
             </StyledButton>
@@ -375,7 +420,7 @@ const CourseView = () => {
         <BackButton
           startIcon={<ArrowLeft size={18} />}
           onClick={() => navigate('/student/courses')}
-          aria-label="Retour à mes cours"
+          aria-label='Retour à mes cours'
         >
           Retour à mes cours
         </BackButton>
@@ -401,7 +446,7 @@ const CourseView = () => {
         <BackButton
           startIcon={<ArrowLeft size={18} />}
           onClick={() => navigate('/student/courses')}
-          aria-label="Retour"
+          aria-label='Retour'
         >
           Retour
         </BackButton>
@@ -411,7 +456,7 @@ const CourseView = () => {
       <Fade in timeout={800}>
         <Box sx={{ mb: { xs: 4, sm: 6 } }}>
           <Typography
-            variant="h3"
+            variant='h3'
             sx={{
               color: '#ffffff',
               fontWeight: 700,
@@ -452,7 +497,7 @@ const CourseView = () => {
                 <BookOpen size={28} color={colors.red} />
               </Box>
               <Typography
-                variant="h5"
+                variant='h5'
                 sx={{
                   color: '#ffffff',
                   fontWeight: 600,
@@ -534,8 +579,9 @@ const CourseView = () => {
               onClick={handleStartLearning}
               endIcon={<ArrowRight size={18} />}
               aria-label="Commencer l'apprentissage"
+              disabled={modules.length === 0}
             >
-              Commencer l'Apprentissage
+              {modules.length > 0 ? "Commencer l'Apprentissage" : 'Aucun module disponible'}
             </StyledButton>
           </CourseCard>
 
@@ -543,7 +589,7 @@ const CourseView = () => {
           {modules.length > 0 ? (
             <Box>
               <Typography
-                variant="h5"
+                variant='h5'
                 sx={{
                   color: '#ffffff',
                   fontWeight: 700,
@@ -562,7 +608,9 @@ const CourseView = () => {
                     sx={{
                       animation: `${slideInRight} 0.6s ease-out ${index * 0.1}s forwards`,
                       opacity: 0,
+                      cursor: 'pointer',
                     }}
+                    onClick={() => handleModuleClick(module)}
                   >
                     <Typography
                       sx={{
@@ -584,7 +632,10 @@ const CourseView = () => {
                         overflow: 'hidden',
                       }}
                     >
-                      {module.contenu || module.content || module.description || 'Aucun contenu disponible'}
+                      {module.contenu ||
+                        module.content ||
+                        module.description ||
+                        'Aucun contenu disponible'}
                     </Typography>
                     {module.dateCreation && (
                       <Typography
@@ -603,7 +654,7 @@ const CourseView = () => {
             </Box>
           ) : (
             <Alert
-              severity="info"
+              severity='info'
               sx={{
                 bgcolor: `${colors.purple}1a`,
                 color: '#ffffff',
@@ -722,8 +773,8 @@ const CourseView = () => {
             <StyledButton
               fullWidth
               endIcon={<ArrowRight size={18} />}
-              onClick={() => navigate(`/student/progress/${id}`)}
-              aria-label="Voir ma progression"
+              onClick={() => navigate(`/student/progress/${courseIdentifier}`)}
+              aria-label='Voir ma progression'
             >
               Voir Ma Progression
             </StyledButton>
@@ -735,7 +786,7 @@ const CourseView = () => {
                 sx={{
                   background: `linear-gradient(135deg, ${colors.success}, #06d6a0)`,
                 }}
-                aria-label="Voir mon certificat"
+                aria-label='Voir mon certificat'
               >
                 Voir Mon Certificat
               </StyledButton>

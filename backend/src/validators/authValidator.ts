@@ -60,3 +60,42 @@ export const login = [
     next();
   },
 ];
+
+/**
+ * Validation pour la demande de réinitialisation de mot de passe
+ */
+export const forgotPassword = [
+  body('email')
+    .trim()
+    .isEmail()
+    .withMessage("Format d'email invalide"),
+
+  (req: Request, res: Response, next: NextFunction) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  },
+];
+
+/**
+ * Validation pour la réinitialisation du mot de passe
+ */
+export const resetPassword = [
+  body('token')
+    .notEmpty()
+    .withMessage('Le token est requis'),
+
+  body('newPassword')
+    .isLength({ min: 6 })
+    .withMessage('Le nouveau mot de passe doit contenir au moins 6 caractères'),
+
+  (req: Request, res: Response, next: NextFunction) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  },
+];

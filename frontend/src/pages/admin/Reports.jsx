@@ -1,3 +1,4 @@
+// Frontend: src/components/admin/Reports.jsx
 import React, { useState, useEffect, useContext } from 'react';
 import {
   Box,
@@ -36,7 +37,7 @@ import { colors } from '../../utils/colors';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
-// Animations (cohérentes avec Courses.jsx)
+// Animations
 const fadeInUp = keyframes`
   from { opacity: 0; transform: translateY(30px); }
   to { opacity: 1; transform: translateY(0); }
@@ -52,7 +53,7 @@ const pulse = keyframes`
   50% { opacity: 0.5; }
 `;
 
-// Fonction utilitaire pour valider les couleurs
+// Validate colors
 const validateColor = (color, fallback) => {
   if (typeof color === 'string' && /^#([0-9A-F]{3}){1,2}$/i.test(color)) {
     return color;
@@ -60,7 +61,7 @@ const validateColor = (color, fallback) => {
   return fallback;
 };
 
-// Styled Components (alignés sur Courses.jsx)
+// Styled Components
 const ReportsContainer = styled(Box)(({ theme }) => ({
   minHeight: '100vh',
   width: '100vw',
@@ -157,10 +158,10 @@ const Reports = () => {
     totalUsers: 0,
     totalCourses: 0,
     completionRate: 0,
-    usersByRole: {},
+    usersByRole: { admin: 0, instructor: 0, student: 0 },
   });
 
-  // Vérification admin
+  // Admin check
   useEffect(() => {
     if (authLoading) return;
     if (!user || user.role?.toLowerCase() !== 'admin') {
@@ -170,61 +171,53 @@ const Reports = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Chargement des rapports et stats globales
+  // Fetch reports and stats
   useEffect(() => {
     const fetchReportsAndStats = async () => {
       setIsLoading(true);
       try {
-        const globalResponse = await axios.get(
-          `${import.meta.env.VITE_API_URL}/admin/stats/global`,
-          {
-            headers: { Authorization: `Bearer ${user?.token || localStorage.getItem('token')}` },
-          }
-        );
-        const globalData = globalResponse.data || {};
+        const token = user?.token || localStorage.getItem('token');
+        const response = await axios.get(`${import.meta.env.VITE_API_URL}/stats`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const globalData = response.data;
 
-        const reportsData = Array.isArray(globalData.reports) ? globalData.reports : [globalData];
-        const normalizedReports = reportsData.map((report, index) => ({
-          id: report.id || `report-${index}`,
-          title: report.title || `Rapport ${index + 1}`,
-          type: report.type || 'Global',
-          date: report.date || new Date().toISOString(),
-          data: report.data || {},
-          totalUsers: report.totalUsers || 0,
-          usersByRole: report.usersByRole || { admin: 0, instructor: 0, student: 0 },
-          totalCourses: report.totalCourses || 0,
-          completionRate: report.completionRate || 0,
-        }));
-        setReports(normalizedReports);
-        setFilteredReports(normalizedReports);
-
-        const aggregatedStats = {
-          totalUsers:
-            globalData.totalUsers || normalizedReports.reduce((sum, r) => sum + r.totalUsers, 0),
-          totalCourses:
-            globalData.totalCourses ||
-            normalizedReports.reduce((sum, r) => sum + r.totalCourses, 0),
-          completionRate:
-            globalData.completionRate ||
-            (normalizedReports.length
-              ? normalizedReports.reduce((sum, r) => sum + r.completionRate, 0) /
-                normalizedReports.length
-              : 0),
-          usersByRole: globalData.usersByRole ||
-            normalizedReports[0]?.usersByRole || { admin: 0, instructor: 0, student: 0 },
+        // Normalize data to match expected structure
+        const normalizedStats = {
+          totalUsers: globalData.totalUsers || 0,
+          totalCourses: globalData.totalCourses || 0,
+          completionRate: globalData.completionRate || 0,
+          usersByRole: globalData.usersByRole || { admin: 0, instructor: 0, student: 0 },
         };
-        setStats(aggregatedStats);
+        setStats(normalizedStats);
+
+        // Create a single report from stats
+        const report = {
+          id: 'global-1',
+          title: 'Rapport Global',
+          type: 'Global',
+          date: new Date().toISOString(),
+          data: {
+            categories: globalData.categories || [],
+            totalEnrollments: globalData.totalEnrollments || 0,
+          },
+          totalUsers: normalizedStats.totalUsers,
+          usersByRole: normalizedStats.usersByRole,
+          totalCourses: normalizedStats.totalCourses,
+          completionRate: normalizedStats.completionRate,
+        };
+        setReports([report]);
+        setFilteredReports([report]);
       } catch (err) {
-        console.error('Erreur lors du chargement:', err);
-        setError(err.response?.data?.message || 'Erreur lors de la récupération des données');
+        console.error('Error fetching stats:', err);
+        setError(err.response?.data?.message || 'Erreur lors de la récupération des statistiques');
         setSnackbarOpen(true);
-        const fallbackStats = {
+        setStats({
           totalUsers: 0,
           totalCourses: 0,
           completionRate: 0,
           usersByRole: { admin: 0, instructor: 0, student: 0 },
-        };
-        setStats(fallbackStats);
+        });
         setReports([
           {
             id: 'fallback-1',
@@ -233,7 +226,7 @@ const Reports = () => {
             date: new Date().toISOString(),
             data: { note: 'Données indisponibles' },
             totalUsers: 0,
-            usersByRole: fallbackStats.usersByRole,
+            usersByRole: { admin: 0, instructor: 0, student: 0 },
             totalCourses: 0,
             completionRate: 0,
           },
@@ -249,27 +242,24 @@ const Reports = () => {
     }
   }, [user]);
 
-  // Filtrage
+  // Filter reports
   useEffect(() => {
-    let filtered = [...reports];
-    if (search) {
-      const searchLower = search.toLowerCase();
-      filtered = filtered.filter(
-        (r) =>
-          r.title.toLowerCase().includes(searchLower) || r.type.toLowerCase().includes(searchLower)
-      );
-    }
+    const filtered = reports.filter(
+      (r) =>
+        r.title.toLowerCase().includes(search.toLowerCase()) ||
+        r.type.toLowerCase().includes(search.toLowerCase())
+    );
     setFilteredReports(filtered);
     setPage(0);
   }, [search, reports]);
 
-  // Vue détails
+  // View report details
   const handleViewReport = (report) => {
     setSelectedReport(report);
     setDetailsModalOpen(true);
   };
 
-  // Téléchargement professionnel avec jsPDF et AutoTable
+  // Download report as PDF
   const handleDownload = (reportId) => {
     try {
       const report = reports.find((r) => r.id === reportId);
@@ -294,6 +284,7 @@ const Reports = () => {
         ['Total Utilisateurs', report.totalUsers],
         ['Total Cours', report.totalCourses],
         ['Taux Complétion', `${report.completionRate}%`],
+        ['Inscriptions Totales', report.data.totalEnrollments || 0],
       ];
       Object.entries(report.usersByRole).forEach(([role, count]) => {
         tableData.push([`Utilisateurs ${role}`, count]);
@@ -313,10 +304,18 @@ const Reports = () => {
         margin: { top: 30 },
       });
 
-      if (report.data && Object.keys(report.data).length > 0) {
-        doc.text('Données Supplémentaires:', 14, doc.autoTable.previous.finalY + 10);
-        doc.setFontSize(10);
-        doc.text(JSON.stringify(report.data, null, 2), 14, doc.autoTable.previous.finalY + 20);
+      if (report.data?.categories?.length) {
+        doc.text('Catégories:', 14, doc.autoTable.previous.finalY + 10);
+        doc.autoTable({
+          startY: doc.autoTable.previous.finalY + 20,
+          head: [['Catégorie']],
+          body: report.data.categories.map((cat) => [cat]),
+          theme: 'striped',
+          headStyles: {
+            fillColor: validateColor(colors.fuschia, '#f13544'),
+            textColor: validateColor(colors.white, '#ffffff'),
+          },
+        });
       }
 
       const pageCount = doc.internal.getNumberOfPages();
@@ -332,7 +331,7 @@ const Reports = () => {
       setSuccess('Rapport téléchargé avec succès');
       setSnackbarOpen(true);
     } catch (err) {
-      setError('Erreur lors du téléchargement');
+      setError('Erreur lors du téléchargement du rapport');
       setSnackbarOpen(true);
     }
   };
@@ -398,7 +397,7 @@ const Reports = () => {
             >
               <Box>
                 <Typography
-                  variant='h3'
+                  variant="h3"
                   sx={{
                     fontWeight: 800,
                     color: validateColor(colors.white, '#ffffff'),
@@ -409,7 +408,7 @@ const Reports = () => {
                   Rapports Administrateur
                 </Typography>
                 <Typography
-                  variant='body1'
+                  variant="body1"
                   sx={{
                     color: alpha(validateColor(colors.white, '#ffffff'), 0.7),
                     fontWeight: 500,
@@ -465,31 +464,25 @@ const Reports = () => {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                       <Avatar
                         sx={{
-                          bgcolor: alpha(
-                            stat.color || validateColor(colors.fuschia, '#f13544'),
-                            0.2
-                          ),
+                          bgcolor: alpha(stat.color, 0.2),
                           width: 56,
                           height: 56,
-                          border: `2px solid ${stat.color || validateColor(colors.fuschia, '#f13544')}`,
+                          border: `2px solid ${stat.color}`,
                         }}
                       >
                         {React.cloneElement(stat.icon, {
-                          sx: {
-                            color: stat.color || validateColor(colors.fuschia, '#f13544'),
-                            fontSize: 28,
-                          },
+                          sx: { color: stat.color, fontSize: 28 },
                         })}
                       </Avatar>
                       <Box>
                         <Typography
-                          variant='h4'
+                          variant="h4"
                           sx={{ color: validateColor(colors.white, '#ffffff'), fontWeight: 800 }}
                         >
                           {stat.value}
                         </Typography>
                         <Typography
-                          variant='body2'
+                          variant="body2"
                           sx={{ color: alpha(validateColor(colors.white, '#ffffff'), 0.7) }}
                         >
                           {stat.label}
@@ -517,10 +510,10 @@ const Reports = () => {
               </Alert>
             </Snackbar>
 
-            {/* Recherche */}
+            {/* Search */}
             <Box sx={{ p: 4, pt: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <TextField
-                placeholder='Rechercher par titre ou type...'
+                placeholder="Rechercher par titre ou type..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 sx={{
@@ -544,21 +537,19 @@ const Reports = () => {
               />
             </Box>
 
-            {/* Tableau des Rapports */}
+            {/* Reports Table */}
             <ReportsCard>
               <TableContainer sx={{ borderRadius: 2 }}>
                 <Table>
                   <TableHead>
-                    <TableRow
-                      sx={{ bgcolor: alpha(validateColor(colors.fuschia, '#f13544'), 0.1) }}
-                    >
+                    <TableRow sx={{ bgcolor: alpha(validateColor(colors.fuschia, '#f13544'), 0.1) }}>
                       <StyledTableCell>Titre</StyledTableCell>
                       <StyledTableCell>Type</StyledTableCell>
                       <StyledTableCell>Date</StyledTableCell>
                       <StyledTableCell>Total Utilisateurs</StyledTableCell>
                       <StyledTableCell>Total Cours</StyledTableCell>
                       <StyledTableCell>Taux Complétion</StyledTableCell>
-                      <StyledTableCell align='center'>Actions</StyledTableCell>
+                      <StyledTableCell align="center">Actions</StyledTableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -573,8 +564,8 @@ const Reports = () => {
                             <StyledTableCell>{report.totalUsers || 0}</StyledTableCell>
                             <StyledTableCell>{report.totalCourses || 0}</StyledTableCell>
                             <StyledTableCell>{report.completionRate || 0}%</StyledTableCell>
-                            <StyledTableCell align='center'>
-                              <Tooltip title='Voir détails' arrow>
+                            <StyledTableCell align="center">
+                              <Tooltip title="Voir détails" arrow>
                                 <ActionButton
                                   onClick={() => handleViewReport(report)}
                                   sx={{
@@ -582,10 +573,10 @@ const Reports = () => {
                                     '&:hover': { bgcolor: alpha('#3b82f6', 0.3) },
                                   }}
                                 >
-                                  <Visibility fontSize='small' />
+                                  <Visibility fontSize="small" />
                                 </ActionButton>
                               </Tooltip>
-                              <Tooltip title='Télécharger' arrow>
+                              <Tooltip title="Télécharger" arrow>
                                 <ActionButton
                                   onClick={() => handleDownload(report.id)}
                                   sx={{
@@ -593,7 +584,7 @@ const Reports = () => {
                                     '&:hover': { bgcolor: alpha('#10b981', 0.3) },
                                   }}
                                 >
-                                  <Download fontSize='small' />
+                                  <Download fontSize="small" />
                                 </ActionButton>
                               </Tooltip>
                             </StyledTableCell>
@@ -601,10 +592,10 @@ const Reports = () => {
                         ))
                     ) : (
                       <TableRow>
-                        <StyledTableCell colSpan={7} align='center'>
+                        <StyledTableCell colSpan={7} align="center">
                           <Box sx={{ py: 8 }}>
                             <Typography
-                              variant='h6'
+                              variant="h6"
                               sx={{ color: alpha(validateColor(colors.white, '#ffffff'), 0.5) }}
                             >
                               Aucun rapport trouvé
@@ -617,7 +608,7 @@ const Reports = () => {
                 </Table>
               </TableContainer>
               <TablePagination
-                component='div'
+                component="div"
                 count={filteredReports.length}
                 page={page}
                 onPageChange={(e, newPage) => setPage(newPage)}
@@ -626,7 +617,7 @@ const Reports = () => {
                   setRowsPerPage(parseInt(e.target.value, 10));
                   setPage(0);
                 }}
-                labelRowsPerPage='Lignes par page'
+                labelRowsPerPage="Lignes par page"
                 labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count}`}
                 sx={{
                   color: validateColor(colors.white, '#ffffff'),
@@ -644,11 +635,11 @@ const Reports = () => {
         </Fade>
       </Container>
 
-      {/* Modale Détails */}
+      {/* Details Modal */}
       <Dialog
         open={detailsModalOpen}
         onClose={() => setDetailsModalOpen(false)}
-        maxWidth='md'
+        maxWidth="md"
         fullWidth
         PaperProps={{
           sx: {
@@ -665,7 +656,7 @@ const Reports = () => {
         <DialogContent>
           {selectedReport && (
             <Box sx={{ color: validateColor(colors.white, '#ffffff') }}>
-              <Typography variant='h5' sx={{ mb: 2, fontWeight: 600 }}>
+              <Typography variant="h5" sx={{ mb: 2, fontWeight: 600 }}>
                 {selectedReport.title}
               </Typography>
               <Grid container spacing={2}>
@@ -694,6 +685,9 @@ const Reports = () => {
                   <Typography>Taux Complétion: {selectedReport.completionRate}%</Typography>
                 </Grid>
                 <Grid item xs={12}>
+                  <Typography>Inscriptions Totales: {selectedReport.data.totalEnrollments}</Typography>
+                </Grid>
+                <Grid item xs={12}>
                   <Typography>Utilisateurs par rôle:</Typography>
                   {Object.entries(selectedReport.usersByRole).map(([role, count]) => (
                     <Typography key={role}>
@@ -701,12 +695,12 @@ const Reports = () => {
                     </Typography>
                   ))}
                 </Grid>
-                {selectedReport.data && Object.keys(selectedReport.data).length > 0 && (
+                {selectedReport.data?.categories?.length > 0 && (
                   <Grid item xs={12}>
-                    <Typography>
-                      Données supplémentaires:{' '}
-                      <pre>{JSON.stringify(selectedReport.data, null, 2)}</pre>
-                    </Typography>
+                    <Typography>Catégories:</Typography>
+                    {selectedReport.data.categories.map((cat, index) => (
+                      <Typography key={index}>- {cat}</Typography>
+                    ))}
                   </Grid>
                 )}
               </Grid>

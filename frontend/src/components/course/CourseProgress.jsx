@@ -1,4 +1,3 @@
-// CourseProgress.jsx - Composant de progression de cours professionnel
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -14,17 +13,14 @@ import {
   ListItemText,
   Divider,
   Button,
-  IconButton,
   Tooltip,
 } from '@mui/material';
 import { styled, keyframes } from '@mui/material/styles';
 import { CheckCircle, ArrowLeft, ArrowRight } from 'lucide-react';
 import axios from 'axios';
 
-// Configuration de l'API
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
-// Animations sophistiquées
 const fadeInUp = keyframes`
   from { opacity: 0; transform: translateY(40px); }
   to { opacity: 1; transform: translateY(0); }
@@ -35,7 +31,6 @@ const floatingAnimation = keyframes`
   50% { transform: translateY(-15px); }
 `;
 
-// Couleurs principales
 const colors = {
   navy: '#010b40',
   lightNavy: '#1a237e',
@@ -44,7 +39,6 @@ const colors = {
   purple: '#8b5cf6',
 };
 
-// Styled Components
 const ProgressCard = styled(Card)({
   background: `linear-gradient(135deg, ${colors.navy}b3, ${colors.lightNavy}b3)`,
   backdropFilter: 'blur(20px)',
@@ -62,7 +56,7 @@ const ProgressCard = styled(Card)({
 });
 
 const CourseProgress = () => {
-  const { courseId } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
   const [course, setCourse] = useState(null);
   const [contents, setContents] = useState([]);
@@ -76,28 +70,25 @@ const CourseProgress = () => {
       try {
         const token = localStorage.getItem('token');
         if (!token) {
-          navigate('/login', { state: { from: `/course/${courseId}/progress` } });
+          navigate('/login', { state: { from: `/student/progress/${id}` } });
           return;
         }
 
-        // Récupérer les détails du cours
-        const courseResponse = await axios.get(`${API_BASE_URL}/courses/${courseId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const headers = { Authorization: `Bearer ${token}` };
+
+        const courseResponse = await axios.get(`${API_BASE_URL}/courses/${id}`, { headers });
         setCourse(courseResponse.data);
 
-        // Récupérer les contenus du cours avec leur statut
         const contentsResponse = await axios.get(`${API_BASE_URL}/contenu`, {
-          params: { courseId },
-          headers: { Authorization: `Bearer ${token}` },
+          params: { courseId: id },
+          headers,
         });
-        setContents(contentsResponse.data);
+        setContents(contentsResponse.data.data || contentsResponse.data);
 
-        // Récupérer la progression
-        const progressResponse = await axios.get(`${API_BASE_URL}/courses/${courseId}/progress`, {
-          headers: { Authorization: `Bearer ${token}` },
+        const progressResponse = await axios.get(`${API_BASE_URL}/learning/progress/${id}`, {
+          headers,
         });
-        setProgress(progressResponse.data.progress || 0);
+        setProgress(progressResponse.data.pourcentage || 0);
       } catch (err) {
         setError(err.response?.data?.message || 'Erreur lors du chargement de la progression');
       } finally {
@@ -105,14 +96,14 @@ const CourseProgress = () => {
       }
     };
     fetchData();
-  }, [courseId, navigate]);
+  }, [id, navigate]);
 
   const handleContinueLearning = () => {
     const nextContent = contents.find((content) => !content.isCompleted);
     if (nextContent) {
-      navigate(`/course/${courseId}/learn/${nextContent.id}`);
+      navigate(`/student/learn/${id}/${nextContent._id}`);
     } else {
-      navigate(`/course/${courseId}`);
+      navigate(`/student/certificates`);
     }
   };
 
@@ -124,10 +115,19 @@ const CourseProgress = () => {
           justifyContent: 'center',
           alignItems: 'center',
           minHeight: '100vh',
-          background: `linear-gradient(135deg, ${colors.navy} 0%, ${colors.lightNavy} 100%)`,
+          bgcolor: colors.navy,
         }}
       >
-        <LinearProgress sx={{ width: '100%', maxWidth: '400px', backgroundColor: `${colors.red}33`, '& .MuiLinearProgress-bar': { background: `linear-gradient(135deg, ${colors.red}, ${colors.pink})` } }} />
+        <LinearProgress
+          sx={{
+            width: '100%',
+            maxWidth: '400px',
+            backgroundColor: `${colors.red}33`,
+            '& .MuiLinearProgress-bar': {
+              background: `linear-gradient(135deg, ${colors.red}, ${colors.pink})`,
+            },
+          }}
+        />
       </Box>
     );
   }
@@ -140,7 +140,7 @@ const CourseProgress = () => {
           justifyContent: 'center',
           alignItems: 'center',
           minHeight: '100vh',
-          background: `linear-gradient(135deg, ${colors.navy} 0%, ${colors.lightNavy} 100%)`,
+          bgcolor: colors.navy,
         }}
       >
         <Typography sx={{ color: colors.red, fontSize: '1.2rem', fontWeight: 600 }}>
@@ -156,21 +156,17 @@ const CourseProgress = () => {
         position: 'relative',
         minHeight: '100vh',
         width: '100vw',
-        background: `linear-gradient(135deg, ${colors.navy} 0%, ${colors.lightNavy} 100%)`,
+        bgcolor: colors.navy,
         overflow: 'hidden',
         pt: 8,
         pb: 12,
       }}
     >
-      {/* Background Decorations */}
       <Box
         sx={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: `
-            linear-gradient(${colors.red}1a 1px, transparent 1px),
-            linear-gradient(90deg, ${colors.red}1a 1px, transparent 1px)
-          `,
+          backgroundImage: `linear-gradient(${colors.red}1a 1px, transparent 1px), linear-gradient(90deg, ${colors.red}1a 1px, transparent 1px)`,
           backgroundSize: '50px 50px',
           opacity: 0.05,
         }}
@@ -188,12 +184,11 @@ const CourseProgress = () => {
           animation: `${floatingAnimation} 3s ease-in-out infinite`,
         }}
       />
-
       <Container maxWidth={false} sx={{ px: { xs: 2, md: 4 } }}>
         <Fade in timeout={1000}>
           <ProgressCard elevation={0}>
             <Typography
-              variant="h3"
+              variant='h3'
               sx={{
                 fontSize: { xs: '2.5rem', md: '3.5rem' },
                 fontWeight: 700,
@@ -204,24 +199,15 @@ const CourseProgress = () => {
             >
               Progression du Cours
             </Typography>
-            <Typography
-              sx={{
-                color: '#ffffff',
-                fontSize: '1.4rem',
-                textAlign: 'center',
-                mb: 2,
-              }}
-            >
-              {course?.title || 'Cours en cours'}
+            <Typography sx={{ color: '#ffffff', fontSize: '1.4rem', textAlign: 'center', mb: 2 }}>
+              {course.titre}
             </Typography>
-
-            {/* Barre de progression globale */}
             <Box sx={{ mb: 4 }}>
               <Typography sx={{ color: '#ffffff', fontSize: '1.2rem', mb: 1 }}>
                 Progression globale: {progress}%
               </Typography>
               <LinearProgress
-                variant="determinate"
+                variant='determinate'
                 value={progress}
                 sx={{
                   height: 10,
@@ -233,8 +219,6 @@ const CourseProgress = () => {
                 }}
               />
             </Box>
-
-            {/* Message de félicitations */}
             {progress === 100 && (
               <Typography
                 sx={{
@@ -248,72 +232,62 @@ const CourseProgress = () => {
                 Félicitations ! Vous avez complété ce cours 🎉
               </Typography>
             )}
-
-            {/* Liste des contenus */}
             {contents.length > 0 && (
               <Box sx={{ mb: 4 }}>
-                <Typography
-                  variant="h5"
-                  sx={{ color: '#ffffff', fontWeight: 600, mb: 2 }}
-                >
+                <Typography variant='h5' sx={{ color: '#ffffff', fontWeight: 600, mb: 2 }}>
                   Contenus du cours
                 </Typography>
                 <List sx={{ backgroundColor: `${colors.navy}33`, borderRadius: '12px', p: 2 }}>
                   {contents.map((content, index) => (
-                    <React.Fragment key={content.id}>
+                    <React.Fragment key={content._id}>
                       <ListItem
                         button
-                        onClick={() => navigate(`/course/${courseId}/learn/${content.id}`)}
+                        onClick={() => navigate(`/student/learn/${id}/${content._id}`)}
                         sx={{
                           borderRadius: '8px',
-                          '&:hover': {
-                            backgroundColor: `${colors.red}1a`,
-                          },
+                          '&:hover': { backgroundColor: `${colors.red}1a` },
                         }}
                       >
                         <ListItemText
-                          primary={content.title}
-                          secondary={`${content.type.charAt(0).toUpperCase() + content.type.slice(1)}`}
+                          primary={content.titre}
+                          secondary={content.type}
                           primaryTypographyProps={{ color: '#ffffff', fontWeight: 500 }}
                           secondaryTypographyProps={{ color: 'rgba(255, 255, 255, 0.6)' }}
                         />
                         {content.isCompleted && (
-                          <Tooltip title="Contenu complété">
+                          <Tooltip title='Contenu complété'>
                             <CheckCircle size={20} color={colors.red} />
                           </Tooltip>
                         )}
                       </ListItem>
-                      {index < contents.length - 1 && <Divider sx={{ backgroundColor: `${colors.red}33` }} />}
+                      {index < contents.length - 1 && (
+                        <Divider sx={{ backgroundColor: `${colors.red}33` }} />
+                      )}
                     </React.Fragment>
                   ))}
                 </List>
               </Box>
             )}
-
-            {/* Statistiques supplémentaires */}
-            <Stack direction="row" spacing={2} sx={{ mb: 4, justifyContent: 'center' }}>
+            <Stack direction='row' spacing={2} sx={{ mb: 4, justifyContent: 'center' }}>
               <Typography sx={{ color: '#ffffff', fontSize: '1rem' }}>
-                Contenus complétés: {contents.filter((c) => c.isCompleted).length} / {contents.length}
+                Contenus complétés: {contents.filter((c) => c.isCompleted).length} /{' '}
+                {contents.length}
               </Typography>
-              {course?.duration && (
+              {course.duree && (
                 <Typography sx={{ color: '#ffffff', fontSize: '1rem' }}>
-                  Durée estimée: {course.duration}
+                  Durée estimée: {course.duree}
                 </Typography>
               )}
             </Stack>
-
-            {/* Boutons d'action */}
-            <Stack direction="row" spacing={2} sx={{ justifyContent: 'center' }}>
+            <Stack direction='row' spacing={2} sx={{ justifyContent: 'center' }}>
               <Button
-                variant="outlined"
-                onClick={() => navigate(`/course/${courseId}`)}
+                variant='outlined'
+                onClick={() => navigate(`/course/${id}`)}
                 sx={{
                   borderColor: `${colors.red}4d`,
                   color: '#ffffff',
                   borderRadius: '12px',
-                  '&:hover': {
-                    backgroundColor: `${colors.red}33`,
-                  },
+                  '&:hover': { backgroundColor: `${colors.red}33` },
                 }}
                 startIcon={<ArrowLeft size={20} />}
               >
@@ -321,7 +295,7 @@ const CourseProgress = () => {
               </Button>
               {progress < 100 && (
                 <Button
-                  variant="contained"
+                  variant='contained'
                   onClick={handleContinueLearning}
                   sx={{
                     background: `linear-gradient(135deg, ${colors.red}, ${colors.pink})`,
@@ -340,8 +314,6 @@ const CourseProgress = () => {
                 </Button>
               )}
             </Stack>
-
-            {/* Gestion des erreurs */}
             {error && (
               <Typography
                 sx={{
@@ -362,5 +334,4 @@ const CourseProgress = () => {
   );
 };
 
-// Optimisation avec React.memo
 export default React.memo(CourseProgress);

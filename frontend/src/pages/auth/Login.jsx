@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext } from 'react';
 import {
   Box,
   Container,
@@ -14,79 +14,198 @@ import {
   FormControlLabel,
   Alert,
   CircularProgress,
-} from "@mui/material";
-import { styled, keyframes } from "@mui/material/styles";
-import { Link, useNavigate } from "react-router-dom";
-import { Mail, Lock, Eye, EyeOff } from "lucide-react";
-import { AuthContext } from "../../context/AuthContext";
+  Divider,
+} from '@mui/material';
+import { styled, keyframes } from '@mui/material/styles';
+import { Link, useNavigate } from 'react-router-dom';
+import { Mail, Lock, Eye, EyeOff, Shield, ArrowRight } from 'lucide-react';
+import { AuthContext } from '../../context/AuthContext';
 
-// Couleurs principales
+// Palette de couleurs harmonisée pour plateforme e-learning
+// Bleu marine pour professionnalisme et fiabilité
+// Fuchsia pour audace créative et énergie
 const colors = {
-  navy: "#010b40",
-  fuschia: "#f13544",
-  lightNavy: "#1a237e",
-  lightFuschia: "#ff6b74",
-  white: "#ffffff",
+  primary: '#010b40',    // Bleu marine principal
+  secondary: '#f13544',  // Fuchsia pour accents créatifs
+  accent: '#f13544',     // Fuchsia comme accent principal
+  accentHover: '#d91f2e',// Variation plus foncée du fuchsia pour hover
+  success: '#10B981',
+  error: '#EF4444',
+  white: '#FFFFFF',
+  gray100: '#F8FAFC',
+  gray200: '#E2E8F0',
+  gray300: '#CBD5E1',
+  gray400: '#94A3B8',
+  gray500: '#64748B',
+  gray600: '#475569',
+  gray700: '#334155',
+  gray800: '#1E293B',
 };
 
-// Animations
+// Animations sophistiquées adaptées à un environnement éducatif dynamique
+const fadeInScale = keyframes`
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+`;
+
 const fadeInUp = keyframes`
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 `;
 
-const floatingAnimation = keyframes`
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+const shimmer = keyframes`
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
 `;
 
-// Styled Components
+const pulse = keyframes`
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+`;
+
+// Composants stylisés professionnels, avec touches créatives pour e-learning
 const LoginCard = styled(Card)(({ theme }) => ({
-  background: `linear-gradient(135deg, ${colors.navy}cc, ${colors.lightNavy}cc)`,
-  backdropFilter: "blur(12px)",
-  border: `1px solid ${colors.fuschia}33`,
-  borderRadius: "16px",
-  padding: theme.spacing(4),
-  width: "140%", // Adjusted from 150% to prevent overflow
-  maxWidth: 500,
-  transition: "all 0.3s ease",
-  animation: `${fadeInUp} 0.6s ease-out`,
-  "&:hover": {
-    transform: "translateY(-4px)",
-    boxShadow: `0 8px 24px ${colors.navy}33`,
+  background: colors.white,
+  borderRadius: '24px',
+  padding: theme.spacing(5),
+  width: '100%',
+  maxWidth: 480,
+  boxShadow: '0 20px 60px rgba(1, 11, 64, 0.08), 0 0 1px rgba(1, 11, 64, 0.1)',
+  animation: `${fadeInScale} 0.5s cubic-bezier(0.4, 0, 0.2, 1)`,
+  transition: 'all 0.3s ease',
+  border: `1px solid ${colors.gray200}`,
+  '&:hover': {
+    boxShadow: '0 24px 70px rgba(241, 53, 68, 0.12), 0 0 1px rgba(241, 53, 68, 0.1)', // Touch fuchsia sur hover
   },
-  [theme.breakpoints.down("sm")]: {
-    padding: theme.spacing(3),
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(4),
+    borderRadius: '20px',
   },
 }));
 
-const StyledButton = styled(Button)(({ theme }) => ({
-  background: `linear-gradient(135deg, ${colors.fuschia}, ${colors.lightFuschia})`,
-  borderRadius: "12px",
-  padding: theme.spacing(1.5, 4),
-  fontWeight: 600,
-  fontSize: "1.1rem",
-  textTransform: "none",
-  boxShadow: `0 4px 16px ${colors.fuschia}4d`,
-  color: colors.white,
-  "&:hover": {
-    background: `linear-gradient(135deg, ${colors.fuschia}cc, ${colors.lightFuschia}cc)`,
-    boxShadow: `0 6px 20px ${colors.fuschia}66`,
-    transform: "translateY(-2px)",
+const StyledTextField = styled(TextField)(({ theme }) => ({
+  '& .MuiOutlinedInput-root': {
+    borderRadius: '12px',
+    backgroundColor: colors.gray100,
+    transition: 'all 0.2s ease',
+    border: '2px solid transparent',
+    '&:hover': {
+      backgroundColor: colors.white,
+      '& fieldset': {
+        borderColor: colors.gray300,
+      },
+    },
+    '&.Mui-focused': {
+      backgroundColor: colors.white,
+      border: `2px solid ${colors.accent}`,
+      '& fieldset': {
+        borderWidth: 0,
+      },
+    },
+    '& fieldset': {
+      borderColor: 'transparent',
+    },
   },
-  "&:disabled": {
-    background: `linear-gradient(135deg, ${colors.fuschia}80, ${colors.lightFuschia}80)`,
-    cursor: "not-allowed",
+  '& .MuiInputLabel-root': {
+    color: colors.gray600,
+    fontWeight: 500,
+    '&.Mui-focused': {
+      color: colors.accent,
+    },
+  },
+  '& .MuiInputBase-input': {
+    color: colors.gray800,
+    fontSize: '15px',
+    padding: '14px 16px',
+    '&::placeholder': {
+      color: colors.gray400,
+    },
+  },
+}));
+
+const PrimaryButton = styled(Button)(({ theme }) => ({
+  background: `linear-gradient(135deg, ${colors.accent}, ${colors.accentHover})`, // Gradient fuchsia
+  borderRadius: '12px',
+  padding: '14px 28px',
+  fontWeight: 600,
+  fontSize: '15px',
+  textTransform: 'none',
+  boxShadow: `0 4px 16px ${colors.accent}40`,
+  color: colors.white,
+  position: 'relative',
+  overflow: 'hidden',
+  '&::before': {
+    content: '""',
+    position: 'absolute',
+    top: 0,
+    left: '-100%',
+    width: '100%',
+    height: '100%',
+    background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+    transition: 'left 0.5s ease',
+  },
+  '&:hover': {
+    background: `linear-gradient(135deg, ${colors.accentHover}, ${colors.accent})`,
+    boxShadow: `0 6px 24px ${colors.accent}60`,
+    transform: 'translateY(-2px)',
+    '&::before': {
+      left: '100%',
+    },
+  },
+  '&:active': {
+    transform: 'translateY(0)',
+  },
+  '&:disabled': {
+    background: colors.gray400,
+    boxShadow: 'none',
+    cursor: 'not-allowed',
+  },
+}));
+
+const SecondaryButton = styled(Button)(({ theme }) => ({
+  borderRadius: '12px',
+  padding: '14px 28px',
+  fontWeight: 600,
+  fontSize: '15px',
+  textTransform: 'none',
+  color: colors.accent,
+  border: `2px solid ${colors.gray200}`,
+  backgroundColor: 'transparent',
+  transition: 'all 0.2s ease',
+  '&:hover': {
+    backgroundColor: colors.gray100,
+    borderColor: colors.accent,
+    transform: 'translateY(-1px)',
   },
 }));
 
 const Login = () => {
   const { login, isLoading, error: authError } = useContext(AuthContext);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
-  const [localError, setLocalError] = useState("");
+  const [localError, setLocalError] = useState('');
   const navigate = useNavigate();
 
   const validateForm = () => {
@@ -94,19 +213,19 @@ const Login = () => {
     const trimmedPassword = password.trim();
 
     if (!trimmedEmail) {
-      setLocalError("L'email est requis");
+      setLocalError("L'adresse email est requise");
       return false;
     }
-    if (!/\S+@\S+\.\S+/.test(trimmedEmail)) {
-      setLocalError("Veuillez entrer un email valide");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setLocalError('Veuillez saisir une adresse email valide');
       return false;
     }
     if (!trimmedPassword) {
-      setLocalError("Le mot de passe est requis");
+      setLocalError('Le mot de passe est requis');
       return false;
     }
     if (trimmedPassword.length < 6) {
-      setLocalError("Le mot de passe doit contenir au moins 6 caractères");
+      setLocalError('Le mot de passe doit contenir au moins 6 caractères');
       return false;
     }
     return true;
@@ -114,19 +233,18 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLocalError("");
+    setLocalError('');
     if (!validateForm()) return;
 
     try {
       await login(email.trim(), password.trim(), rememberMe);
     } catch (err) {
-      console.error("Login failed:", err);
-      // Error is handled by AuthContext's Snackbar
+      console.error('Échec de connexion:', err);
     }
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter") {
+    if (e.key === 'Enter') {
       handleSubmit(e);
     }
   };
@@ -134,215 +252,299 @@ const Login = () => {
   return (
     <Box
       sx={{
-        minHeight: "100vh",
-        width: "100vw",
-        background: `linear-gradient(135deg, ${colors.navy}, ${colors.lightNavy})`,
-        display: "flex",
-        alignItems: "center",
-        fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
+        minHeight: '100vh',
+        width: '100vw',
+        background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`, // Gradient bleu marine à fuchsia
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+        overflow: 'hidden',
+        fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       }}
     >
+      {/* Grille de fond sophistiquée avec touche créative */}
       <Box
         sx={{
-          position: "absolute",
+          position: 'absolute',
           inset: 0,
           backgroundImage: `
-            linear-gradient(${colors.fuschia}1a 1px, transparent 1px),
-            linear-gradient(90deg, ${colors.fuschia}1a 1px, transparent 1px)
+            radial-gradient(circle at 1px 1px, ${colors.accent}15 1px, transparent 0)
           `,
-          backgroundSize: "40px 40px",
-          opacity: 0.05,
+          backgroundSize: '48px 48px',
+          opacity: 0.4,
+        }}
+      />
+
+      {/* Éléments décoratifs modernes pour e-learning */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: '-10%',
+          right: '-5%',
+          width: '600px',
+          height: '600px',
+          background: `radial-gradient(circle, ${colors.accent}20, transparent 70%)`,
+          borderRadius: '50%',
+          filter: 'blur(80px)',
         }}
       />
       <Box
         sx={{
-          position: "absolute",
-          bottom: 60,
-          right: 30,
-          width: 100,
-          height: 100,
-          background: `linear-gradient(135deg, ${colors.fuschia}, ${colors.lightFuschia})`,
-          borderRadius: "50%",
-          opacity: 0.15,
-          animation: `${floatingAnimation} 4s ease-in-out infinite`,
+          position: 'absolute',
+          bottom: '-15%',
+          left: '-10%',
+          width: '700px',
+          height: '700px',
+          background: `radial-gradient(circle, ${colors.accentHover}15, transparent 70%)`,
+          borderRadius: '50%',
+          filter: 'blur(100px)',
         }}
       />
 
-      <Container maxWidth="lg">
+      <Container maxWidth='lg'>
         <Box
           sx={{
-            display: "flex",
-            flexDirection: { xs: "column", md: "row" },
-            alignItems: "center",
-            justifyContent: "center",
-            py: 5,
-            gap: { xs: 4, md: 2 },
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: { xs: 6, md: 8 },
+            py: 4,
           }}
         >
+          {/* Section gauche - Informations adaptées à e-learning */}
           <Box
             sx={{
-              flex: { md: "0 0 50%", lg: "0 0 45%", xl: "0 0 40%" },
-              maxWidth: { md: "50%", lg: "45%", xl: "40%" },
-              display: { xs: "none", md: "flex" },
-              justifyContent: "center",
-              alignItems: "center",
+              flex: 1,
+              maxWidth: 500,
+              display: { xs: 'none', md: 'block' },
+              color: colors.white,
+              pr: 4,
             }}
           >
-            <img
-              src="https://mdbcdn.b-cdn.net/img/Photos/new-templates/bootstrap-login-form/draw2.svg"
-              alt="Phone illustration"
-              style={{ maxWidth: "100%", height: "auto" }}
-            />
+            <Box sx={{ mb: 4 }}>
+              <Shield size={56} strokeWidth={1.5} style={{ marginBottom: 24, opacity: 0.9 }} />
+              <Typography
+                variant='h3'
+                sx={{
+                  fontWeight: 700,
+                  mb: 2,
+                  fontSize: { md: '2.5rem', lg: '3rem' },
+                  letterSpacing: '-0.02em',
+                  lineHeight: 1.2,
+                }}
+              >
+                Plateforme d'E-Learning Sécurisée
+              </Typography>
+              <Typography
+                variant='h6'
+                sx={{
+                  opacity: 0.85,
+                  fontWeight: 400,
+                  lineHeight: 1.6,
+                  fontSize: '1.1rem',
+                  color: colors.gray200,
+                }}
+              >
+                Accédez à votre espace d'apprentissage en toute sécurité avec notre système
+                d'authentification moderne et fiable.
+              </Typography>
+            </Box>
+
+            <Stack spacing={3} sx={{ mt: 5 }}>
+              {[
+                {
+                  title: 'Sécurité renforcée',
+                  desc: 'Authentification à deux facteurs pour protéger vos cours',
+                },
+                { title: 'Accès rapide', desc: 'Connexion fluide pour un apprentissage ininterrompu' },
+                { title: 'Support 24/7', desc: 'Aide dédiée pour vos besoins éducatifs' },
+              ].map((item, idx) => (
+                <Box key={idx} sx={{ display: 'flex', alignItems: 'start', gap: 2 }}>
+                  <Box
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      backgroundColor: colors.accent,
+                      mt: 1,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <Box>
+                    <Typography sx={{ fontWeight: 600, mb: 0.5, fontSize: '15px' }}>
+                      {item.title}
+                    </Typography>
+                    <Typography sx={{ opacity: 0.7, fontSize: '14px', color: colors.gray200 }}>
+                      {item.desc}
+                    </Typography>
+                  </Box>
+                </Box>
+              ))}
+            </Stack>
           </Box>
 
-          <Box
-            sx={{
-              flex: { md: "0 0 45%", lg: "0 0 35%", xl: "0 0 30%" },
-              maxWidth: { xs: "100%", md: "45%", lg: "35%", xl: "30%" },
-              mx: { xs: "auto", xl: 2 },
-            }}
-          >
-            <Fade in timeout={800}>
+          {/* Section droite - Formulaire */}
+          <Box sx={{ flex: 1, maxWidth: 480, width: '100%' }}>
+            <Fade in timeout={600}>
               <LoginCard elevation={0}>
                 <form onSubmit={handleSubmit}>
-                  <Stack spacing={3} alignItems="center">
-                    <Typography
-                      variant="h5"
-                      sx={{
-                        fontWeight: 600,
-                        color: colors.white,
-                        textAlign: "center",
-                        fontSize: { xs: "1.6rem", md: "2rem" },
-                      }}
-                    >
-                      Connexion
-                    </Typography>
+                  <Stack spacing={3}>
+                    {/* En-tête */}
+                    <Box sx={{ textAlign: 'center', mb: 1 }}>
+                      <Typography
+                        variant='h4'
+                        sx={{
+                          fontWeight: 700,
+                          color: colors.gray800,
+                          mb: 1,
+                          fontSize: '28px',
+                          letterSpacing: '-0.01em',
+                        }}
+                      >
+                        Connexion
+                      </Typography>
+                      <Typography
+                        sx={{
+                          color: colors.gray600,
+                          fontSize: '15px',
+                        }}
+                      >
+                        Accédez à votre espace d'apprentissage
+                      </Typography>
+                    </Box>
 
+                    {/* Alerte d'erreur */}
                     {(localError || authError) && (
-                      <Alert severity="error" sx={{ width: "100%" }}>
+                      <Alert
+                        severity='error'
+                        sx={{
+                          borderRadius: '12px',
+                          backgroundColor: `${colors.error}10`,
+                          border: `1px solid ${colors.error}30`,
+                          '& .MuiAlert-icon': {
+                            color: colors.error,
+                          },
+                        }}
+                      >
                         {localError || authError}
                       </Alert>
                     )}
 
-                    <TextField
-                      name="email"
-                      label="Email"
-                      variant="outlined"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      required
-                      fullWidth
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <Mail size={20} color={colors.fuschia} />
-                          </InputAdornment>
-                        ),
-                      }}
-                      sx={{
-                        "& .MuiOutlinedInput-root": {
-                          "& fieldset": { borderColor: `${colors.fuschia}4d` },
-                          "&:hover fieldset": { borderColor: colors.fuschia },
-                          "&.Mui-focused fieldset": {
-                            borderColor: colors.fuschia,
-                          },
-                          borderRadius: "8px",
-                          color: colors.white,
-                          fontSize: "1.1rem",
-                        },
-                        "& .MuiInputLabel-root": {
-                          color: `${colors.white}b3`,
-                          "&.Mui-focused": { color: colors.fuschia },
-                          fontSize: "1.1rem",
-                        },
-                        "& .MuiInputBase-input": { color: colors.white },
-                        mb: 2,
-                      }}
-                    />
+                    {/* Champ Email */}
+                    <Box>
+                      <Typography
+                        sx={{
+                          mb: 1,
+                          fontSize: '14px',
+                          fontWeight: 600,
+                          color: colors.gray700,
+                        }}
+                      >
+                        Adresse email
+                      </Typography>
+                      <StyledTextField
+                        name='email'
+                        placeholder='vous@exemple.com'
+                        variant='outlined'
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        required
+                        fullWidth
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position='start'>
+                              <Mail size={20} color={colors.gray500} />
+                            </InputAdornment>
+                          ),
+                        }}
+                      />
+                    </Box>
 
-                    <TextField
-                      name="password"
-                      label="Mot de passe"
-                      type={showPassword ? "text" : "password"}
-                      variant="outlined"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      required
-                      fullWidth
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <Lock size={20} color={colors.fuschia} />
-                          </InputAdornment>
-                        ),
-                        endAdornment: (
-                          <InputAdornment position="end">
-                            <IconButton
-                              onClick={() => setShowPassword(!showPassword)}
-                              sx={{ color: `${colors.white}b3` }}
-                            >
-                              {showPassword ? (
-                                <EyeOff size={20} />
-                              ) : (
-                                <Eye size={20} />
-                              )}
-                            </IconButton>
-                          </InputAdornment>
-                        ),
-                      }}
-                      sx={{
-                        "& .MuiOutlinedInput-root": {
-                          "& fieldset": { borderColor: `${colors.fuschia}4d` },
-                          "&:hover fieldset": { borderColor: colors.fuschia },
-                          "&.Mui-focused fieldset": {
-                            borderColor: colors.fuschia,
-                          },
-                          borderRadius: "8px",
-                          color: colors.white,
-                          fontSize: "1.1rem",
-                        },
-                        "& .MuiInputLabel-root": {
-                          color: `${colors.white}b3`,
-                          "&.Mui-focused": { color: colors.fuschia },
-                          fontSize: "1.1rem",
-                        },
-                        "& .MuiInputBase-input": { color: colors.white },
-                        mb: 2,
-                      }}
-                    />
+                    {/* Champ Mot de passe */}
+                    <Box>
+                      <Typography
+                        sx={{
+                          mb: 1,
+                          fontSize: '14px',
+                          fontWeight: 600,
+                          color: colors.gray700,
+                        }}
+                      >
+                        Mot de passe
+                      </Typography>
+                      <StyledTextField
+                        name='password'
+                        placeholder='••••••••'
+                        type={showPassword ? 'text' : 'password'}
+                        variant='outlined'
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        required
+                        fullWidth
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position='start'>
+                              <Lock size={20} color={colors.gray500} />
+                            </InputAdornment>
+                          ),
+                          endAdornment: (
+                            <InputAdornment position='end'>
+                              <IconButton
+                                onClick={() => setShowPassword(!showPassword)}
+                                edge='end'
+                                sx={{
+                                  color: colors.gray500,
+                                  '&:hover': {
+                                    backgroundColor: colors.gray100,
+                                    color: colors.gray700,
+                                  },
+                                }}
+                              >
+                                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                              </IconButton>
+                            </InputAdornment>
+                          ),
+                        }}
+                      />
+                    </Box>
 
-                    <Stack
-                      direction="row"
-                      justifyContent="space-between"
-                      alignItems="center"
-                      sx={{ width: "100%", mb: 2 }}
-                    >
+                    {/* Options */}
+                    <Stack direction='row' justifyContent='space-between' alignItems='center'>
                       <FormControlLabel
                         control={
                           <Checkbox
                             checked={rememberMe}
                             onChange={(e) => setRememberMe(e.target.checked)}
                             sx={{
-                              color: `${colors.fuschia}80`,
-                              "&.Mui-checked": { color: colors.fuschia },
+                              color: colors.gray400,
+                              '&.Mui-checked': {
+                                color: colors.accent,
+                              },
                             }}
                           />
                         }
-                        label="Se souvenir de moi"
-                        sx={{ color: colors.white }}
+                        label={
+                          <Typography sx={{ fontSize: '14px', color: colors.gray700 }}>
+                            Se souvenir de moi
+                          </Typography>
+                        }
                       />
                       <Typography
                         component={Link}
-                        to="/forgot-password"
+                        to='/forgot-password'
                         sx={{
-                          color: colors.lightFuschia,
-                          fontSize: "0.9rem",
-                          textDecoration: "none",
-                          "&:hover": {
-                            color: colors.fuschia,
-                            textDecoration: "underline",
+                          color: colors.accent,
+                          fontSize: '14px',
+                          fontWeight: 600,
+                          textDecoration: 'none',
+                          transition: 'all 0.2s ease',
+                          '&:hover': {
+                            color: colors.accentHover,
+                            textDecoration: 'underline',
                           },
                         }}
                       >
@@ -350,43 +552,60 @@ const Login = () => {
                       </Typography>
                     </Stack>
 
-                    <StyledButton
-                      type="submit"
-                      variant="contained"
+                    {/* Bouton de connexion */}
+                    <PrimaryButton
+                      type='submit'
+                      variant='contained'
                       fullWidth
                       disabled={isLoading}
+                      endIcon={!isLoading && <ArrowRight size={20} />}
                     >
                       {isLoading ? (
-                        <CircularProgress
-                          size={20}
-                          sx={{ color: colors.white }}
-                        />
+                        <CircularProgress size={22} sx={{ color: colors.white }} />
                       ) : (
-                        "Se connecter"
+                        'Se connecter'
                       )}
-                    </StyledButton>
+                    </PrimaryButton>
 
+                    {/* Divider */}
+                    <Divider sx={{ my: 1 }}>
+                      <Typography sx={{ color: colors.gray400, fontSize: '13px', px: 2 }}>
+                        ou
+                      </Typography>
+                    </Divider>
+
+                    {/* Inscription */}
+                    <SecondaryButton component={Link} to='/register' variant='outlined' fullWidth>
+                      Créer un compte
+                    </SecondaryButton>
+
+                    {/* Footer */}
                     <Typography
-                      component={Link}
-                      to="/register"
                       sx={{
-                        color: colors.lightFuschia,
-                        fontSize: "0.9rem",
-                        textDecoration: "none",
-                        textAlign: "center",
-                        "&:hover": {
-                          color: colors.fuschia,
-                          textDecoration: "underline",
-                        },
+                        textAlign: 'center',
+                        fontSize: '13px',
+                        color: colors.gray500,
+                        pt: 2,
                       }}
                     >
-                      Pas de compte ? S'inscrire
+                      En vous connectant, vous acceptez nos{' '}
+                      <Typography
+                        component='span'
+                        sx={{
+                          color: colors.accent,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          '&:hover': { textDecoration: 'underline' },
+                        }}
+                      >
+                        Conditions d'utilisation
+                      </Typography>
                     </Typography>
                   </Stack>
                 </form>
               </LoginCard>
             </Fade>
-          </Box>
+          </Box>  
         </Box>
       </Container>
     </Box>

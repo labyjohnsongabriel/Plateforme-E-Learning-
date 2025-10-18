@@ -78,7 +78,7 @@ export interface CourseDocument extends Document {
   duree: number;
   niveau: NiveauFormation;
   domaineId: Types.ObjectId | Record<string, any>; // Allow populated domaine object
-  etudiants?: Types.ObjectId[]; // Added for getMyCourses
+  etudiants?: Types.ObjectId[];
   contenu?: any[];
   quizzes: Types.ObjectId[];
   statutApprobation: 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -86,7 +86,7 @@ export interface CourseDocument extends Document {
   estPublie: boolean;
   createdAt: Date;
   updatedAt: Date;
-  __v?: number; // Added for Mongoose versioning
+  __v?: number;
 }
 
 export interface CourseCreateData {
@@ -94,6 +94,7 @@ export interface CourseCreateData {
   description?: string;
   duree: number;
   domaineId: string | Types.ObjectId;
+  domaine?: string | Types.ObjectId; // Added optional domaine property
   niveau: 'ALFA' | 'BETA' | 'GAMMA' | 'DELTA';
   contenu?: any[];
   quizzes?: (string | Types.ObjectId)[];
@@ -107,6 +108,7 @@ export interface CourseUpdateData {
   description?: string;
   duree?: number;
   domaineId?: string | Types.ObjectId;
+  domaine?: string | Types.ObjectId; // Added optional domaine property
   niveau?: 'ALFA' | 'BETA' | 'GAMMA' | 'DELTA';
   contenu?: any[];
   quizzes?: (string | Types.ObjectId)[];
@@ -119,12 +121,17 @@ export interface CourseData {
   description?: string;
   niveau: string;
   domaineId: string | Types.ObjectId;
+  domaine?: string | Types.ObjectId; // Added optional domaine property
   contenu?: any;
   createur: string | Types.ObjectId;
+  duree: number;
+  estPublie?: boolean;
+  statutApprobation?: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
 export interface CourseResponse {
   data: CourseDocument[];
+  total: number;
   totalPages: number;
   currentPage: number;
 }

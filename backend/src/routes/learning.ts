@@ -19,6 +19,7 @@ router.post(
   [body('coursId').isMongoId().withMessage('Identifiant de cours invalide')],
   InscriptionController.enroll
 );
+
 router.get('/enrollments', ...restrictToEtudiant, InscriptionController.getUserEnrollments);
 router.put(
   '/enrollment/:id/status',

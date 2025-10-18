@@ -1,8 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import AuthController from '../controllers/auth/AuthController'; // Default import
-import ProfileController from '../controllers/auth/ProfileController'; // Default import
+import AuthController from '../controllers/auth/AuthController';
+import ProfileController from '../controllers/auth/ProfileController';
 import authMiddleware from '../middleware/auth';
-import { register, login } from '../validators/authValidator'; // Changed to named imports
+import { register, login, forgotPassword, resetPassword } from '../validators/authValidator';
 
 const router: Router = Router();
 
@@ -13,7 +13,7 @@ const router: Router = Router();
  */
 router.post(
   '/register',
-  register, // Use named import directly
+  register,
   AuthController.register as (req: Request, res: Response, next: NextFunction) => Promise<void>
 );
 
@@ -24,7 +24,7 @@ router.post(
  */
 router.post(
   '/login',
-  login, // Use named import directly
+  login,
   AuthController.login as (req: Request, res: Response, next: NextFunction) => Promise<void>
 );
 
@@ -59,6 +59,28 @@ router.put(
   '/profile',
   authMiddleware,
   ProfileController.updateProfile as (req: Request, res: Response, next: NextFunction) => Promise<void>
+);
+
+/**
+ * @route POST /api/auth/forgot-password
+ * @desc Demander un lien de réinitialisation de mot de passe
+ * @access Public
+ */
+router.post(
+  '/forgot-password',
+  forgotPassword,
+  AuthController.forgotPassword as (req: Request, res: Response, next: NextFunction) => Promise<void>
+);
+
+/**
+ * @route POST /api/auth/reset-password
+ * @desc Réinitialiser le mot de passe avec un token
+ * @access Public
+ */
+router.post(
+  '/reset-password',
+  resetPassword,
+  AuthController.resetPassword as (req: Request, res: Response, next: NextFunction) => Promise<void>
 );
 
 export default router;

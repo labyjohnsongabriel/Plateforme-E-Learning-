@@ -1,5 +1,5 @@
-// CourseCard.jsx - Carte cours professionnelle avec fond gradient basé sur niveau
-import React, { useState, useEffect } from "react";
+// Frontend: CourseCard.jsx (corrected to fix domain fetch and add error handling)
+import React, { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -10,28 +10,25 @@ import {
   Box,
   LinearProgress,
   Tooltip,
-} from "@mui/material";
-import { styled, keyframes } from "@mui/material/styles";
-import { Link } from "react-router-dom";
-import { BookOpen, ArrowRight, Award } from "lucide-react";
-import axios from "axios";
+} from '@mui/material';
+import { styled, keyframes } from '@mui/material/styles';
+import { Link } from 'react-router-dom';
+import { BookOpen, ArrowRight, Award } from 'lucide-react';
+import axios from 'axios';
 
-// Configuration de l'API
-const API_BASE_URL = "http://localhost:3001/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
-// Animations sophistiquées
 const fadeInUp = keyframes`
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 `;
 
-// Couleurs principales
 const colors = {
-  navy: "#010b40",
-  lightNavy: "#1a237e",
-  red: "#f13544",
-  pink: "#ff6b74",
-  purple: "#8b5cf6",
+  navy: '#010b40',
+  lightNavy: '#1a237e',
+  red: '#f13544',
+  pink: '#ff6b74',
+  purple: '#8b5cf6',
   levelALFA: {
     gradient: `linear-gradient(135deg, ${colors.red} 0%, ${colors.pink} 100%)`,
   },
@@ -40,72 +37,60 @@ const colors = {
   },
 };
 
-// Styled Components
 const StyledCard = styled(Card)(({ level }) => ({
   background:
     colors[`level${level}`]?.gradient ||
     `linear-gradient(135deg, ${colors.navy}b3, ${colors.lightNavy}b3)`,
-  backdropFilter: "blur(20px)",
+  backdropFilter: 'blur(20px)',
   border: `1px solid ${colors.red}33`,
-  borderRadius: "20px",
-  transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+  borderRadius: '20px',
+  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
   animation: `${fadeInUp} 0.8s ease-out forwards`,
-  "&:hover": {
-    transform: "translateY(-8px)",
+  '&:hover': {
+    transform: 'translateY(-8px)',
     boxShadow: `0 12px 40px ${colors.navy}4d`,
   },
-  maxWidth: "320px",
-  margin: "16px",
-  overflow: "hidden",
-  position: "relative",
+  maxWidth: '320px',
+  margin: '16px',
+  overflow: 'hidden',
+  position: 'relative',
 }));
 
 const CourseCard = ({ course }) => {
-  const [domainName, setDomainName] = useState(
-    course.domain || "Chargement..."
-  );
+  const [domainName, setDomainName] = useState(course.domain || 'Chargement...');
   const [progress, setProgress] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Récupérer le nom du domaine si un domaineId est fourni
   useEffect(() => {
-    if (course.domaineId && !course.domain) {
-      setLoading(true);
-      axios
-        .get(`${API_BASE_URL}/domaine/${course.domaineId}`)
-        .then((response) => {
-          setDomainName(response.data.nom || "Domaine inconnu");
-        })
-        .catch((err) => {
-          setError(
-            err.response?.data?.message ||
-              "Erreur lors du chargement du domaine"
-          );
-        })
-        .finally(() => {
+    const fetchDomain = async () => {
+      if (course.domaineId && !course.domain) {
+        setLoading(true);
+        try {
+          const response = await axios.get(`${API_BASE_URL}/domaine/${course.domaineId}`);
+          setDomainName(response.data.nom || 'Domaine inconnu');
+        } catch (err) {
+          setError('Erreur lors du chargement du domaine');
+        } finally {
           setLoading(false);
-        });
-    }
+        }
+      }
+    };
+    fetchDomain();
   }, [course.domaineId, course.domain]);
 
-  // Simuler la récupération de la progression (à remplacer par une vraie requête API)
   useEffect(() => {
-    // Exemple : récupérer la progression pour un utilisateur connecté
     const fetchProgress = async () => {
       try {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem('token');
         if (token) {
-          const response = await axios.get(
-            `${API_BASE_URL}/courses/${course.id}/progress`,
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            }
-          );
-          setProgress(response.data.progress || 0);
+          const response = await axios.get(`${API_BASE_URL}/learning/progress/${course.id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setProgress(response.data.pourcentage || 0);
         }
       } catch (err) {
-        console.error("Erreur lors de la récupération de la progression:", err);
+        console.error('Erreur progression:', err);
       }
     };
     fetchProgress();
@@ -115,134 +100,108 @@ const CourseCard = ({ course }) => {
     <Fade in timeout={1000}>
       <StyledCard level={course.level}>
         <CardContent sx={{ p: 3 }}>
-          {/* Badge de certification */}
           {course.isCertifying && (
-            <Tooltip title="Cours certifiant">
+            <Tooltip title='Cours certifiant'>
               <Box
                 sx={{
-                  position: "absolute",
+                  position: 'absolute',
                   top: 10,
                   right: 10,
                   background: colors.red,
-                  borderRadius: "50%",
+                  borderRadius: '50%',
                   p: 1,
                 }}
               >
-                <Award size={20} color="#ffffff" />
+                <Award size={20} color='#ffffff' />
               </Box>
             </Tooltip>
           )}
-
-          {/* Titre du cours */}
           <Typography
-            variant="h6"
-            sx={{
-              fontWeight: 700,
-              color: "#ffffff",
-              mb: 2,
-              fontSize: "1.4rem",
-              lineHeight: 1.3,
-            }}
+            variant='h6'
+            sx={{ fontWeight: 700, color: '#ffffff', mb: 2, fontSize: '1.4rem', lineHeight: 1.3 }}
           >
-            {course.title}
+            {course.titre || course.title}
           </Typography>
-
-          {/* Niveau et domaine */}
           <Box sx={{ mb: 2 }}>
             <Chip
               icon={<BookOpen size={16} color={colors.red} />}
-              label={`Niveau: ${course.level}`}
-              size="small"
+              label={`Niveau: ${course.niveau || course.level}`}
+              size='small'
               sx={{
                 backgroundColor: `${colors.navy}33`,
-                color: "#ffffff",
+                color: '#ffffff',
                 fontWeight: 500,
                 mr: 1,
-                fontSize: "0.9rem",
+                fontSize: '0.9rem',
               }}
             />
             <Chip
               label={`Domaine: ${domainName}`}
-              size="small"
+              size='small'
               sx={{
                 backgroundColor: `${colors.navy}33`,
-                color: "#ffffff",
+                color: '#ffffff',
                 fontWeight: 500,
-                fontSize: "0.9rem",
+                fontSize: '0.9rem',
               }}
             />
           </Box>
-
-          {/* Description */}
           <Typography
-            variant="body2"
+            variant='body2'
             sx={{
-              color: "rgba(255, 255, 255, 0.8)",
-              fontSize: "1rem",
+              color: 'rgba(255, 255, 255, 0.8)',
+              fontSize: '1rem',
               lineHeight: 1.5,
               mb: 2,
-              display: "-webkit-box",
+              display: '-webkit-box',
               WebkitLineClamp: 3,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
             }}
           >
-            {course.description || "Description du cours à venir..."}
+            {course.description || 'Description du cours à venir...'}
           </Typography>
-
-          {/* Progression (si utilisateur connecté) */}
           {progress !== null && (
             <Box sx={{ mb: 2 }}>
-              <Typography sx={{ color: "#ffffff", fontSize: "0.9rem", mb: 1 }}>
+              <Typography sx={{ color: '#ffffff', fontSize: '0.9rem', mb: 1 }}>
                 Progression: {progress}%
               </Typography>
               <LinearProgress
-                variant="determinate"
+                variant='determinate'
                 value={progress}
                 sx={{
                   backgroundColor: `${colors.navy}66`,
-                  "& .MuiLinearProgress-bar": {
+                  '& .MuiLinearProgress-bar': {
                     background: `linear-gradient(135deg, ${colors.red}, ${colors.pink})`,
                   },
                 }}
               />
             </Box>
           )}
-
-          {/* Bouton d'action */}
           <Button
             component={Link}
             to={`/course/${course.id}`}
-            variant="contained"
+            variant='contained'
             sx={{
               mt: 2,
               background: `linear-gradient(135deg, ${colors.red}, ${colors.pink})`,
-              borderRadius: "16px",
+              borderRadius: '16px',
               fontWeight: 600,
-              fontSize: "1.1rem",
-              textTransform: "none",
+              fontSize: '1.1rem',
+              textTransform: 'none',
               boxShadow: `0 8px 32px ${colors.red}4d`,
-              "&:hover": {
-                transform: "translateY(-2px)",
+              '&:hover': {
+                transform: 'translateY(-2px)',
                 boxShadow: `0 12px 40px ${colors.red}66`,
               },
             }}
             endIcon={<ArrowRight size={20} />}
-            aria-label={`Commencer le cours ${course.title}`}
+            aria-label={`Commencer le cours ${course.titre || course.title}`}
           >
-            {progress ? "Continuer" : "Commencer"}
+            {progress > 0 ? 'Continuer' : 'Commencer'}
           </Button>
-
-          {/* Gestion des erreurs */}
           {error && (
-            <Typography
-              sx={{
-                color: colors.red,
-                fontSize: "0.9rem",
-                mt: 2,
-                textAlign: "center",
-              }}
-            >
+            <Typography sx={{ color: colors.red, fontSize: '0.9rem', mt: 2, textAlign: 'center' }}>
               {error}
             </Typography>
           )}
@@ -252,5 +211,4 @@ const CourseCard = ({ course }) => {
   );
 };
 
-// Optimisation avec React.memo pour éviter les re-rendus inutiles
 export default React.memo(CourseCard);

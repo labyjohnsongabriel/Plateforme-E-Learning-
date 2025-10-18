@@ -24,6 +24,8 @@ export interface IUser extends Document {
   updatedAt: Date;
   coursCrees: Types.ObjectId[];
   coursEnCoursEdition: Types.ObjectId[];
+  resetPasswordToken?: string | undefined; // Explicitly include undefined
+  resetPasswordExpires?: Date | undefined; // Explicitly include undefined
   comparePassword(password: string): Promise<boolean>;
   mettreAJourProfil(updates: Partial<Pick<IUser, 'nom' | 'prenom' | 'email' | 'avatar'>>): Promise<IUser>;
 }
@@ -80,6 +82,8 @@ const userSchema = new Schema<IUser>(
     dateInscription: { type: Date, default: Date.now, required: true },
     coursCrees: [{ type: Schema.Types.ObjectId, ref: 'Cours', default: [] }],
     coursEnCoursEdition: [{ type: Schema.Types.ObjectId, ref: 'Cours', default: [] }],
+    resetPasswordToken: { type: String, default: undefined }, // Allow undefined
+    resetPasswordExpires: { type: Date, default: undefined }, // Allow undefined
   },
   { timestamps: true, discriminatorKey: 'role' }
 );

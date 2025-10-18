@@ -13,6 +13,7 @@ import { init as initSocket } from './src/utils/socket';
 import apprenantRoutes from './src/routes/apprenant';
 import courseRoutes from './src/routes/courses';
 import notificationRoutes from './src/routes/notifications';
+import moduleRoutes from './src/routes/modules';
 import authRoutes from './src/routes/auth';
 import userRoutes from './src/routes/users';
 import instructeurRoutes from './src/routes/instructeur';
@@ -36,7 +37,8 @@ app.use(express.json());
 
 app.use('/api/courses', courseRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/apprenant' , apprenantRoutes);
+app.use('/api/apprenant', apprenantRoutes);
+app.use('/api/modules', moduleRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/instructeurs', instructeurRoutes);

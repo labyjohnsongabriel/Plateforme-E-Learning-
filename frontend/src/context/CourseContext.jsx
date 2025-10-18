@@ -1,3 +1,4 @@
+// CourseContext.jsx
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { Backdrop, CircularProgress, Alert, Snackbar, Typography } from '@mui/material';
 import axios from 'axios';
@@ -106,7 +107,7 @@ export const CourseProvider = ({ children }) => {
     if (!(await validateToken())) {
       setError('Veuillez vous connecter pour accéder aux domaines');
       setDomaines([]);
-      navigate('/login');
+      navigate('/login', { replace: true });
       return;
     }
 
@@ -172,7 +173,7 @@ export const CourseProvider = ({ children }) => {
         console.warn('⚠️ Failed to update localStorage:', err.message);
       }
       setError('Veuillez vous connecter pour accéder aux cours');
-      navigate('/login');
+      navigate('/login', { replace: true });
       return;
     }
 
@@ -278,7 +279,7 @@ export const CourseProvider = ({ children }) => {
         case 401:
           console.warn('⚠️ Unauthorized access, logging out');
           logout();
-          navigate('/login');
+          navigate('/login', { replace: true });
           return 'Session expirée, veuillez vous reconnecter';
         case 403:
           setCourses([]);
@@ -315,10 +316,8 @@ export const CourseProvider = ({ children }) => {
       } catch (err) {
         console.warn('⚠️ Failed to update localStorage:', err.message);
       }
-      if (!isAuthLoading) {
-        setError('Veuillez vous connecter pour voir les cours et domaines');
-        navigate('/login');
-      }
+      setError('Veuillez vous connecter pour voir les cours et domaines');
+      navigate('/login', { replace: true });
       return;
     }
 
@@ -356,7 +355,7 @@ export const CourseProvider = ({ children }) => {
         const errorMessage =
           "Vous devez être connecté et avoir le rôle d'instructeur ou d'administrateur";
         setError(errorMessage);
-        navigate(user?.role ? '/unauthorized' : '/login');
+        navigate(user?.role ? '/unauthorized' : '/login', { replace: true });
         return;
       }
 
@@ -462,7 +461,7 @@ export const CourseProvider = ({ children }) => {
         const errorMessage =
           "Vous devez être connecté et avoir le rôle d'instructeur ou d'administrateur";
         setError(errorMessage);
-        navigate(user?.role ? '/unauthorized' : '/login');
+        navigate(user?.role ? '/unauthorized' : '/login', { replace: true });
         return;
       }
 
@@ -523,7 +522,7 @@ export const CourseProvider = ({ children }) => {
             const errorMessage = handleApiError(err, navigate, 'cours');
             setError(errorMessage);
             setCourses((prev) => {
-              const updatedCourses = prev.map((c) => (c._id === id ? { ...c } : c));
+              const updatedCourses = prev.map((c) => (c._id === id ? { ...c, ...updates } : c)); // Revert optimistic update
               try {
                 localStorage.setItem('courses', JSON.stringify(updatedCourses));
               } catch (err) {
@@ -536,7 +535,7 @@ export const CourseProvider = ({ children }) => {
           const errorMessage = handleApiError(err, navigate, 'cours');
           setError(errorMessage);
           setCourses((prev) => {
-            const updatedCourses = prev.map((c) => (c._id === id ? { ...c } : c));
+            const updatedCourses = prev.map((c) => (c._id === id ? { ...c, ...updates } : c)); // Revert optimistic update
             try {
               localStorage.setItem('courses', JSON.stringify(updatedCourses));
             } catch (err) {
@@ -561,7 +560,7 @@ export const CourseProvider = ({ children }) => {
         const errorMessage =
           "Vous devez être connecté et avoir le rôle d'instructeur ou d'administrateur";
         setError(errorMessage);
-        navigate(user?.role ? '/unauthorized' : '/login');
+        navigate(user?.role ? '/unauthorized' : '/login', { replace: true });
         return;
       }
 
@@ -607,12 +606,12 @@ export const CourseProvider = ({ children }) => {
           } else {
             const errorMessage = handleApiError(err, navigate, 'cours');
             setError(errorMessage);
-            fetchCourses();
+            fetchCourses(); // Re-fetch to revert optimistic delete
           }
         } else {
           const errorMessage = handleApiError(err, navigate, 'cours');
           setError(errorMessage);
-          fetchCourses();
+          fetchCourses(); // Re-fetch to revert optimistic delete
         }
       } finally {
         setIsLoading(false);

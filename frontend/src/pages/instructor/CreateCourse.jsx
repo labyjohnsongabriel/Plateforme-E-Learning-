@@ -1,5 +1,5 @@
 // src/components/instructor/CreateCourse.jsx
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -11,6 +11,9 @@ import {
   Alert,
   ThemeProvider,
   createTheme,
+  FormControl,
+  InputLabel,
+  Select,
 } from '@mui/material';
 import { styled, keyframes } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
@@ -63,6 +66,23 @@ const instructorTheme = createTheme({
         },
       },
     },
+    MuiFormControl: {
+      styleOverrides: {
+        root: {
+          '& .MuiInputBase-root': {
+            background: 'rgba(255, 255, 255, 0.05)',
+            color: colors.white || '#ffffff',
+            borderRadius: '8px',
+          },
+          '& .MuiInputLabel-root': { color: 'rgba(255, 255, 255, 0.7)' },
+          '& .MuiOutlinedInput-root': {
+            '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.3)' },
+            '&:hover fieldset': { borderColor: colors.fuschia || '#f13544' },
+            '&.Mui-focused fieldset': { borderColor: colors.fuschia || '#f13544' },
+          },
+        },
+      },
+    },
   },
 });
 
@@ -97,6 +117,7 @@ const FormCard = styled(Box)(({ theme }) => ({
   animation: `${fadeInUp} 0.6s ease-out`,
   maxWidth: '600px',
   margin: '0 auto',
+  position: 'relative',
   '&::before': {
     content: '""',
     position: 'absolute',
@@ -105,6 +126,7 @@ const FormCard = styled(Box)(({ theme }) => ({
     right: 0,
     height: '4px',
     background: `linear-gradient(90deg, ${colors.fuschia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`,
+    borderRadius: '16px 16px 0 0',
   },
 }));
 
@@ -126,42 +148,127 @@ const StyledButton = styled(Button)(({ theme }) => ({
 const CreateCourse = () => {
   const { user, isLoading: authLoading } = useContext(AuthContext);
   const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     titre: '',
     description: '',
     duree: '',
     domaineId: '',
-    niveau: 'Alfa',
-    contenu: '',
-    quizzes: [],
+    niveau: 'ALFA', // Utiliser les valeurs en majuscules comme dans le backend
   });
+
+  const [domaines, setDomaines] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingDomaines, setIsLoadingDomaines] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+
+  // Charger les domaines disponibles
+  useEffect(() => {
+    const fetchDomaines = async () => {
+      if (!user?.token) return;
+
+      setIsLoadingDomaines(true);
+      try {
+        const response = await axios.get(`${API_BASE_URL}/domaines`, {
+          headers: { Authorization: `Bearer ${user.token}` },
+        });
+
+        // Adapter selon la structure de votre réponse API
+        const domainesData = response.data.data || response.data || [];
+        setDomaines(domainesData);
+      } catch (err) {
+        console.error('Erreur lors du chargement des domaines:', err);
+        setError('Erreur lors du chargement des domaines disponibles');
+      } finally {
+        setIsLoadingDomaines(false);
+      }
+    };
+
+    if (user) {
+      fetchDomaines();
+    }
+  }, [user, API_BASE_URL]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const validateForm = () => {
+    if (!formData.titre.trim()) return 'Le titre est requis';
+    if (!formData.description.trim()) return 'La description est requise';
+    if (!formData.duree || parseFloat(formData.duree) <= 0)
+      return 'La durée doit être un nombre positif';
+    if (!formData.domaineId) return 'Le domaine est requis';
+    if (!formData.niveau) return 'Le niveau est requis';
+    return '';
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     setIsLoading(true);
     setError('');
     setSuccess('');
 
     try {
-      if (!user) throw new Error('Utilisateur non authentifié');
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_BASE_URL}/instructor/${user.id}/courses`,
-        formData,
-        { headers: { Authorization: `Bearer ${user.token}` } }
-      );
-      setSuccess('Cours créé avec succès !');
+      if (!user || !user.token) {
+        throw new Error('Utilisateur non authentifié');
+      }
+
+      // Préparer les données selon le format attendu par le backend
+      const courseData = {
+        titre: formData.titre.trim(),
+        description: formData.description.trim(),
+        duree: parseFloat(formData.duree),
+        domaineId: formData.domaineId,
+        niveau: formData.niveau,
+        // Les champs suivants seront gérés automatiquement par le backend
+        estPublie: false,
+        statutApprobation: 'PENDING',
+      };
+
+      console.log('📤 Données envoyées au backend:', courseData);
+
+      // Utiliser l'endpoint standard de création de cours
+      const response = await axios.post(`${API_BASE_URL}/courses`, courseData, {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('✅ Réponse du backend:', response.data);
+
+      setSuccess('Cours créé avec succès ! Redirection...');
+
+      // Rediriger vers la liste des cours après un délai
       setTimeout(() => navigate('/instructor/courses'), 2000);
     } catch (err) {
-      console.error('Erreur lors de la création du cours:', err);
-      setError(err.response?.data?.message || 'Erreur lors de la création du cours. Veuillez réessayer.');
+      console.error('❌ Erreur lors de la création du cours:', err);
+
+      // Gestion détaillée des erreurs
+      if (err.response?.data?.errors) {
+        const errorDetails = err.response.data.errors
+          .map((error) => `${error.path}: ${error.msg}`)
+          .join(', ');
+        setError(`Erreur de validation: ${errorDetails}`);
+      } else if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else if (err.code === 'NETWORK_ERROR' || err.code === 'ECONNREFUSED') {
+        setError('Impossible de se connecter au serveur. Vérifiez que le backend est démarré.');
+      } else {
+        setError('Erreur lors de la création du cours. Veuillez réessayer.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -169,7 +276,16 @@ const CreateCourse = () => {
 
   if (authLoading) {
     return (
-      <Box sx={{ minHeight: '100vh', width: '100vw', bgcolor: colors.navy || '#010b40', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <Box
+        sx={{
+          minHeight: '100vh',
+          width: '100vw',
+          bgcolor: colors.navy || '#010b40',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
         <CircularProgress sx={{ color: colors.fuschia || '#f13544' }} />
         <Typography sx={{ ml: 2, color: colors.white || '#ffffff' }}>Chargement...</Typography>
       </Box>
@@ -180,87 +296,179 @@ const CreateCourse = () => {
     <ThemeProvider theme={instructorTheme}>
       <FormContainer>
         {/* Background Decorations */}
-        <Box sx={{ position: 'absolute', inset: 0, background: `linear-gradient(${colors.fuschia || '#f13544'}0a 1px, transparent 1px)`, backgroundSize: '40px 40px', opacity: 0.05 }} />
-        <Box sx={{ position: 'absolute', bottom: 60, right: 30, width: 120, height: 120, background: `linear-gradient(135deg, ${colors.fuschia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`, borderRadius: '50%', opacity: 0.15, animation: `${floatingAnimation} 4s ease-in-out infinite` }} />
+        <Box
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            background: `linear-gradient(${colors.fuschia || '#f13544'}0a 1px, transparent 1px)`,
+            backgroundSize: '40px 40px',
+            opacity: 0.05,
+          }}
+        />
+
+        <Box
+          sx={{
+            position: 'absolute',
+            bottom: 60,
+            right: 30,
+            width: 120,
+            height: 120,
+            background: `linear-gradient(135deg, ${colors.fuschia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`,
+            borderRadius: '50%',
+            opacity: 0.15,
+            animation: `${floatingAnimation} 4s ease-in-out infinite`,
+          }}
+        />
+
         <Container maxWidth={false} disableGutters>
+          {/* En-tête */}
           <Box sx={{ p: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
             <SchoolIcon sx={{ fontSize: 40, color: colors.fuschia || '#f13544' }} />
-            <Typography variant="h3" sx={{ color: colors.white || '#ffffff', fontSize: { xs: '1.5rem', md: '2.5rem' } }}>
-              Créer un Cours
+            <Typography
+              variant='h3'
+              sx={{ color: colors.white || '#ffffff', fontSize: { xs: '1.5rem', md: '2.5rem' } }}
+            >
+              Créer un Nouveau Cours
             </Typography>
           </Box>
+
+          {/* Formulaire */}
           <FormCard>
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-            {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+            {error && (
+              <Alert severity='error' sx={{ mb: 2 }} onClose={() => setError('')}>
+                {error}
+              </Alert>
+            )}
+
+            {success && (
+              <Alert severity='success' sx={{ mb: 2 }}>
+                {success}
+              </Alert>
+            )}
+
             <form onSubmit={handleSubmit}>
+              {/* Titre */}
               <TextField
-                label="Titre"
-                name="titre"
+                label='Titre du cours'
+                name='titre'
                 value={formData.titre}
                 onChange={handleChange}
                 fullWidth
                 required
-                margin="normal"
+                margin='normal'
+                placeholder='Ex: Introduction à la programmation Python'
               />
+
+              {/* Description */}
               <TextField
-                label="Description"
-                name="description"
+                label='Description'
+                name='description'
                 value={formData.description}
                 onChange={handleChange}
                 fullWidth
                 multiline
                 rows={4}
-                margin="normal"
+                required
+                margin='normal'
+                placeholder='Décrivez le contenu et les objectifs de votre cours...'
               />
+
+              {/* Durée */}
               <TextField
-                label="Durée (en heures)"
-                name="duree"
-                type="number"
+                label='Durée (en heures)'
+                name='duree'
+                type='number'
                 value={formData.duree}
                 onChange={handleChange}
                 fullWidth
                 required
-                margin="normal"
+                margin='normal'
+                inputProps={{ min: 1, step: 0.5 }}
+                placeholder='Ex: 10.5'
               />
-              <TextField
-                label="Domaine ID"
-                name="domaineId"
-                value={formData.domaineId}
-                onChange={handleChange}
+
+              {/* Domaine */}
+              <FormControl fullWidth required margin='normal'>
+                <InputLabel>Domaine</InputLabel>
+                <Select
+                  name='domaineId'
+                  value={formData.domaineId}
+                  onChange={handleChange}
+                  label='Domaine'
+                  disabled={isLoadingDomaines}
+                >
+                  <MenuItem value=''>
+                    <em>Sélectionner un domaine</em>
+                  </MenuItem>
+                  {domaines.map((domaine) => (
+                    <MenuItem key={domaine._id} value={domaine._id}>
+                      {domaine.nom || `Domaine ${domaine._id}`}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {isLoadingDomaines && (
+                  <Typography variant='caption' sx={{ color: 'rgba(255, 255, 255, 0.6)', mt: 1 }}>
+                    Chargement des domaines...
+                  </Typography>
+                )}
+              </FormControl>
+
+              {/* Niveau */}
+              <FormControl fullWidth required margin='normal'>
+                <InputLabel>Niveau</InputLabel>
+                <Select
+                  name='niveau'
+                  value={formData.niveau}
+                  onChange={handleChange}
+                  label='Niveau'
+                >
+                  <MenuItem value='ALFA'>Alfa (Débutant)</MenuItem>
+                  <MenuItem value='BETA'>Beta (Intermédiaire)</MenuItem>
+                  <MenuItem value='GAMMA'>Gamma (Avancé)</MenuItem>
+                  <MenuItem value='DELTA'>Delta (Expert)</MenuItem>
+                </Select>
+              </FormControl>
+
+              {/* Bouton de soumission */}
+              <StyledButton
+                type='submit'
+                disabled={isLoading || isLoadingDomaines}
                 fullWidth
-                required
-                margin="normal"
-              />
-              <TextField
-                select
-                label="Niveau"
-                name="niveau"
-                value={formData.niveau}
-                onChange={handleChange}
-                fullWidth
-                required
-                margin="normal"
+                sx={{ mt: 3, height: '48px' }}
               >
-                <MenuItem value="Alfa">Alfa</MenuItem>
-                <MenuItem value="Bêta">Bêta</MenuItem>
-                <MenuItem value="Gamma">Gamma</MenuItem>
-                <MenuItem value="Delta">Delta</MenuItem>
-              </TextField>
-              <TextField
-                label="Contenu (JSON)"
-                name="contenu"
-                value={formData.contenu}
-                onChange={handleChange}
-                fullWidth
-                multiline
-                rows={4}
-                margin="normal"
-              />
-              <StyledButton type="submit" disabled={isLoading} fullWidth sx={{ mt: 2 }}>
-                {isLoading ? <CircularProgress size={24} sx={{ color: colors.white || '#ffffff' }} /> : 'Créer le Cours'}
+                {isLoading ? (
+                  <CircularProgress size={24} sx={{ color: colors.white || '#ffffff' }} />
+                ) : (
+                  'Créer le Cours'
+                )}
               </StyledButton>
+
+              {/* Bouton annuler */}
+              <Button
+                onClick={() => navigate('/instructor/courses')}
+                fullWidth
+                sx={{
+                  mt: 2,
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  '&:hover': {
+                    border: '1px solid rgba(255, 255, 255, 0.5)',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                  },
+                }}
+              >
+                Annuler
+              </Button>
             </form>
           </FormCard>
+
+          {/* Informations supplémentaires */}
+          <Box sx={{ mt: 3, textAlign: 'center' }}>
+            <Typography variant='body2' sx={{ color: 'rgba(255, 255, 255, 0.5)' }}>
+              Le cours sera créé en statut "Brouillon". Vous pourrez le publier après avoir ajouté
+              du contenu.
+            </Typography>
+          </Box>
         </Container>
       </FormContainer>
     </ThemeProvider>

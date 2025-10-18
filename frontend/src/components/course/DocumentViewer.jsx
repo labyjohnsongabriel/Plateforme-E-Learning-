@@ -1,4 +1,4 @@
-// DocumentViewer.jsx - Visionneuse document professionnelle avec fond gradient clair
+// Frontend: DocumentViewer.jsx (professional corrected code with consistent API, property names, and error handling)
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -22,7 +22,7 @@ import { ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
 import axios from 'axios';
 
 // Configuration de l'API
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
 // Configurer le worker pour react-pdf
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
@@ -88,30 +88,27 @@ const DocumentViewer = () => {
           return;
         }
 
+        const headers = { Authorization: `Bearer ${token}` };
+
         // Récupérer les détails du cours
-        const courseResponse = await axios.get(`${API_BASE_URL}/courses/${courseId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const courseResponse = await axios.get(`${API_BASE_URL}/courses/${courseId}`, { headers });
         setCourse(courseResponse.data);
 
         // Récupérer tous les contenus du cours
         const contentsResponse = await axios.get(`${API_BASE_URL}/contenu`, {
           params: { courseId },
-          headers: { Authorization: `Bearer ${token}` },
+          headers,
         });
-        setContents(contentsResponse.data);
+        const contentsData = contentsResponse.data.data || contentsResponse.data;
+        setContents(contentsData);
 
         // Récupérer le contenu spécifique
-        const contentResponse = await axios.get(`${API_BASE_URL}/contenu/${contentId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const contentResponse = await axios.get(`${API_BASE_URL}/contenu/${contentId}`, { headers });
         setContent(contentResponse.data);
         setIsCompleted(contentResponse.data.isCompleted || false);
 
         // Récupérer la progression globale
-        const progressResponse = await axios.get(`${API_BASE_URL}/courses/${courseId}/progress`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const progressResponse = await axios.get(`${API_BASE_URL}/learning/progress/${courseId}`, { headers });
         setProgress(progressResponse.data.progress || 0);
       } catch (err) {
         setError(err.response?.data?.message || 'Erreur lors du chargement du document');
@@ -133,15 +130,15 @@ const DocumentViewer = () => {
       setIsCompleted(true);
 
       // Mettre à jour la progression
-      const progressResponse = await axios.get(`${API_BASE_URL}/courses/${courseId}/progress`, {
+      const progressResponse = await axios.get(`${API_BASE_URL}/learning/progress/${courseId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setProgress(progressResponse.data.progress || 0);
 
       // Passer au contenu suivant si disponible
-      const currentIndex = contents.findIndex((c) => c.id === contentId);
+      const currentIndex = contents.findIndex((c) => c._id === contentId);
       if (currentIndex < contents.length - 1) {
-        navigate(`/course/${courseId}/learn/${contents[currentIndex + 1].id}`);
+        navigate(`/course/${courseId}/learn/${contents[currentIndex + 1]._id}`);
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de la complétion du contenu');
@@ -149,11 +146,11 @@ const DocumentViewer = () => {
   };
 
   const handleNavigation = (direction) => {
-    const currentIndex = contents.findIndex((c) => c.id === contentId);
+    const currentIndex = contents.findIndex((c) => c._id === contentId);
     if (direction === 'prev' && currentIndex > 0) {
-      navigate(`/course/${courseId}/learn/${contents[currentIndex - 1].id}`);
+      navigate(`/course/${courseId}/learn/${contents[currentIndex - 1]._id}`);
     } else if (direction === 'next' && currentIndex < contents.length - 1) {
-      navigate(`/course/${courseId}/learn/${contents[currentIndex + 1].id}`);
+      navigate(`/course/${courseId}/learn/${contents[currentIndex + 1]._id}`);
     }
   };
 
@@ -256,11 +253,11 @@ const DocumentViewer = () => {
               </Typography>
               <List sx={{ backgroundColor: `${colors.navy}33`, borderRadius: '12px', p: 2 }}>
                 {contents.map((c, index) => (
-                  <React.Fragment key={c.id}>
+                  <React.Fragment key={c._id}>
                     <ListItem
                       button
-                      selected={c.id === contentId}
-                      onClick={() => navigate(`/course/${courseId}/learn/${c.id}`)}
+                      selected={c._id === contentId}
+                      onClick={() => navigate(`/course/${courseId}/learn/${c._id}`)}
                       sx={{
                         borderRadius: '8px',
                         '&.Mui-selected': {
@@ -269,7 +266,7 @@ const DocumentViewer = () => {
                       }}
                     >
                       <ListItemText
-                        primary={c.title}
+                        primary={c.titre}
                         secondary={`${c.type.charAt(0).toUpperCase() + c.type.slice(1)}`}
                         primaryTypographyProps={{ color: '#ffffff', fontWeight: 500 }}
                         secondaryTypographyProps={{ color: 'rgba(255, 255, 255, 0.6)' }}
@@ -297,7 +294,7 @@ const DocumentViewer = () => {
                   mb: 2,
                 }}
               >
-                {course?.title} - {content?.title}
+                {course?.titre} - {content?.titre}
               </Typography>
 
               {/* Progression */}
@@ -358,7 +355,7 @@ const DocumentViewer = () => {
                 <Button
                   variant="outlined"
                   onClick={() => handleNavigation('prev')}
-                  disabled={contents.findIndex((c) => c.id === contentId) === 0}
+                  disabled={contents.findIndex((c) => c._id === contentId) === 0}
                   sx={{
                     borderColor: `${colors.red}4d`,
                     color: '#ffffff',
@@ -393,7 +390,7 @@ const DocumentViewer = () => {
                 <Button
                   variant="outlined"
                   onClick={() => handleNavigation('next')}
-                  disabled={contents.findIndex((c) => c.id === contentId) === contents.length - 1}
+                  disabled={contents.findIndex((c) => c._id === contentId) === contents.length - 1}
                   sx={{
                     borderColor: `${colors.red}4d`,
                     color: '#ffffff',
