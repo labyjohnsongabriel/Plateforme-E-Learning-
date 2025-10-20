@@ -1,4 +1,3 @@
-// Backend: Cours model (complete corrected code)
 import { Schema, model, Document, Types, Model } from 'mongoose';
 
 export interface ICours extends Document {
@@ -53,7 +52,7 @@ const coursSchema = new Schema<ICours>(
       type: String,
       enum: {
         values: ['ALFA', 'BETA', 'GAMMA', 'DELTA'],
-        message: 'Niveau de formation invalide. Doit être ALFA, BETA, GAMMA ou DELTA'
+        message: 'Niveau de formation invalide. Doit être ALFA, BETA, GAMMA ou DELTA',
       },
       required: [true, 'Le niveau est requis'],
     },
@@ -77,7 +76,7 @@ const coursSchema = new Schema<ICours>(
     contenu: [
       {
         type: Schema.Types.ObjectId,
-        ref: 'Module',
+        ref: 'Contenu', // Changed from 'Module' to 'Contenu'
         default: [],
       },
     ],
@@ -125,6 +124,7 @@ coursSchema.methods.ajouterContenu = async function (
   this: ICours,
   contenuId: Types.ObjectId
 ): Promise<ICours> {
+  console.log(`Adding contenu ${contenuId} to course ${this._id}`);
   if (!this.contenu.includes(contenuId)) {
     this.contenu.push(contenuId);
     await this.save();
@@ -136,6 +136,7 @@ coursSchema.methods.ajouterEtudiant = async function (
   this: ICours,
   etudiantId: Types.ObjectId
 ): Promise<ICours> {
+  console.log(`Adding etudiant ${etudiantId} to course ${this._id}`);
   if (!this.etudiants.includes(etudiantId)) {
     this.etudiants.push(etudiantId);
     await this.save();
@@ -144,6 +145,7 @@ coursSchema.methods.ajouterEtudiant = async function (
 };
 
 coursSchema.methods.publier = async function (this: ICours): Promise<ICours> {
+  console.log(`Publishing course ${this._id}`);
   this.estPublie = true;
   this.datePublication = new Date();
   this.statutApprobation = 'APPROVED';
@@ -157,7 +159,7 @@ coursSchema.methods.publier = async function (this: ICours): Promise<ICours> {
       destinataires: this.etudiants,
     });
   } catch (err) {
-    console.warn('Notification non créée :', (err as Error).message);
+    console.warn('Notification non créée:', (err as Error).message);
   }
 
   return this;
@@ -172,7 +174,9 @@ coursSchema.methods.calculerCompletionMoyenne = async function (
       { $match: { cours: this._id } },
       { $group: { _id: null, moyenne: { $avg: '$pourcentage' } } },
     ]);
-    return result.length > 0 ? Math.round(result[0].moyenne || 0) : 0;
+    const moyenne = result.length > 0 ? Math.round(result[0].moyenne || 0) : 0;
+    console.log(`Calculated completion moyenne for course ${this._id}: ${moyenne}%`);
+    return moyenne;
   } catch (err) {
     console.error('Erreur calcul completion moyenne:', err);
     return 0;

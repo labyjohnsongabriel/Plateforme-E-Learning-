@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import createError from 'http-errors';
 import mongoose from 'mongoose';
-import Contenu from '../../models/course/Contenu'; // ✅ Changed to default import
-import Cours from '../../models/course/Cours'; // ✅ Changed to default import
+import Contenu from '../../models/course/Contenu';
+import Cours from '../../models/course/Cours';
 import { ContenuDocument, ContenuData } from '../../types';
 
 class ContenuService {
@@ -12,7 +12,6 @@ class ContenuService {
     }
     const contenu = new Contenu(data);
     await contenu.save();
-    // Ajouter au cours
     await Cours.findByIdAndUpdate(data.cours, {
       $push: { contenus: contenu._id },
     });
@@ -24,6 +23,9 @@ class ContenuService {
   }
 
   static async getById(id: string): Promise<ContenuDocument> {
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      throw createError(400, `ID de contenu invalide: ${id}`);
+    }
     const contenu = await Contenu.findById(id).populate('cours');
     if (!contenu) {
       throw createError(404, 'Contenu non trouvé');
@@ -31,7 +33,23 @@ class ContenuService {
     return contenu;
   }
 
+  static async getByCourseId(courseId: string): Promise<ContenuDocument[]> {
+    const isValidObjectId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
+    if (!isValidObjectId(courseId)) {
+      throw createError(400, `ID de cours invalide: ${courseId}`);
+    }
+    const course = await Cours.findById(courseId);
+    if (!course) {
+      throw createError(404, `Cours avec ID ${courseId} non trouvé`);
+    }
+    const contenus = await Contenu.find({ cours: courseId }).populate('cours').exec();
+    return contenus || [];
+  }
+
   static async update(id: string, data: Partial<ContenuData>, file?: Express.Multer.File): Promise<ContenuDocument> {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw createError(400, `ID de contenu invalide: ${id}`);
+    }
     if (file) {
       data.url = `/uploads/${file.filename}`;
     }
@@ -43,10 +61,16 @@ class ContenuService {
   }
 
   static async delete(id: string): Promise<ContenuDocument> {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw createError(400, `ID de contenu invalide: ${id}`);
+    }
     const contenu = await Contenu.findByIdAndDelete(id);
     if (!contenu) {
       throw createError(404, 'Contenu non trouvé');
     }
+    await Cours.findByIdAndUpdate(contenu.cours, {
+      $pull: { contenus: contenu._id },
+    });
     return contenu;
   }
 }
@@ -56,7 +80,8 @@ class ContenuController {
     try {
       const contenu = await ContenuService.create(req.body, req.file);
       res.status(201).json(contenu);
-    } catch (err) {
+    } catch (err: any) {
+      console.error('Error in create:', err.message || err);
       next(err);
     }
   };
@@ -65,7 +90,8 @@ class ContenuController {
     try {
       const contenus = await ContenuService.getAll();
       res.json(contenus);
-    } catch (err) {
+    } catch (err: any) {
+      console.error('Error in getAll:', err.message || err);
       next(err);
     }
   };
@@ -74,7 +100,22 @@ class ContenuController {
     try {
       const contenu = await ContenuService.getById(req.params.id);
       res.json(contenu);
-    } catch (err) {
+    } catch (err: any) {
+      console.error('Error in getById:', err.message || err);
+      next(err);
+    }
+  };
+
+  static getByCourseId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { courseId } = req.query;
+      if (!courseId || typeof courseId !== 'string') {
+        throw createError(400, `courseId query parameter is required and must be a string. Received: ${courseId}`);
+      }
+      const contenus = await ContenuService.getByCourseId(courseId);
+      res.json(contenus);
+    } catch (err: any) {
+      console.error('Error in getByCourseId:', err.message || err, 'courseId:', req.query.courseId);
       next(err);
     }
   };
@@ -83,7 +124,8 @@ class ContenuController {
     try {
       const contenu = await ContenuService.update(req.params.id, req.body, req.file);
       res.json(contenu);
-    } catch (err) {
+    } catch (err: any) {
+      console.error('Error in update:', err.message || err);
       next(err);
     }
   };
@@ -92,7 +134,8 @@ class ContenuController {
     try {
       const contenu = await ContenuService.delete(req.params.id);
       res.json({ message: 'Contenu supprimé' });
-    } catch (err) {
+    } catch (err: any) {
+      console.error('Error in delete:', err.message || err);
       next(err);
     }
   };

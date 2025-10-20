@@ -1,4 +1,3 @@
-// Frontend: Courses.jsx (complete corrected code)
 import React, { useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import {
   Box,
@@ -58,6 +57,7 @@ import { colors } from '../../utils/colors';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/courses';
 const MODULES_BASE_URL = API_BASE_URL.replace('/courses', '/modules');
+const USERS_BASE_URL = API_BASE_URL.replace('/courses', '/users');
 
 // Animations
 const fadeInUp = keyframes`
@@ -186,16 +186,23 @@ const Courses = () => {
     duree: '',
     estPublie: false,
     statutApprobation: 'PENDING',
+    instructeur: '',
   });
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState('');
   const [domaines, setDomaines] = useState([]);
+  const [instructors, setInstructors] = useState([]);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedCourseDetails, setSelectedCourseDetails] = useState(null);
-  // Module states
+  const [detailsModules, setDetailsModules] = useState([]);
   const [tabValue, setTabValue] = useState(0);
   const [currentModules, setCurrentModules] = useState([]);
-  const [addModuleForm, setAddModuleForm] = useState({ titre: '', contenu: '', ordre: 1 });
+  const [addModuleForm, setAddModuleForm] = useState({
+    titre: '',
+    url: '',
+    ordre: 1,
+    type: 'VIDEO',
+  });
   const [editingModule, setEditingModule] = useState(null);
 
   const nextOrdre = useMemo(
@@ -242,6 +249,44 @@ const Courses = () => {
     }
   }, [user, navigate]);
 
+  // Récupération des instructeurs
+  const fetchInstructors = useCallback(async () => {
+    if (!user?.token) {
+      console.warn('Aucun token utilisateur disponible');
+      return;
+    }
+    try {
+      const response = await axios.get(`${USERS_BASE_URL}?role=ENSEIGNANT`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      const instructorsData = Array.isArray(response.data.data)
+        ? response.data.data
+        : Array.isArray(response.data)
+          ? response.data
+          : [];
+      setInstructors(
+        instructorsData.map((instructor) => ({
+          ...instructor,
+          _id: instructor._id.toString(),
+          nom:
+            instructor.username ||
+            `${instructor.prenom || ''} ${instructor.nom || ''}`.trim() ||
+            'Inconnu',
+        }))
+      );
+      if (instructorsData.length === 0) {
+        setError('Aucun instructeur trouvé.');
+      }
+    } catch (err) {
+      console.error('Erreur lors du chargement des instructeurs:', err);
+      setError('Erreur lors du chargement des instructeurs');
+      if (err.response?.status === 401) {
+        setError('Session expirée. Veuillez vous reconnecter.');
+        navigate('/login');
+      }
+    }
+  }, [user, navigate]);
+
   // Récupération des stats
   const fetchStats = useCallback(async () => {
     if (!user?.token) return;
@@ -261,19 +306,41 @@ const Courses = () => {
 
   // Récupération des modules
   const fetchModules = useCallback(
-    async (courseId) => {
-      if (!courseId || !user?.token) return;
+    async (courseId, setModulesState = setCurrentModules) => {
+      if (!courseId || !/^[0-9a-fA-F]{24}$/.test(courseId)) {
+        console.warn('courseId invalide ou manquant:', courseId);
+        setFormError('ID du cours invalide ou manquant');
+        return;
+      }
+      if (!user?.token) {
+        console.warn('Token utilisateur manquant');
+        setFormError('Authentification requise');
+        return;
+      }
       try {
         const response = await axios.get(`${MODULES_BASE_URL}?courseId=${courseId}`, {
           headers: { Authorization: `Bearer ${user.token}` },
         });
-        setCurrentModules(response.data.data || []);
+        const modulesData = response.data.data || [];
+        setModulesState(
+          modulesData.map((module) => ({
+            ...module,
+            _id: module._id.toString(),
+            ordre: module.ordre || 1,
+            type: module.type || 'VIDEO',
+            url: module.url || '',
+          }))
+        );
       } catch (err) {
         console.error('Erreur lors du chargement des modules:', err);
-        setFormError('Erreur lors du chargement des modules');
+        setFormError(err.response?.data?.message || 'Erreur lors du chargement des modules');
+        if (err.response?.status === 401) {
+          setError('Session expirée. Veuillez vous reconnecter.');
+          navigate('/login');
+        }
       }
     },
-    [user?.token]
+    [user, navigate]
   );
 
   // Récupération des cours avec pagination, recherche et filtres
@@ -307,6 +374,16 @@ const Courses = () => {
                 nom: course.domaineId.nom || 'Domaine non défini',
               }
             : { _id: course.domaineId?.toString() || null, nom: 'Domaine non défini' },
+        instructeurId:
+          course.instructeurId && course.instructeurId._id
+            ? {
+                _id: course.instructeurId._id.toString(),
+                nom:
+                  course.instructeurId.username ||
+                  `${course.instructeurId.prenom || ''} ${course.instructeurId.nom || ''}`.trim() ||
+                  'Inconnu',
+              }
+            : null,
         duree: course.duree || 0,
         contenu: course.contenu || [],
         statutApprobation: course.statutApprobation || 'PENDING',
@@ -329,28 +406,39 @@ const Courses = () => {
   // Chargement initial
   useEffect(() => {
     if (user?.role === 'ADMIN') {
+      console.log('Utilisateur admin détecté, récupération des données...');
       fetchDomaines();
+      fetchInstructors();
       fetchStats();
       fetchCourses();
+    } else {
+      console.warn('Accès non autorisé ou utilisateur non chargé:', user);
     }
-  }, [user, fetchDomaines, fetchStats, fetchCourses]);
+  }, [user, fetchDomaines, fetchInstructors, fetchStats, fetchCourses]);
 
   // Gestion des modules lors de l'ouverture de la modale
   useEffect(() => {
-    if (modalOpen) {
+    if (modalOpen && editingCourse?._id) {
       setTabValue(0);
       setFormError('');
       if (modalMode === 'create') {
         setCurrentModules([]);
-        setAddModuleForm({ titre: '', contenu: '', ordre: 1 });
+        setAddModuleForm({ titre: '', url: '', ordre: 1, type: 'VIDEO' });
         setEditingModule(null);
       } else if (editingCourse?._id) {
         fetchModules(editingCourse._id);
-        setAddModuleForm({ titre: '', contenu: '', ordre: nextOrdre });
+        setAddModuleForm({ titre: '', url: '', ordre: nextOrdre, type: 'VIDEO' });
         setEditingModule(null);
       }
     }
   }, [modalOpen, modalMode, editingCourse?._id, nextOrdre, fetchModules]);
+
+  // Chargement des modules pour les détails
+  useEffect(() => {
+    if (detailsModalOpen && selectedCourseDetails?._id) {
+      fetchModules(selectedCourseDetails._id, setDetailsModules);
+    }
+  }, [detailsModalOpen, selectedCourseDetails?._id, fetchModules]);
 
   // Ouvrir la modale pour création/édition
   const openModal = (mode, course = null) => {
@@ -365,6 +453,7 @@ const Courses = () => {
         duree: course.duree ? String(course.duree) : '',
         estPublie: !!course.estPublie,
         statutApprobation: course.statutApprobation || 'PENDING',
+        instructeur: course.instructeurId?._id || '',
       });
     } else {
       setEditingCourse(null);
@@ -376,6 +465,7 @@ const Courses = () => {
         duree: '',
         estPublie: false,
         statutApprobation: 'PENDING',
+        instructeur: '',
       });
     }
     setModalOpen(true);
@@ -395,6 +485,17 @@ const Courses = () => {
     return '';
   };
 
+  // Validation du formulaire de module
+  const validateModuleForm = () => {
+    if (!addModuleForm.titre.trim()) return 'Le titre du module est requis';
+    if (!addModuleForm.url.trim()) return "L'URL du module est requise";
+    if (!['VIDEO', 'DOCUMENT', 'QUIZ', 'EXERCICE'].includes(addModuleForm.type))
+      return 'Le type de module doit être VIDEO, DOCUMENT, QUIZ ou EXERCICE';
+    const ordreNum = parseInt(addModuleForm.ordre);
+    if (isNaN(ordreNum) || ordreNum < 1) return "L'ordre doit être un nombre positif";
+    return '';
+  };
+
   // Soumission du formulaire cours
   const handleFormSubmit = async (e) => {
     e.preventDefault();
@@ -410,8 +511,8 @@ const Courses = () => {
       const data = {
         ...formData,
         duree: parseFloat(formData.duree),
+        instructeurId: formData.instructeur || undefined,
       };
-      console.log('Données envoyées au backend:', data);
       let response;
       if (modalMode === 'create') {
         response = await axios.post(API_BASE_URL, data, {
@@ -419,7 +520,7 @@ const Courses = () => {
         });
         setSuccess('Cours créé avec succès');
         const newCourse = response.data.data || response.data;
-        setEditingCourse(newCourse);
+        setEditingCourse({ ...newCourse, _id: newCourse._id.toString() });
         setModalMode('edit');
         await fetchModules(newCourse._id);
         setTabValue(1);
@@ -431,7 +532,6 @@ const Courses = () => {
       } else {
         throw new Error('ID du cours manquant pour la mise à jour');
       }
-      console.log('Réponse backend:', response.data);
       setSnackbarOpen(true);
       fetchCourses();
       fetchStats();
@@ -439,8 +539,9 @@ const Courses = () => {
       console.error('Erreur lors de la soumission du formulaire:', err);
       const errorMessage = err.response?.data?.message || "Erreur lors de l'opération sur le cours";
       const errorDetails = err.response?.data?.errors || [];
-      console.log('Détails erreurs backend:', errorDetails);
-      setFormError(`${errorMessage} - Détails: ${JSON.stringify(errorDetails)}`);
+      setFormError(
+        `${errorMessage} ${errorDetails.length ? `- Détails: ${JSON.stringify(errorDetails)}` : ''}`
+      );
       if (err.response?.status === 401) {
         setFormError('Session expirée. Veuillez vous reconnecter.');
         navigate('/login');
@@ -452,69 +553,143 @@ const Courses = () => {
 
   // Ajout module
   const handleAddModule = async () => {
-    if (!addModuleForm.titre.trim()) {
-      setFormError('Le titre du module est requis');
+    const validationError = validateModuleForm();
+    if (validationError) {
+      setFormError(validationError);
       return;
     }
-    const data = {
-      titre: addModuleForm.titre.trim(),
-      contenu: addModuleForm.contenu.trim(),
-      ordre: parseInt(addModuleForm.ordre),
-      coursId: editingCourse._id,
-    };
+    if (!editingCourse?._id || !/^[0-9a-fA-F]{24}$/.test(editingCourse._id)) {
+      setFormError('ID du cours invalide');
+      return;
+    }
     try {
+      const data = {
+        titre: addModuleForm.titre.trim(),
+        url: addModuleForm.url.trim(),
+        ordre: parseInt(addModuleForm.ordre),
+        coursId: editingCourse._id,
+        type: addModuleForm.type,
+      };
       const response = await axios.post(MODULES_BASE_URL, data, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
-      setCurrentModules((prev) => [...prev, response.data.data]);
-      setAddModuleForm({ titre: '', contenu: '', ordre: parseInt(addModuleForm.ordre) + 1 });
+      const newModule = { ...response.data.data, _id: response.data.data._id.toString() };
+      const newModulesList = [...currentModules, newModule];
+      setCurrentModules(newModulesList);
+      await axios.put(
+        `${API_BASE_URL}/${editingCourse._id}`,
+        {
+          contenu: newModulesList.map((m) => m._id),
+        },
+        {
+          headers: { Authorization: `Bearer ${user.token}` },
+        }
+      );
+      setAddModuleForm({ titre: '', url: '', ordre: nextOrdre, type: 'VIDEO' });
       setFormError('');
+      setSuccess('Module ajouté avec succès');
+      setSnackbarOpen(true);
+      fetchCourses();
     } catch (err) {
-      setFormError(err.response?.data?.message || "Erreur lors de l'ajout du module");
+      console.error("Erreur lors de l'ajout du module:", err);
+      const errorMessage = err.response?.data?.message || "Erreur lors de l'ajout du module";
+      const errorDetails = err.response?.data?.errors || [];
+      setFormError(`${errorMessage} ${errorDetails.length ? `- Détails: ${JSON.stringify(errorDetails)}` : ''}`);
+      setSnackbarOpen(true);
     }
   };
 
   // Mise à jour module
   const handleUpdateModule = async () => {
-    if (!addModuleForm.titre.trim()) {
-      setFormError('Le titre du module est requis');
+    const validationError = validateModuleForm();
+    if (validationError) {
+      setFormError(validationError);
       return;
     }
-    const data = {
-      titre: addModuleForm.titre.trim(),
-      contenu: addModuleForm.contenu.trim(),
-      ordre: parseInt(addModuleForm.ordre),
-    };
+    if (!editingCourse?._id || !/^[0-9a-fA-F]{24}$/.test(editingCourse._id)) {
+      setFormError('ID du cours invalide');
+      return;
+    }
+    if (!editingModule?._id) {
+      setFormError('ID du module invalide');
+      return;
+    }
     try {
-      const response = await axios.post(`${MODULES_BASE_URL}/${editingModule._id}`, data, {
+      const data = {
+        titre: addModuleForm.titre.trim(),
+        url: addModuleForm.url.trim(),
+        ordre: parseInt(addModuleForm.ordre),
+        type: addModuleForm.type,
+      };
+      const response = await axios.put(`${MODULES_BASE_URL}/${editingModule._id}`, data, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
-      setCurrentModules((prev) =>
-        prev.map((m) => (m._id === editingModule._id ? response.data.data : m))
+      const updatedModulesList = currentModules.map((m) =>
+        m._id === editingModule._id
+          ? { ...response.data.data, _id: response.data.data._id.toString() }
+          : m
+      );
+      setCurrentModules(updatedModulesList);
+      await axios.put(
+        `${API_BASE_URL}/${editingCourse._id}`,
+        {
+          contenu: updatedModulesList.map((m) => m._id),
+        },
+        {
+          headers: { Authorization: `Bearer ${user.token}` },
+        }
       );
       setEditingModule(null);
-      setAddModuleForm({ titre: '', contenu: '', ordre: nextOrdre });
+      setAddModuleForm({ titre: '', url: '', ordre: nextOrdre, type: 'VIDEO' });
       setFormError('');
+      setSuccess('Module mis à jour avec succès');
+      setSnackbarOpen(true);
+      fetchCourses();
     } catch (err) {
-      setFormError(err.response?.data?.message || 'Erreur lors de la mise à jour du module');
+      console.error('Erreur lors de la mise à jour du module:', err);
+      const errorMessage = err.response?.data?.message || 'Erreur lors de la mise à jour du module';
+      const errorDetails = err.response?.data?.errors || [];
+      setFormError(`${errorMessage} ${errorDetails.length ? `- Détails: ${JSON.stringify(errorDetails)}` : ''}`);
+      setSnackbarOpen(true);
     }
   };
 
   // Suppression module
   const handleDeleteModule = async (moduleId) => {
+    if (!moduleId || !/^[0-9a-fA-F]{24}$/.test(moduleId)) {
+      setFormError('ID du module invalide');
+      return;
+    }
     try {
       await axios.delete(`${MODULES_BASE_URL}/${moduleId}`, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
-      setCurrentModules((prev) => prev.filter((m) => m._id !== moduleId));
+      const updatedModulesList = currentModules.filter((m) => m._id !== moduleId);
+      setCurrentModules(updatedModulesList);
+      await axios.put(
+        `${API_BASE_URL}/${editingCourse._id}`,
+        {
+          contenu: updatedModulesList.map((m) => m._id),
+        },
+        {
+          headers: { Authorization: `Bearer ${user.token}` },
+        }
+      );
+      setSuccess('Module supprimé avec succès');
+      setSnackbarOpen(true);
+      fetchCourses();
     } catch (err) {
-      setFormError(err.response?.data?.message || 'Erreur lors de la suppression du module');
+      console.error('Erreur lors de la suppression du module:', err);
+      const errorMessage = err.response?.data?.message || 'Erreur lors de la suppression du module';
+      const errorDetails = err.response?.data?.errors || [];
+      setFormError(`${errorMessage} ${errorDetails.length ? `- Détails: ${JSON.stringify(errorDetails)}` : ''}`);
+      setSnackbarOpen(true);
     }
   };
 
   // Publication du cours
   const handlePublish = async (course) => {
-    if (!course?._id) {
+    if (!course?._id || !/^[0-9a-fA-F]{24}$/.test(course._id)) {
       setError('ID du cours invalide');
       setSnackbarOpen(true);
       return;
@@ -547,7 +722,7 @@ const Courses = () => {
 
   // Gestion de la suppression
   const handleDeleteClick = (course) => {
-    if (!course?._id) {
+    if (!course?._id || !/^[0-9a-fA-F]{24}$/.test(course._id)) {
       setError('ID du cours invalide');
       setSnackbarOpen(true);
       return;
@@ -557,7 +732,7 @@ const Courses = () => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!selectedCourse?._id) {
+    if (!selectedCourse?._id || !/^[0-9a-fA-F]{24}$/.test(selectedCourse._id)) {
       setError('ID du cours invalide');
       setSnackbarOpen(true);
       setDeleteDialogOpen(false);
@@ -587,7 +762,7 @@ const Courses = () => {
 
   // Affichage des détails du cours
   const handleViewCourse = (course) => {
-    if (!course?._id) {
+    if (!course?._id || !/^[0-9a-fA-F]{24}$/.test(course._id)) {
       setError('ID du cours invalide');
       setSnackbarOpen(true);
       return;
@@ -747,7 +922,7 @@ const Courses = () => {
                   color: '#ef4444',
                 },
               ].map((stat, index) => (
-                <Grid item xs={12} sm={6} md= {2} key={index}>
+                <Grid item xs={12} sm={6} md={2} key={index}>
                   <StatsCard>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                       <Avatar
@@ -894,6 +1069,7 @@ const Courses = () => {
                       <StyledTableCell>Modules</StyledTableCell>
                       <StyledTableCell>Statut</StyledTableCell>
                       <StyledTableCell>Approbation</StyledTableCell>
+                      <StyledTableCell>Instructeur</StyledTableCell>
                       <StyledTableCell>Durée</StyledTableCell>
                       <StyledTableCell>Créé le</StyledTableCell>
                       <StyledTableCell align='center'>Actions</StyledTableCell>
@@ -966,6 +1142,9 @@ const Courses = () => {
                           </StyledTableCell>
                           <StyledTableCell>{getStatusChip(course)}</StyledTableCell>
                           <StyledTableCell>{getApprovalChip(course)}</StyledTableCell>
+                          <StyledTableCell>
+                            {course.instructeurId?.prenom || 'Non assigné'}
+                          </StyledTableCell>
                           <StyledTableCell sx={{ color: alpha(colors.white || '#ffffff', 0.9) }}>
                             {course.duree ? `${course.duree} h` : 'N/A'}
                           </StyledTableCell>
@@ -1030,7 +1209,7 @@ const Courses = () => {
                       ))
                     ) : (
                       <TableRow>
-                        <StyledTableCell colSpan={9} align='center'>
+                        <StyledTableCell colSpan={10} align='center'>
                           <Box sx={{ py: 8 }}>
                             <School
                               sx={{
@@ -1216,6 +1395,48 @@ const Courses = () => {
                   <MenuItem value='DELTA'>Delta (Expert)</MenuItem>
                 </Select>
               </FormControl>
+              <FormControl fullWidth margin='normal'>
+                <InputLabel sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}>
+                  Instructeur
+                </InputLabel>
+                <Select
+                  value={formData.instructeur}
+                  onChange={(e) => setFormData({ ...formData, instructeur: e.target.value })}
+                  sx={{
+                    color: colors.white || '#ffffff',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: alpha(colors.fuchsia || '#f13544', 0.3),
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: colors.fuchsia || '#f13544',
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      borderColor: colors.fuchsia || '#f13544',
+                    },
+                  }}
+                >
+                  <MenuItem value=''>
+                    <em>Aucun instructeur</em>
+                  </MenuItem>
+                  {instructors.length > 0 ? (
+                    instructors.map((instructor) => (
+                      <MenuItem key={instructor._id} value={instructor._id}>
+                        {instructor.nom}
+                      </MenuItem>
+                    ))
+                  ) : (
+                    <MenuItem disabled>
+                      <em>Aucun instructeur disponible</em>
+                    </MenuItem>
+                  )}
+                </Select>
+                {!instructors.length && (
+                  <Alert severity='info' sx={{ mt: 2 }}>
+                    Aucun instructeur disponible. Veuillez vérifier la configuration des
+                    utilisateurs.
+                  </Alert>
+                )}
+              </FormControl>
               <TextField
                 label='Durée (heures)'
                 value={formData.duree}
@@ -1302,7 +1523,7 @@ const Courses = () => {
                       >
                         <Box>
                           <Typography sx={{ color: colors.white || '#ffffff', fontWeight: 600 }}>
-                            {module.ordre}. {module.titre}
+                            {module.ordre}. {module.titre} ({module.type})
                           </Typography>
                           <Typography
                             sx={{
@@ -1310,9 +1531,7 @@ const Courses = () => {
                               fontSize: '0.8rem',
                             }}
                           >
-                            {module.contenu
-                              ? `${module.contenu.substring(0, 50)}...`
-                              : 'Aucun contenu'}
+                            {module.url ? `${module.url.substring(0, 50)}...` : 'Aucun contenu'}
                           </Typography>
                         </Box>
                         <Box>
@@ -1322,8 +1541,9 @@ const Courses = () => {
                               setEditingModule(module);
                               setAddModuleForm({
                                 titre: module.titre,
-                                contenu: module.contenu || '',
+                                url: module.url || '',
                                 ordre: module.ordre,
+                                type: module.type || 'VIDEO',
                               });
                             }}
                             sx={{ color: '#f59e0b' }}
@@ -1357,26 +1577,53 @@ const Courses = () => {
                       }
                       fullWidth
                       margin='normal'
+                      required
                       sx={{
                         '& .MuiInputLabel-root': { color: alpha(colors.white || '#ffffff', 0.7) },
                         '& .MuiOutlinedInput-root': { color: colors.white || '#ffffff' },
                       }}
                     />
                     <TextField
-                      label='Contenu du Module'
-                      value={addModuleForm.contenu}
-                      onChange={(e) =>
-                        setAddModuleForm({ ...addModuleForm, contenu: e.target.value })
-                      }
+                      label='URL du Contenu'
+                      value={addModuleForm.url}
+                      onChange={(e) => setAddModuleForm({ ...addModuleForm, url: e.target.value })}
                       fullWidth
-                      multiline
-                      rows={4}
                       margin='normal'
+                      required
                       sx={{
                         '& .MuiInputLabel-root': { color: alpha(colors.white || '#ffffff', 0.7) },
                         '& .MuiOutlinedInput-root': { color: colors.white || '#ffffff' },
                       }}
                     />
+                    <FormControl fullWidth margin='normal'>
+                      <InputLabel sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}>
+                        Type de Module
+                      </InputLabel>
+                      <Select
+                        value={addModuleForm.type}
+                        onChange={(e) =>
+                          setAddModuleForm({ ...addModuleForm, type: e.target.value })
+                        }
+                        required
+                        sx={{
+                          color: colors.white || '#ffffff',
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: alpha(colors.fuchsia || '#f13544', 0.3),
+                          },
+                          '&:hover .MuiOutlinedInput-notchedOutline': {
+                            borderColor: colors.fuchsia || '#f13544',
+                          },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                            borderColor: colors.fuchsia || '#f13544',
+                          },
+                        }}
+                      >
+                        <MenuItem value='VIDEO'>Vidéo</MenuItem>
+                        <MenuItem value='DOCUMENT'>Document</MenuItem>
+                        <MenuItem value='QUIZ'>Quiz</MenuItem>
+                        <MenuItem value='EXERCICE'>Exercice</MenuItem>
+                      </Select>
+                    </FormControl>
                     <TextField
                       label='Ordre'
                       type='number'
@@ -1387,6 +1634,7 @@ const Courses = () => {
                       fullWidth
                       margin='normal'
                       inputProps={{ min: 1 }}
+                      required
                       sx={{
                         '& .MuiInputLabel-root': { color: alpha(colors.white || '#ffffff', 0.7) },
                         '& .MuiOutlinedInput-root': { color: colors.white || '#ffffff' },
@@ -1407,7 +1655,12 @@ const Courses = () => {
                         <Button
                           onClick={() => {
                             setEditingModule(null);
-                            setAddModuleForm({ titre: '', contenu: '', ordre: nextOrdre });
+                            setAddModuleForm({
+                              titre: '',
+                              url: '',
+                              ordre: nextOrdre,
+                              type: 'VIDEO',
+                            });
                           }}
                           sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}
                         >
@@ -1576,6 +1829,20 @@ const Courses = () => {
                     variant='subtitle1'
                     sx={{ fontWeight: 500, color: alpha(colors.white || '#ffffff', 0.9) }}
                   >
+                    Instructeur :
+                  </Typography>
+                  <Typography
+                    variant='body2'
+                    sx={{ color: alpha(colors.white || '#ffffff', 0.7), mt: 1 }}
+                  >
+                    {selectedCourseDetails.instructeurId?.nom || 'Non assigné'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography
+                    variant='subtitle1'
+                    sx={{ fontWeight: 500, color: alpha(colors.white || '#ffffff', 0.9) }}
+                  >
                     Durée :
                   </Typography>
                   <Typography
@@ -1611,7 +1878,7 @@ const Courses = () => {
                     Nombre de modules :
                   </Typography>
                   <Chip
-                    label={`${getModulesCount(selectedCourseDetails.contenu) } module(s)`}
+                    label={`${detailsModules.length} module(s)`}
                     size='small'
                     sx={{
                       bgcolor: alpha('#10b981', 0.2),
@@ -1635,7 +1902,7 @@ const Courses = () => {
                     {formatDate(selectedCourseDetails.createdAt)}
                   </Typography>
                 </Grid>
-                {selectedCourseDetails.contenu?.length > 0 && (
+                {detailsModules.length > 0 && (
                   <Grid item xs={12}>
                     <Typography
                       variant='subtitle1'
@@ -1644,13 +1911,14 @@ const Courses = () => {
                       Modules :
                     </Typography>
                     <Box sx={{ mt: 1, pl: 2 }}>
-                      {selectedCourseDetails.contenu.map((module, index) => (
+                      {detailsModules.map((module, index) => (
                         <Typography
-                          key={index}
+                          key={module._id}
                           variant='body2'
                           sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}
                         >
-                          - {module.title || `Module ${index + 1}`}
+                          - {module.titre || `Module ${index + 1}`} ({module.type}):{' '}
+                          {module.url?.substring(0, 50) || 'Aucun contenu'}
                         </Typography>
                       ))}
                     </Box>

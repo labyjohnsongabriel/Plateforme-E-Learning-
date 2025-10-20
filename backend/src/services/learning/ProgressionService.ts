@@ -12,6 +12,19 @@ export enum StatutProgression {
 }
 
 /**
+ * Interface for the default progression object to avoid type mismatches.
+ */
+interface IProgressionDefault {
+  apprenant: string;
+  cours: string;
+  pourcentage: number;
+  dateDebut: Date | null;
+  dateDerniereActivite: Date | null;
+  dateFin: Date | null;
+  statut: StatutProgression;
+}
+
+/**
  * Service pour gérer la progression des apprenants dans les cours.
  */
 export class ProgressionService {
@@ -40,6 +53,7 @@ export class ProgressionService {
         apprenant: apprenantId,
         cours: coursId,
         dateDebut: new Date(),
+        dateDerniereActivite: new Date(),
         statut: StatutProgression.EN_COURS,
         pourcentage: 0,
       });
@@ -69,12 +83,24 @@ export class ProgressionService {
         throw new Error('Pourcentage invalide (doit être entre 0 et 100)');
       }
 
-      const progression = await Progression.findOne({ apprenant: apprenantId, cours: coursId });
+      let progression = await Progression.findOne({ apprenant: apprenantId, cours: coursId });
       if (!progression) {
-        throw new Error('Progression non trouvée');
+        const cours = await Cours.findById(coursId);
+        if (!cours) {
+          throw new Error('Cours non trouvé');
+        }
+        progression = new Progression({
+          apprenant: apprenantId,
+          cours: coursId,
+          dateDebut: new Date(),
+          dateDerniereActivite: new Date(),
+          statut: StatutProgression.EN_COURS,
+          pourcentage: 0,
+        });
       }
 
       progression.pourcentage = pourcentage;
+    //  progression.dateDerniereActivite = new Date();
 
       if (pourcentage === 100) {
         progression.dateFin = new Date();
@@ -97,10 +123,19 @@ export class ProgressionService {
   static async getByUserAndCourse(
     apprenantId: string | Types.ObjectId,
     coursId: string | Types.ObjectId
-  ): Promise<IProgression> {
+  ): Promise<IProgression | IProgressionDefault> {
     try {
       if (!Types.ObjectId.isValid(apprenantId) || !Types.ObjectId.isValid(coursId)) {
-        throw new Error('Identifiant invalide');
+        console.warn(`Identifiant invalide: apprenantId=${apprenantId}, coursId=${coursId}`);
+        return {
+          apprenant: apprenantId.toString(),
+          cours: coursId.toString(),
+          pourcentage: 0,
+          dateDebut: null,
+          dateDerniereActivite: null,
+          dateFin: null,
+          statut: StatutProgression.EN_COURS,
+        };
       }
 
       const progression = await Progression.findOne({
@@ -109,7 +144,16 @@ export class ProgressionService {
       }).populate('cours', 'titre niveau');
 
       if (!progression) {
-        throw new Error('Progression non trouvée');
+        console.log(`Aucune progression trouvée pour apprenant ${apprenantId} et cours ${coursId}, retour de la progression par défaut`);
+        return {
+          apprenant: apprenantId.toString(),
+          cours: coursId.toString(),
+          pourcentage: 0,
+          dateDebut: null,
+          dateDerniereActivite: null,
+          dateFin: null,
+          statut: StatutProgression.EN_COURS,
+        };
       }
 
       return progression;

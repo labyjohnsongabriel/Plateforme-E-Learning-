@@ -23,6 +23,7 @@ import axios from 'axios';
 import { Search } from 'lucide-react';
 import { debounce } from 'lodash';
 import { colors } from '../utils/colors';
+import { useTheme } from '@mui/material/styles';
 
 // Animations
 const fadeInUp = keyframes`
@@ -79,6 +80,7 @@ const StyledButton = styled(Button)(({ theme }) => ({
 }));
 
 const CourseList = ({ domain }) => {
+  const theme = useTheme();
   const [courses, setCourses] = useState([]);
   const [domains, setDomains] = useState([]);
   const [selectedDomain, setSelectedDomain] = useState(domain || 'all');
@@ -113,7 +115,7 @@ const CourseList = ({ domain }) => {
         page,
         limit: coursesPerPage,
       };
-      const coursesResponse = await axios.get(`${API_BASE_URL}/courses`, { params });
+      const coursesResponse = await axios.get(`${API_BASE_URL}/courses/public`, { params }); // Changed to /public for anonymous access
       const coursesData = Array.isArray(coursesResponse.data)
         ? coursesResponse.data
         : coursesResponse.data.courses || coursesResponse.data.data || [];

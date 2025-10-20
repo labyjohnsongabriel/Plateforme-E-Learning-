@@ -1,4 +1,4 @@
-// Frontend: CourseCard.jsx (corrected to fix domain fetch and add error handling)
+
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -10,6 +10,7 @@ import {
   Box,
   LinearProgress,
   Tooltip,
+  Alert,
 } from '@mui/material';
 import { styled, keyframes } from '@mui/material/styles';
 import { Link } from 'react-router-dom';
@@ -50,8 +51,8 @@ const StyledCard = styled(Card)(({ level }) => ({
     transform: 'translateY(-8px)',
     boxShadow: `0 12px 40px ${colors.navy}4d`,
   },
-  maxWidth: '320px',
-  margin: '16px',
+  maxWidth: '400px', // Increased for larger interface
+  margin: '24px', // Increased margin
   overflow: 'hidden',
   position: 'relative',
 }));
@@ -84,22 +85,27 @@ const CourseCard = ({ course }) => {
       try {
         const token = localStorage.getItem('token');
         if (token) {
-          const response = await axios.get(`${API_BASE_URL}/learning/progress/${course.id}`, {
+          const response = await axios.get(`${API_BASE_URL}/learning/progress/${course._id || course.id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           setProgress(response.data.pourcentage || 0);
         }
       } catch (err) {
         console.error('Erreur progression:', err);
+        setError('Erreur lors du chargement de la progression');
       }
     };
     fetchProgress();
-  }, [course.id]);
+  }, [course._id, course.id]);
+
+  if (loading) {
+    return <CircularProgress sx={{ color: colors.red }} />;
+  }
 
   return (
     <Fade in timeout={1000}>
-      <StyledCard level={course.level}>
-        <CardContent sx={{ p: 3 }}>
+      <StyledCard level={course.niveau || course.level}>
+        <CardContent sx={{ p: 4 }}> {/* Increased padding */}
           {course.isCertifying && (
             <Tooltip title='Cours certifiant'>
               <Box
@@ -118,7 +124,7 @@ const CourseCard = ({ course }) => {
           )}
           <Typography
             variant='h6'
-            sx={{ fontWeight: 700, color: '#ffffff', mb: 2, fontSize: '1.4rem', lineHeight: 1.3 }}
+            sx={{ fontWeight: 700, color: '#ffffff', mb: 2, fontSize: '1.6rem', lineHeight: 1.3 }} {/* Larger font */}
           >
             {course.titre || course.title}
           </Typography>
@@ -132,7 +138,7 @@ const CourseCard = ({ course }) => {
                 color: '#ffffff',
                 fontWeight: 500,
                 mr: 1,
-                fontSize: '0.9rem',
+                fontSize: '1rem', // Larger font
               }}
             />
             <Chip
@@ -142,7 +148,7 @@ const CourseCard = ({ course }) => {
                 backgroundColor: `${colors.navy}33`,
                 color: '#ffffff',
                 fontWeight: 500,
-                fontSize: '0.9rem',
+                fontSize: '1rem', // Larger font
               }}
             />
           </Box>
@@ -150,7 +156,7 @@ const CourseCard = ({ course }) => {
             variant='body2'
             sx={{
               color: 'rgba(255, 255, 255, 0.8)',
-              fontSize: '1rem',
+              fontSize: '1.1rem', // Larger font
               lineHeight: 1.5,
               mb: 2,
               display: '-webkit-box',
@@ -163,7 +169,7 @@ const CourseCard = ({ course }) => {
           </Typography>
           {progress !== null && (
             <Box sx={{ mb: 2 }}>
-              <Typography sx={{ color: '#ffffff', fontSize: '0.9rem', mb: 1 }}>
+              <Typography sx={{ color: '#ffffff', fontSize: '1rem', mb: 1 }}> {/* Larger */}
                 Progression: {progress}%
               </Typography>
               <LinearProgress
@@ -180,14 +186,14 @@ const CourseCard = ({ course }) => {
           )}
           <Button
             component={Link}
-            to={`/course/${course.id}`}
+            to={`/course/${course._id || course.id}`}
             variant='contained'
             sx={{
               mt: 2,
               background: `linear-gradient(135deg, ${colors.red}, ${colors.pink})`,
               borderRadius: '16px',
               fontWeight: 600,
-              fontSize: '1.1rem',
+              fontSize: '1.2rem', // Larger font
               textTransform: 'none',
               boxShadow: `0 8px 32px ${colors.red}4d`,
               '&:hover': {
@@ -201,9 +207,9 @@ const CourseCard = ({ course }) => {
             {progress > 0 ? 'Continuer' : 'Commencer'}
           </Button>
           {error && (
-            <Typography sx={{ color: colors.red, fontSize: '0.9rem', mt: 2, textAlign: 'center' }}>
+            <Alert severity="error" sx={{ mt: 2 }}>
               {error}
-            </Typography>
+            </Alert>
           )}
         </CardContent>
       </StyledCard>

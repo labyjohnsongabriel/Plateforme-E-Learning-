@@ -1,10 +1,3 @@
-// Corrected Router
-// Fixes:
-// - Added missing routes for /stats and /public (for public courses).
-// - No auth for /public to allow anonymous access.
-// - Added conditions for role-based access where necessary.
-// - Improved professional structure with comments.
-
 import { Router, Request, Response, NextFunction } from 'express';
 import CoursController from '../controllers/course/CoursController';
 import ContenuController from '../controllers/course/ContenuController';
@@ -79,23 +72,6 @@ router.get(
   CoursController.getMyCourses
 );
 
-// Créer un cours (admin)
-router.post(
-  '/',
-  authMiddleware,
-  authorize([RoleUtilisateur.ADMIN]),
-  validate(courseValidator.create),
-  CoursController.create
-);
-
-// Récupérer tous les cours (admin)
-router.get(
-  '/',
-  authMiddleware,
-  authorize([RoleUtilisateur.ADMIN]),
-  CoursController.getAll
-);
-
 // Récupérer les cours publics (pas d'auth requis)
 router.get('/public', CoursController.getPublicCourses);
 
@@ -105,26 +81,6 @@ router.get(
   authMiddleware,
   authorize([RoleUtilisateur.ADMIN]),
   CoursController.getStats
-);
-
-// Récupérer un cours par ID (public si publié, sinon auth)
-router.get('/:id', CoursController.getById);
-
-// Mettre à jour un cours (admin)
-router.put(
-  '/:id',
-  authMiddleware,
-  authorize([RoleUtilisateur.ADMIN]),
-  validate(courseValidator.update),
-  CoursController.update
-);
-
-// Supprimer un cours (admin)
-router.delete(
-  '/:id',
-  authMiddleware,
-  authorize([RoleUtilisateur.ADMIN]),
-  CoursController.delete
 );
 
 /* -------------------- 🔷 ROUTES CONTENU -------------------- */
@@ -138,6 +94,9 @@ router.delete(
   authorize([RoleUtilisateur.ADMIN]),
   ContenuController.delete
 );
+
+// Récupérer contenus par courseId (query param)
+router.get('/contenu', authMiddleware, ContenuController.getByCourseId);
 
 /* -------------------- 🔷 ROUTES QUIZ -------------------- */
 // Créer quiz (admin)
@@ -175,6 +134,43 @@ router.post(
   authMiddleware,
   authorize([RoleUtilisateur.ETUDIANT]),
   QuizController.soumettre
+);
+
+// Créer un cours (admin)
+router.post(
+  '/',
+  authMiddleware,
+  authorize([RoleUtilisateur.ADMIN]),
+  validate(courseValidator.create),
+  CoursController.create
+);
+
+// Récupérer tous les cours (admin)
+router.get(
+  '/',
+  authMiddleware,
+  authorize([RoleUtilisateur.ADMIN]),
+  CoursController.getAll
+);
+
+// Récupérer un cours par ID (public si publié, sinon auth)
+router.get('/:id', CoursController.getById);
+
+// Mettre à jour un cours (admin)
+router.put(
+  '/:id',
+  authMiddleware,
+  authorize([RoleUtilisateur.ADMIN]),
+  validate(courseValidator.update),
+  CoursController.update
+);
+
+// Supprimer un cours (admin)
+router.delete(
+  '/:id',
+  authMiddleware,
+  authorize([RoleUtilisateur.ADMIN]),
+  CoursController.delete
 );
 
 export default router;

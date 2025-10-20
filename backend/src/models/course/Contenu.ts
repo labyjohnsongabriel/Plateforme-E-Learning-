@@ -1,11 +1,13 @@
 import { Schema, model, Document, Types, Model } from 'mongoose';
 
 // Interface pour le document Contenu
-interface IContenu extends Document {
+export interface IContenu extends Document {
+  _id: Types.ObjectId;
   titre: string;
   description?: string;
   url: string;
   duree?: number;
+  ordre: number;
   cours: Types.ObjectId;
   type: 'VIDEO' | 'DOCUMENT' | 'QUIZ' | 'EXERCICE';
   createdAt: Date;
@@ -31,8 +33,9 @@ const contenuSchema = new Schema<IContenu>(
   {
     titre: { type: String, required: true },
     description: { type: String },
-    url: { type: String, required: true }, // URL générale pour tout type de contenu
-    duree: { type: Number }, // En minutes, optionnel pour certains types
+    url: { type: String, required: true },
+    duree: { type: Number },
+    ordre: { type: Number, required: true },
     cours: { type: Schema.Types.ObjectId, ref: 'Cours', required: true },
     type: {
       type: String,

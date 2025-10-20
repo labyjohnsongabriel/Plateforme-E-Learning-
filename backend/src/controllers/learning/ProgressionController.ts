@@ -32,8 +32,7 @@ class ProgressionController {
 
       const progression = await ProgressionService.getByUserAndCourse(req.user._id, req.params.coursId);
 
-      // Return default progress if none found
-      res.status(200).json(progression || { pourcentage: 0, dateDebut: null, dateFin: null });
+      res.status(200).json(progression);
     } catch (err: any) {
       console.error('❌ Erreur dans getByUserAndCourse :', {
         message: err.message,
@@ -41,12 +40,7 @@ class ProgressionController {
         userId: req.user?._id,
         coursId: req.params.coursId,
       });
-      if (err.message === 'Progression non trouvée') {
-        // Handle "not found" case gracefully
-        res.status(200).json({ pourcentage: 0, dateDebut: null, dateFin: null });
-      } else {
-        next(createError(err.status || 500, err.message || 'Erreur serveur lors de la récupération de la progression'));
-      }
+      next(createError(err.status || 500, err.message || 'Erreur serveur lors de la récupération de la progression'));
     }
   };
 

@@ -76,7 +76,7 @@ const colors = {
 };
 
 // Styled Components
-const StatCard = styled(Card)(({ theme, gradient }) => ({
+const StatCard = styled(Card)(({ theme }) => ({
   background: `linear-gradient(135deg, ${colors.navy}b3, ${colors.lightNavy}b3)`,
   backdropFilter: 'blur(20px)',
   borderRadius: '16px',
@@ -252,10 +252,10 @@ const getProgressLabel = (progress) => {
 
 const getLevelColor = (level) => {
   const levelColors = {
-    'Débutant': colors.success,
-    'Intermédiaire': '#3b82f6',
-    'Avancé': colors.warning,
-    'Expert': colors.red,
+    Débutant: colors.success,
+    Intermédiaire: '#3b82f6',
+    Avancé: colors.warning,
+    Expert: colors.red,
   };
   return levelColors[level] || '#6b7280';
 };
@@ -460,7 +460,7 @@ const MyCourses = () => {
             navigate('/login', { state: { returnUrl: '/student/courses' } });
             break;
           case 403:
-            errorMessage = 'Vous n êtes pas autorisé à supprimer ce cours';
+            errorMessage = "Vous n'êtes pas autorisé à supprimer ce cours";
             break;
           case 404:
             errorMessage = 'Inscription introuvable';
@@ -515,8 +515,7 @@ const MyCourses = () => {
   // Filter courses
   const filteredCourses = courses.filter((course) => {
     if (selectedView === 'all') return true;
-    if (selectedView === 'in-progress')
-      return course.progression > 0 && course.progression < 100;
+    if (selectedView === 'in-progress') return course.progression > 0 && course.progression < 100;
     if (selectedView === 'completed') return course.progression === 100;
     if (selectedView === 'not-started') return course.progression === 0;
     return true;
@@ -659,6 +658,7 @@ const MyCourses = () => {
                   borderRadius: '12px',
                   fontWeight: 600,
                   '&:hover': {
+                    background: `linear-gradient(135deg, ${colors.red}dd, ${colors.pink}dd)`,
                     transform: 'translateY(-2px)',
                     boxShadow: `0 8px 20px ${colors.red}44`,
                   },
@@ -676,28 +676,24 @@ const MyCourses = () => {
                 label: 'Total',
                 value: stats.total,
                 icon: BookOpen,
-                color: 'from-blue-500 to-cyan-500',
                 bgColor: '#3b82f6',
               },
               {
                 label: 'En cours',
                 value: stats.inProgress,
                 icon: Play,
-                color: 'from-purple-500 to-pink-500',
                 bgColor: colors.purple,
               },
               {
                 label: 'Terminés',
                 value: stats.completed,
                 icon: CheckCircle,
-                color: 'from-green-500 to-emerald-500',
                 bgColor: colors.success,
               },
               {
                 label: 'Progression',
                 value: `${stats.avgProgress}%`,
                 icon: TrendingUp,
-                color: 'from-orange-500 to-red-500',
                 bgColor: colors.warning,
               },
             ].map((stat, idx) => (
@@ -754,6 +750,11 @@ const MyCourses = () => {
               { id: 'all', label: 'Tous les cours', count: stats.total },
               { id: 'in-progress', label: 'En cours', count: stats.inProgress },
               { id: 'completed', label: 'Terminés', count: stats.completed },
+              {
+                id: 'not-started',
+                label: 'Non commencés',
+                count: stats.total - stats.inProgress - stats.completed,
+              },
             ].map((filter) => (
               <FilterButton
                 key={filter.id}
@@ -806,7 +807,9 @@ const MyCourses = () => {
               size='small'
               onClick={handleRetry}
               disabled={retrying}
-              sx={{ fontWeight: 600 }}
+              sx={{
+                fontWeight: 600,
+              }}
             >
               {retrying ? 'Chargement...' : 'Réessayer'}
             </Button>
@@ -940,9 +943,7 @@ const MyCourses = () => {
                       }}
                     >
                       <Star size={14} color={colors.gold} fill={colors.gold} />
-                      <Typography
-                        sx={{ fontSize: '0.85rem', fontWeight: 700, color: '#ffffff' }}
-                      >
+                      <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, color: '#ffffff' }}>
                         4.8
                       </Typography>
                     </Box>
@@ -1159,8 +1160,8 @@ const MyCourses = () => {
             sx={{
               color: 'rgba(255, 255, 255, 0.7)',
               '&:hover': {
-                color: '#ffffff',
                 backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                color: '#ffffff',
               },
             }}
           >
@@ -1183,9 +1184,7 @@ const MyCourses = () => {
                 mb: 3,
               }}
             >
-              <Typography
-                sx={{ fontWeight: 700, color: '#ffffff', fontSize: '1.1rem', mb: 1 }}
-              >
+              <Typography sx={{ fontWeight: 700, color: '#ffffff', fontSize: '1.1rem', mb: 1 }}>
                 {selectedCourse.title}
               </Typography>
               <Typography sx={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.9rem', mb: 2 }}>
@@ -1241,7 +1240,7 @@ const MyCourses = () => {
               fontWeight: 600,
               fontSize: '0.95rem',
               '&:hover': {
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                background: 'rgba(255, 255, 255, 0.1)',
                 borderColor: 'rgba(255, 255, 255, 0.5)',
               },
               '&:disabled': {

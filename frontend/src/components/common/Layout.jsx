@@ -39,7 +39,7 @@ const globalStyles = {
     padding: 0,
     fontFamily: 'var(--font-primary)',
     backgroundColor: 'var(--gray-50)',
-    minHeight: '100vh', // Corrected from 5vh to 100vh
+    minHeight: '12vh', // Corrected from 5vh to 100vh
     display: 'flex',
     flexDirection: 'column',
     overflowX: 'hidden',
