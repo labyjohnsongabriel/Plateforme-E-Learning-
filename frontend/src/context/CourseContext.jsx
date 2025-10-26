@@ -41,6 +41,7 @@ export const CourseProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isDomainesLoading, setIsDomainesLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [dataInitialized, setDataInitialized] = useState(false);
   const { user, isLoading: isAuthLoading, logout, refreshToken } = useAuth();
   const navigate = useNavigate();
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
@@ -52,6 +53,7 @@ export const CourseProvider = ({ children }) => {
         return true;
       }
       const decoded = jwtDecode(token);
+      console.log('🔍 Decoded token:', decoded); // Debug token payload
       if (!decoded.exp) {
         console.error('Token has no expiration field');
         return true;
@@ -67,7 +69,7 @@ export const CourseProvider = ({ children }) => {
    * Validate token before making API calls
    */
   const validateToken = useCallback(async () => {
-    const token = user?.token || localStorage.getItem('token');
+    const token = user?.token;
     if (!token) {
       console.warn('⚠️ No token found, user may not be authenticated');
       return false;
@@ -104,6 +106,11 @@ export const CourseProvider = ({ children }) => {
    * Fetch domaines from the API
    */
   const fetchDomaines = useCallback(async () => {
+    if (!user || !user.token) {
+      console.log('🚫 No user or token, skipping domaines fetch');
+      return;
+    }
+
     if (!(await validateToken())) {
       setError('Veuillez vous connecter pour accéder aux domaines');
       setDomaines([]);
@@ -118,9 +125,10 @@ export const CourseProvider = ({ children }) => {
       const response = await axios.get(`${API_BASE_URL}/api/courses/domaine`, {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${user.token || localStorage.getItem('token')}`,
+          Authorization: `Bearer ${user.token}`,
         },
         validateStatus: (status) => status < 500,
+        timeout: 10000,
       });
 
       console.log('📊 Domaines response:', response.data);
@@ -136,6 +144,7 @@ export const CourseProvider = ({ children }) => {
               Authorization: `Bearer ${localStorage.getItem('token')}`,
             },
             validateStatus: (status) => status < 500,
+            timeout: 10000,
           });
           const retryData = Array.isArray(retryResponse.data)
             ? retryResponse.data
@@ -164,6 +173,19 @@ export const CourseProvider = ({ children }) => {
    * Fetch courses from the API
    */
   const fetchCourses = useCallback(async () => {
+    if (!user || !user.token) {
+      console.log('🚫 No user or token, skipping courses fetch');
+      setCourses([]);
+      try {
+        localStorage.setItem('courses', JSON.stringify([]));
+      } catch (err) {
+        console.warn('⚠️ Failed to update localStorage:', err.message);
+      }
+      setError('Veuillez vous connecter pour accéder aux cours');
+      navigate('/login', { replace: true });
+      return;
+    }
+
     if (!(await validateToken())) {
       console.log('🚫 No valid token, skipping courses fetch');
       setCourses([]);
@@ -184,24 +206,30 @@ export const CourseProvider = ({ children }) => {
         user.role === Roles.ETUDIANT
           ? `${API_BASE_URL}/api/learning/enrollments`
           : `${API_BASE_URL}/api/courses`;
-      console.log('📥 Fetching courses from:', url);
+      console.log('📥 Fetching courses with:', {
+        url,
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
       const response = await axios.get(url, {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${user.token || localStorage.getItem('token')}`,
+          Authorization: `Bearer ${user.token}`,
         },
-        params: user.role !== Roles.ETUDIANT ? { role: user.role } : undefined,
         validateStatus: (status) => status < 500,
+        timeout: 10000,
       });
 
-      console.log('📊 Courses response:', response.data);
+      console.log('📊 Courses response:', {
+        status: response.status,
+        data: response.data,
+        headers: response.headers,
+      });
       if (response.status >= 200 && response.status < 300) {
         const data = Array.isArray(response.data)
           ? response.data
           : Array.isArray(response.data?.data)
             ? response.data.data
             : [];
-        // Normaliser les données pour les étudiants (extraire les cours des inscriptions)
         const normalizedData =
           user.role === Roles.ETUDIANT
             ? data.map((enrollment) => ({
@@ -224,8 +252,8 @@ export const CourseProvider = ({ children }) => {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${localStorage.getItem('token')}`,
             },
-            params: user.role !== Roles.ETUDIANT ? { role: user.role } : undefined,
             validateStatus: (status) => status < 500,
+            timeout: 10000,
           });
           const retryData = Array.isArray(retryResponse.data)
             ? retryResponse.data
@@ -249,6 +277,14 @@ export const CourseProvider = ({ children }) => {
         } else {
           throw new Error('Session expirée');
         }
+      } else if (response.status === 403) {
+        setCourses([]);
+        try {
+          localStorage.setItem('courses', JSON.stringify([]));
+        } catch (err) {
+          console.warn('⚠️ Failed to update localStorage:', err.message);
+        }
+        throw new Error('Accès non autorisé : vous n’avez pas les permissions nécessaires');
       } else if (response.status === 404) {
         setCourses([]);
         setError('Aucun cours trouvé');
@@ -282,13 +318,7 @@ export const CourseProvider = ({ children }) => {
           navigate('/login', { replace: true });
           return 'Session expirée, veuillez vous reconnecter';
         case 403:
-          setCourses([]);
-          try {
-            localStorage.setItem('courses', JSON.stringify([]));
-          } catch (err) {
-            console.warn('⚠️ Failed to update localStorage:', err.message);
-          }
-          return 'Accès non autorisé';
+          return 'Accès non autorisé : vous n’avez pas les permissions nécessaires';
         case 404:
           return context === 'domaines' ? 'Aucun domaine trouvé' : 'Aucun cours trouvé';
         default:
@@ -302,6 +332,11 @@ export const CourseProvider = ({ children }) => {
    * Initialize courses and domaines
    */
   useEffect(() => {
+    if (dataInitialized) {
+      console.log('⏳ Courses data already initialized, skipping...');
+      return;
+    }
+
     if (isAuthLoading) {
       console.log('⏳ Authentication still loading, waiting...');
       return;
@@ -318,6 +353,7 @@ export const CourseProvider = ({ children }) => {
       }
       setError('Veuillez vous connecter pour voir les cours et domaines');
       navigate('/login', { replace: true });
+      setDataInitialized(true);
       return;
     }
 
@@ -337,20 +373,30 @@ export const CourseProvider = ({ children }) => {
       localStorage.removeItem('courses');
     }
 
-    if (user.role !== Roles.ETUDIANT) {
-      fetchCourses();
-      fetchDomaines();
-    } else {
-      console.log('📚 Fetching student-specific courses for:', user.email);
-      fetchCourses();
+    if (user && user.token) {
+      console.log('📚 Fetching data for user:', user.email);
+      if (user.role !== Roles.ETUDIANT) {
+        fetchCourses();
+        fetchDomaines();
+      } else {
+        fetchCourses();
+      }
+      setDataInitialized(true);
     }
-  }, [user, isAuthLoading, fetchCourses, fetchDomaines, navigate]);
+  }, [user, isAuthLoading, fetchCourses, fetchDomaines, navigate, dataInitialized]);
 
   /**
    * Add a new course
    */
   const addCourse = useCallback(
     async (course) => {
+      if (!user || !user.token) {
+        const errorMessage = 'Veuillez vous connecter pour ajouter un cours';
+        setError(errorMessage);
+        navigate('/login', { replace: true });
+        return;
+      }
+
       if (!(await validateToken()) || ![Roles.ENSEIGNANT, Roles.ADMIN].includes(user?.role)) {
         const errorMessage =
           "Vous devez être connecté et avoir le rôle d'instructeur ou d'administrateur";
@@ -365,7 +411,7 @@ export const CourseProvider = ({ children }) => {
         ...course,
         _id: crypto.randomUUID(),
         createdAt: new Date().toISOString(),
-        createur: user.id, // Changé de _id à id pour correspondre au format de l'utilisateur
+        createur: user.id,
       };
 
       try {
@@ -383,8 +429,9 @@ export const CourseProvider = ({ children }) => {
         const response = await axios.post(`${API_BASE_URL}/api/courses`, newCourse, {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${user.token || localStorage.getItem('token')}`,
+            Authorization: `Bearer ${user.token}`,
           },
+          timeout: 15000,
         });
 
         console.log('✅ Course added:', response.data);
@@ -408,6 +455,7 @@ export const CourseProvider = ({ children }) => {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${localStorage.getItem('token')}`,
               },
+              timeout: 15000,
             });
             const savedCourse = retryResponse.data.data || retryResponse.data;
             setCourses((prev) => {
@@ -457,6 +505,13 @@ export const CourseProvider = ({ children }) => {
    */
   const updateCourse = useCallback(
     async (id, updates) => {
+      if (!user || !user.token) {
+        const errorMessage = 'Veuillez vous connecter pour modifier un cours';
+        setError(errorMessage);
+        navigate('/login', { replace: true });
+        return;
+      }
+
       if (!(await validateToken()) || ![Roles.ENSEIGNANT, Roles.ADMIN].includes(user?.role)) {
         const errorMessage =
           "Vous devez être connecté et avoir le rôle d'instructeur ou d'administrateur";
@@ -482,8 +537,9 @@ export const CourseProvider = ({ children }) => {
         const response = await axios.put(`${API_BASE_URL}/api/courses/${id}`, updates, {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${user.token || localStorage.getItem('token')}`,
+            Authorization: `Bearer ${user.token}`,
           },
+          timeout: 15000,
         });
 
         console.log('✅ Course updated:', response.data);
@@ -507,6 +563,7 @@ export const CourseProvider = ({ children }) => {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${localStorage.getItem('token')}`,
               },
+              timeout: 15000,
             });
             const updatedCourse = retryResponse.data.data || retryResponse.data;
             setCourses((prev) => {
@@ -522,7 +579,7 @@ export const CourseProvider = ({ children }) => {
             const errorMessage = handleApiError(err, navigate, 'cours');
             setError(errorMessage);
             setCourses((prev) => {
-              const updatedCourses = prev.map((c) => (c._id === id ? { ...c, ...updates } : c)); // Revert optimistic update
+              const updatedCourses = prev.map((c) => (c._id === id ? { ...c, ...updates } : c));
               try {
                 localStorage.setItem('courses', JSON.stringify(updatedCourses));
               } catch (err) {
@@ -535,7 +592,7 @@ export const CourseProvider = ({ children }) => {
           const errorMessage = handleApiError(err, navigate, 'cours');
           setError(errorMessage);
           setCourses((prev) => {
-            const updatedCourses = prev.map((c) => (c._id === id ? { ...c, ...updates } : c)); // Revert optimistic update
+            const updatedCourses = prev.map((c) => (c._id === id ? { ...c, ...updates } : c));
             try {
               localStorage.setItem('courses', JSON.stringify(updatedCourses));
             } catch (err) {
@@ -556,6 +613,13 @@ export const CourseProvider = ({ children }) => {
    */
   const deleteCourse = useCallback(
     async (id) => {
+      if (!user || !user.token) {
+        const errorMessage = 'Veuillez vous connecter pour supprimer un cours';
+        setError(errorMessage);
+        navigate('/login', { replace: true });
+        return;
+      }
+
       if (!(await validateToken()) || ![Roles.ENSEIGNANT, Roles.ADMIN].includes(user?.role)) {
         const errorMessage =
           "Vous devez être connecté et avoir le rôle d'instructeur ou d'administrateur";
@@ -581,8 +645,9 @@ export const CourseProvider = ({ children }) => {
         const response = await axios.delete(`${API_BASE_URL}/api/courses/${id}`, {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${user.token || localStorage.getItem('token')}`,
+            Authorization: `Bearer ${user.token}`,
           },
+          timeout: 15000,
         });
 
         console.log('✅ Course deleted:', response.data);
@@ -599,6 +664,7 @@ export const CourseProvider = ({ children }) => {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${localStorage.getItem('token')}`,
               },
+              timeout: 15000,
             });
             if (retryResponse.status !== 204 && retryResponse.status !== 200) {
               throw new Error('Erreur lors de la suppression du cours');
@@ -606,12 +672,12 @@ export const CourseProvider = ({ children }) => {
           } else {
             const errorMessage = handleApiError(err, navigate, 'cours');
             setError(errorMessage);
-            fetchCourses(); // Re-fetch to revert optimistic delete
+            fetchCourses();
           }
         } else {
           const errorMessage = handleApiError(err, navigate, 'cours');
           setError(errorMessage);
-          fetchCourses(); // Re-fetch to revert optimistic delete
+          fetchCourses();
         }
       } finally {
         setIsLoading(false);

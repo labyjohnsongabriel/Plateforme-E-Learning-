@@ -139,101 +139,152 @@ const StudentAnalytics = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+  // URL API corrigée - utilisez la même que dans vos autres composants
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
   useEffect(() => {
     const fetchAnalytics = async () => {
-      if (!user || !user.token) return;
+      if (!user || !user.token || !user.id) {
+        console.log('❌ Utilisateur non authentifié ou ID manquant');
+        setError('Utilisateur non authentifié');
+        setIsLoading(false);
+        return;
+      }
       
       setIsLoading(true);
       setError('');
       
       try {
-        console.log('📊 Chargement des analytics...');
+        console.log('📊 Chargement des analytics pour l\'instructeur:', user.id);
         
-        // Récupérer les cours de l'instructeur
-        const coursesResponse = await axios.get(
-          `${API_BASE_URL}/instructor/${user.id}/courses`,
-          { 
-            headers: { 
-              Authorization: `Bearer ${user.token}`,
-              'Content-Type': 'application/json'
-            } 
-          }
-        );
+        // OPTION 1: Utiliser l'endpoint du profil instructeur qui contient déjà les statistiques
+        const profileResponse = await axios.get(`${API_URL}/api/instructeurs/${user.id}/profile`, {
+          headers: {
+            Authorization: `Bearer ${user.token}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000,
+        });
 
-        const courses = coursesResponse.data.data || coursesResponse.data || [];
-        console.log('📚 Cours récupérés:', courses);
+        console.log('✅ Réponse du profil instructeur:', profileResponse.data);
 
-        // Calculer les statistiques
-        let totalStudents = 0;
-        let totalProgress = 0;
-        let studentCount = 0;
-        const studentProgress = [];
-        const courseDistribution = [];
-
-        // Parcourir chaque cours pour calculer les statistiques
-        courses.forEach(course => {
-          const students = course.etudiants || [];
-          const courseStudents = students.length;
+        if (profileResponse.data.success && profileResponse.data.data) {
+          const instructorData = profileResponse.data.data;
+          const courses = instructorData.coursCrees || [];
           
-          totalStudents += courseStudents;
-          
-          // Calculer la progression moyenne du cours
-          let courseTotalProgress = 0;
-          students.forEach(student => {
-            // Si les données de progression sont disponibles
-            const progress = student.progression || course.progression || 0;
-            courseTotalProgress += progress;
+          console.log('📚 Cours récupérés:', courses.length);
+
+          // Calculer les statistiques à partir des données du profil
+          let totalStudents = 0;
+          let totalProgress = 0;
+          let studentCount = 0;
+          const studentProgress = [];
+          const courseDistribution = [];
+
+          // Parcourir chaque cours pour calculer les statistiques
+          courses.forEach(course => {
+            const students = course.etudiantsInscrits || [];
+            const courseStudents = students.length;
             
-            studentProgress.push({
-              name: student.prenom ? `${student.prenom} ${student.nom}` : `Étudiant ${student._id}`,
-              progress: progress,
-              course: course.titre
+            totalStudents += courseStudents;
+            
+            // Calculer la progression moyenne du cours
+            let courseTotalProgress = 0;
+            
+            // Si les étudiants ont des données de progression
+            if (students.length > 0 && typeof students[0] === 'object') {
+              students.forEach(student => {
+                const progress = student.progression || course.progression || 0;
+                courseTotalProgress += progress;
+                
+                studentProgress.push({
+                  name: student.prenom ? `${student.prenom} ${student.nom}` : `Étudiant ${student._id || student.id}`,
+                  progress: progress,
+                  course: course.titre
+                });
+              });
+            } else {
+              // Fallback: progression moyenne du cours
+              const avgProgress = course.progression || 50;
+              courseTotalProgress += avgProgress * courseStudents;
+              
+              studentProgress.push({
+                name: `Étudiants de ${course.titre}`,
+                progress: avgProgress,
+                course: course.titre
+              });
+            }
+
+            const avgCourseProgress = courseStudents > 0 ? (courseTotalProgress / courseStudents) : 0;
+            totalProgress += avgCourseProgress;
+            studentCount += courseStudents;
+
+            courseDistribution.push({
+              course: course.titre,
+              students: courseStudents,
+              progress: Math.round(avgCourseProgress)
             });
           });
 
-          const avgCourseProgress = courseStudents > 0 ? (courseTotalProgress / courseStudents) : 0;
-          totalProgress += avgCourseProgress;
-          studentCount += courseStudents;
+          const averageProgress = courses.length > 0 ? (totalProgress / courses.length) : 0;
 
-          courseDistribution.push({
-            course: course.titre,
-            students: courseStudents,
-            progress: avgCourseProgress
+          setAnalytics({
+            totalStudents,
+            averageProgress: Math.round(averageProgress),
+            totalCourses: courses.length,
+            activeStudents: studentProgress.filter(s => s.progress > 0).length,
+            studentProgress: studentProgress.slice(0, 10), // Limiter pour le graphique
+            courseDistribution: courseDistribution.slice(0, 6) // Limiter à 6 cours max
           });
-        });
 
-        const averageProgress = studentCount > 0 ? (totalProgress / courses.length) : 0;
+          console.log('✅ Analytics calculés:', {
+            totalStudents,
+            averageProgress,
+            totalCourses: courses.length,
+            studentProgress: studentProgress.length
+          });
 
-        setAnalytics({
-          totalStudents,
-          averageProgress: Math.round(averageProgress),
-          totalCourses: courses.length,
-          activeStudents: studentProgress.filter(s => s.progress > 0).length,
-          studentProgress: studentProgress.slice(0, 10), // Limiter pour le graphique
-          courseDistribution
-        });
-
-        console.log('✅ Analytics calculés:', {
-          totalStudents,
-          averageProgress,
-          totalCourses: courses.length,
-          studentProgress: studentProgress.length
-        });
+        } else {
+          throw new Error('Données du profil instructeur non disponibles');
+        }
 
       } catch (err) {
         console.error('❌ Erreur lors de la récupération des analytics:', err);
         
-        if (err.response?.status === 404) {
-          setError('Aucun cours trouvé pour cet instructeur.');
-        } else if (err.response?.status === 401) {
-          setError('Session expirée. Veuillez vous reconnecter.');
-        } else if (err.code === 'NETWORK_ERROR' || err.code === 'ECONNREFUSED') {
-          setError('Impossible de se connecter au serveur. Vérifiez que le backend est démarré.');
+        // Gestion détaillée des erreurs
+        if (err.response) {
+          console.log('📡 Statut HTTP:', err.response.status);
+          console.log('📡 Données erreur:', err.response.data);
+          
+          if (err.response.status === 404) {
+            setError('Endpoint non trouvé. Vérifiez la configuration des routes API.');
+          } else if (err.response.status === 401) {
+            setError('Session expirée. Veuillez vous reconnecter.');
+          } else if (err.response.status === 403) {
+            setError('Accès non autorisé. Seuls les instructeurs peuvent accéder à cette page.');
+          } else {
+            setError(err.response.data?.message || `Erreur serveur (${err.response.status})`);
+          }
+        } else if (err.code === 'ECONNREFUSED' || err.message?.includes('Network Error')) {
+          setError('Impossible de se connecter au serveur. Vérifiez que le backend est démarré sur le port 3001.');
+        } else if (err.code === 'ERR_NETWORK') {
+          setError('Erreur réseau. Vérifiez votre connexion internet.');
+        } else if (err.code === 'ECONNABORTED') {
+          setError('Timeout de la requête. Le serveur met trop de temps à répondre.');
         } else {
-          setError(err.response?.data?.message || 'Erreur lors de la récupération des analytics. Veuillez réessayer.');
+          setError(err.message || 'Erreur lors de la récupération des analytics. Veuillez réessayer.');
         }
+
+        // Données de démonstration en cas d'erreur
+        setAnalytics({
+          totalStudents: 0,
+          averageProgress: 0,
+          totalCourses: 0,
+          activeStudents: 0,
+          studentProgress: [],
+          courseDistribution: []
+        });
       } finally {
         setIsLoading(false);
       }
@@ -241,8 +292,11 @@ const StudentAnalytics = () => {
 
     if (user && (user.role === 'ENSEIGNANT' || user.role === 'ADMIN')) {
       fetchAnalytics();
+    } else if (user && user.role !== 'ENSEIGNANT') {
+      setError('Accès réservé aux instructeurs.');
+      setIsLoading(false);
     }
-  }, [user, API_BASE_URL]);
+  }, [user, API_URL]);
 
   // Données pour le graphique de progression des étudiants
   const barChartData = {
@@ -264,11 +318,7 @@ const StudentAnalytics = () => {
     maintainAspectRatio: false,
     plugins: {
       legend: { 
-        position: 'top', 
-        labels: { 
-          color: colors.white || '#ffffff', 
-          font: { size: 12 } 
-        } 
+        display: false
       },
       title: {
         display: true,
@@ -302,7 +352,7 @@ const StudentAnalytics = () => {
           maxRotation: 45,
           minRotation: 45
         }, 
-        grid: { color: 'rgba(255, 255, 255, 0.1)' } 
+        grid: { display: false }
       },
     },
   };
@@ -335,7 +385,8 @@ const StudentAnalytics = () => {
         position: 'bottom', 
         labels: { 
           color: colors.white || '#ffffff',
-          font: { size: 11 }
+          font: { size: 11 },
+          padding: 20
         } 
       },
       title: {
@@ -344,6 +395,15 @@ const StudentAnalytics = () => {
         color: colors.white || '#ffffff',
         font: { size: 16, weight: 'bold' },
       },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            const label = context.label || '';
+            const value = context.parsed || 0;
+            return `${label}: ${value} étudiant(s)`;
+          }
+        }
+      }
     },
   };
 
@@ -355,33 +415,37 @@ const StudentAnalytics = () => {
         bgcolor: colors.navy || '#010b40', 
         display: 'flex', 
         justifyContent: 'center', 
-        alignItems: 'center' 
+        alignItems: 'center',
+        flexDirection: 'column'
       }}>
-        <CircularProgress sx={{ color: colors.fuschia || '#f13544' }} />
-        <Typography sx={{ ml: 2, color: colors.white || '#ffffff' }}>
-          Chargement...
+        <CircularProgress size={60} sx={{ color: colors.fuschia || '#f13544' }} />
+        <Typography sx={{ mt: 2, color: colors.white || '#ffffff' }}>
+          Chargement de l'authentification...
         </Typography>
       </Box>
     );
   }
 
-  if (error && !isLoading) {
+  if (!user || (user.role !== 'ENSEIGNANT' && user.role !== 'ADMIN')) {
     return (
       <ThemeProvider theme={instructorTheme}>
         <DashboardContainer>
-          <Container maxWidth={false} disableGutters>
-            <Box sx={{ p: 4 }}>
-              <Alert 
-                severity="error" 
-                sx={{ 
-                  maxWidth: 500, 
-                  margin: '0 auto',
-                  background: `linear-gradient(135deg, ${colors.navy || '#010b40'}dd, ${colors.lightNavy || '#1a237e'}dd)`,
-                  color: colors.white || '#ffffff'
-                }}
-              >
-                {error}
-              </Alert>
+          <Container maxWidth="lg">
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              minHeight: '50vh',
+              flexDirection: 'column',
+              textAlign: 'center'
+            }}>
+              <AssessmentIcon sx={{ fontSize: 64, color: colors.fuschia || '#f13544', mb: 2 }} />
+              <Typography variant="h4" sx={{ color: colors.white || '#ffffff', mb: 2 }}>
+                Accès Non Autorisé
+              </Typography>
+              <Typography variant="h6" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                Cette page est réservée aux instructeurs et administrateurs.
+              </Typography>
             </Box>
           </Container>
         </DashboardContainer>
@@ -425,19 +489,49 @@ const StudentAnalytics = () => {
           animation: `${floatingAnimation} 5s ease-in-out infinite` 
         }} />
         
-        <Container maxWidth={false} disableGutters>
+        <Container maxWidth="xl">
           {/* En-tête */}
-          <Box sx={{ p: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ p: 4, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
             <AssessmentIcon sx={{ fontSize: 40, color: colors.fuschia || '#f13544' }} />
-            <Typography variant="h3" sx={{ color: colors.white || '#ffffff', fontSize: { xs: '1.5rem', md: '2.5rem' } }}>
-              Analytics Étudiants
-            </Typography>
+            <Box>
+              <Typography variant="h3" sx={{ color: colors.white || '#ffffff', fontSize: { xs: '1.5rem', md: '2.5rem' } }}>
+                Analytics Étudiants
+              </Typography>
+              <Typography variant="h6" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                Statistiques de performance de vos étudiants
+              </Typography>
+            </Box>
           </Box>
 
+          {error && (
+            <Alert 
+              severity="error" 
+              sx={{ 
+                mx: 4,
+                mb: 4,
+                background: `linear-gradient(135deg, ${colors.navy || '#010b40'}dd, ${colors.lightNavy || '#1a237e'}dd)`,
+                color: colors.white || '#ffffff',
+                border: `1px solid ${colors.fuschia || '#f13544'}33`,
+                '& .MuiAlert-icon': { color: colors.fuschia || '#f13544' }
+              }}
+            >
+              <Typography variant="h6" gutterBottom>
+                Erreur
+              </Typography>
+              {error}
+            </Alert>
+          )}
+
           {isLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-              <CircularProgress sx={{ color: colors.fuschia || '#f13544' }} />
-              <Typography sx={{ ml: 2, color: colors.white || '#ffffff' }}>
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              minHeight: '400px',
+              flexDirection: 'column'
+            }}>
+              <CircularProgress size={60} sx={{ color: colors.fuschia || '#f13544' }} />
+              <Typography sx={{ mt: 2, color: colors.white || '#ffffff' }}>
                 Chargement des analytics...
               </Typography>
             </Box>
@@ -447,7 +541,7 @@ const StudentAnalytics = () => {
               <Grid container spacing={3} sx={{ p: 4, pt: 0 }}>
                 <Grid item xs={12} sm={6} md={3}>
                   <StatCard>
-                    <CardContent sx={{ textAlign: 'center' }}>
+                    <CardContent sx={{ textAlign: 'center', p: 3 }}>
                       <PeopleIcon sx={{ fontSize: 48, color: colors.fuschia || '#f13544', mb: 2 }} />
                       <Typography variant="h6" sx={{ color: 'rgba(255, 255, 255, 0.8)' }}>
                         Étudiants Totaux
@@ -461,7 +555,7 @@ const StudentAnalytics = () => {
 
                 <Grid item xs={12} sm={6} md={3}>
                   <StatCard>
-                    <CardContent sx={{ textAlign: 'center' }}>
+                    <CardContent sx={{ textAlign: 'center', p: 3 }}>
                       <TrendingUpIcon sx={{ fontSize: 48, color: colors.fuschia || '#f13544', mb: 2 }} />
                       <Typography variant="h6" sx={{ color: 'rgba(255, 255, 255, 0.8)' }}>
                         Progrès Moyen
@@ -475,7 +569,7 @@ const StudentAnalytics = () => {
 
                 <Grid item xs={12} sm={6} md={3}>
                   <StatCard>
-                    <CardContent sx={{ textAlign: 'center' }}>
+                    <CardContent sx={{ textAlign: 'center', p: 3 }}>
                       <SchoolIcon sx={{ fontSize: 48, color: colors.fuschia || '#f13544', mb: 2 }} />
                       <Typography variant="h6" sx={{ color: 'rgba(255, 255, 255, 0.8)' }}>
                         Cours Actifs
@@ -489,7 +583,7 @@ const StudentAnalytics = () => {
 
                 <Grid item xs={12} sm={6} md={3}>
                   <StatCard>
-                    <CardContent sx={{ textAlign: 'center' }}>
+                    <CardContent sx={{ textAlign: 'center', p: 3 }}>
                       <AssessmentIcon sx={{ fontSize: 48, color: colors.fuschia || '#f13544', mb: 2 }} />
                       <Typography variant="h6" sx={{ color: 'rgba(255, 255, 255, 0.8)' }}>
                         Étudiants Actifs
@@ -504,7 +598,7 @@ const StudentAnalytics = () => {
 
               {/* Graphiques */}
               <Grid container spacing={3} sx={{ p: 4, pt: 0 }}>
-                {analytics.studentProgress.length > 0 && (
+                {analytics.studentProgress.length > 0 ? (
                   <Grid item xs={12} lg={8}>
                     <ChartCard>
                       <Box sx={{ height: 400 }}>
@@ -512,9 +606,30 @@ const StudentAnalytics = () => {
                       </Box>
                     </ChartCard>
                   </Grid>
+                ) : (
+                  <Grid item xs={12} lg={8}>
+                    <ChartCard>
+                      <Box sx={{ 
+                        height: 400, 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        justifyContent: 'center', 
+                        alignItems: 'center',
+                        textAlign: 'center'
+                      }}>
+                        <TrendingUpIcon sx={{ fontSize: 64, color: 'rgba(255, 255, 255, 0.3)', mb: 2 }} />
+                        <Typography variant="h6" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                          Aucune donnée de progression disponible
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.5)', mt: 1 }}>
+                          Les données de progression des étudiants apparaîtront ici.
+                        </Typography>
+                      </Box>
+                    </ChartCard>
+                  </Grid>
                 )}
 
-                {analytics.courseDistribution.length > 0 && (
+                {analytics.courseDistribution.length > 0 ? (
                   <Grid item xs={12} lg={4}>
                     <ChartCard>
                       <Box sx={{ height: 400 }}>
@@ -522,25 +637,23 @@ const StudentAnalytics = () => {
                       </Box>
                     </ChartCard>
                   </Grid>
-                )}
-
-                {analytics.totalStudents === 0 && (
-                  <Grid item xs={12}>
+                ) : (
+                  <Grid item xs={12} lg={4}>
                     <ChartCard>
                       <Box sx={{ 
-                        height: 200, 
+                        height: 400, 
                         display: 'flex', 
                         flexDirection: 'column', 
                         justifyContent: 'center', 
                         alignItems: 'center',
                         textAlign: 'center'
                       }}>
-                        <PeopleIcon sx={{ fontSize: 64, color: 'rgba(255, 255, 255, 0.3)', mb: 2 }} />
+                        <SchoolIcon sx={{ fontSize: 64, color: 'rgba(255, 255, 255, 0.3)', mb: 2 }} />
                         <Typography variant="h6" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                          Aucun étudiant inscrit à vos cours
+                          Aucun cours avec des étudiants
                         </Typography>
                         <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.5)', mt: 1 }}>
-                          Les analytics seront disponibles lorsque des étudiants s'inscriront à vos cours.
+                          La répartition par cours s'affichera ici.
                         </Typography>
                       </Box>
                     </ChartCard>

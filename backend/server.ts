@@ -41,7 +41,7 @@ app.use('/api/apprenant', apprenantRoutes);
 app.use('/api/modules', moduleRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/instructeurs', instructeurRoutes);
+  app.use('/api/instructeurs', instructeurRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/learning', learningRoutes);
 app.use('/api/index', indexRoutes);

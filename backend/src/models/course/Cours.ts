@@ -1,3 +1,4 @@
+// Cours Model (unchanged)
 import { Schema, model, Document, Types, Model } from 'mongoose';
 
 export interface ICours extends Document {
@@ -76,7 +77,7 @@ const coursSchema = new Schema<ICours>(
     contenu: [
       {
         type: Schema.Types.ObjectId,
-        ref: 'Contenu', // Changed from 'Module' to 'Contenu'
+        ref: 'Contenu',
         default: [],
       },
     ],

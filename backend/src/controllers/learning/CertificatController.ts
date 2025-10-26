@@ -2,112 +2,181 @@
 import { Request, Response, NextFunction } from 'express';
 import createError from 'http-errors';
 import mongoose from 'mongoose';
-import CertificatService from '../../services/learning/CertificationService';
-import { CertificatDocument } from '../../types'; // assume this type corresponds to the Mongoose document
+import CertificationService from '../../services/learning/CertificationService';
+import { CertificatDocument } from '../../types';
 import logger from '../../utils/logger';
 
 /**
- * Controller pour la gestion des certificats (endpoints et utilitaires).
+ * Controller pour la gestion des certificats
  */
 class CertificatController {
+  /**
+   * Récupère les certificats de l'utilisateur connecté
+   */
   static getByUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.user || !req.user._id) {
-        logger.error('❌ No user in request:', { user: req.user });
+        logger.error('❌ Utilisateur non authentifié', { user: req.user });
         throw createError(401, 'Utilisateur non authentifié');
       }
 
-      logger.info(`📜 Fetching certificates for user: ${req.user._id}`);
-      const certs = await CertificatService.getByUser(req.user._id);
-      logger.info(`✅ Found ${certs.length} certificates`);
+      logger.info(`📜 Récupération certificats utilisateur: ${req.user._id}`);
+      const certificats = await CertificationService.getByUser(req.user._id);
+      
+      logger.info(`✅ ${certificats.length} certificats récupérés`);
+      
+      res.json({
+        success: true,
+        data: certificats,
+        count: certificats.length,
+        message: certificats.length > 0 
+          ? 'Certificats récupérés avec succès' 
+          : 'Aucun certificat trouvé'
+      });
 
-      res.json({ data: certs });
     } catch (err: unknown) {
       const error = err as Error;
-      logger.error('❌ Error in getByUser:', {
+      logger.error('❌ Erreur getByUser:', {
         message: error.message,
         stack: error.stack,
+        userId: req.user?._id
       });
-      next(err); // Propager l'erreur originale
-    }
-  };
-
-  static download = async (req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      if (!req.user || !req.user._id) {
-        logger.error('❌ No user in request:', { user: req.user });
-        throw createError(401, 'Utilisateur non authentifié');
-      }
-
-      if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-        throw createError(400, 'Identifiant de certificat invalide');
-      }
-
-      logger.info(`📥 Downloading certificate: ${req.params.id} for user: ${req.user._id}`);
-      const pdfBuffer = await CertificatService.generatePDF(req.user._id, req.params.id);
-
-      res.set({
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename=certificat_${req.params.id}.pdf`,
-        'Content-Length': pdfBuffer.length.toString(),
-      });
-
-      res.send(pdfBuffer);
-    } catch (err: unknown) {
-      const error = err as Error;
-      logger.error('❌ Error in download:', {
-        message: error.message,
-        stack: error.stack,
-      });
-      next(err);
+      next(createError(500, 'Erreur lors de la récupération des certificats'));
     }
   };
 
   /**
-   * Génère un certificat pour un apprenant et un cours (utilitaire non-route).
-   * Convertit les strings en ObjectId pour respecter IProgression.
+   * Télécharge un certificat spécifique
+   */
+  static download = async (req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user || !req.user._id) {
+        throw createError(401, 'Utilisateur non authentifié');
+      }
+
+      const certificatId = req.params.id;
+
+      if (!mongoose.Types.ObjectId.isValid(certificatId)) {
+        throw createError(400, 'Identifiant de certificat invalide');
+      }
+
+      logger.info(`📥 Téléchargement certificat: ${certificatId} pour utilisateur: ${req.user._id}`);
+
+      // Option 1: Générer un nouveau PDF à la volée
+      const pdfBuffer = await CertificationService.generatePDF(req.user._id, certificatId);
+      
+      // Option 2: Télécharger depuis le système de fichiers (décommentez si préféré)
+      // const { buffer: pdfBuffer, filename } = await CertificationService.downloadCertificate(certificatId);
+
+      // Configuration de la réponse
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="certificat_${certificatId}.pdf"`,
+        'Content-Length': pdfBuffer.length.toString(),
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      });
+
+      res.send(pdfBuffer);
+      logger.info(`✅ Certificat ${certificatId} téléchargé avec succès`);
+
+    } catch (err: unknown) {
+      const error = err as Error;
+      logger.error('❌ Erreur download:', {
+        message: error.message,
+        stack: error.stack,
+        certificatId: req.params.id,
+        userId: req.user?._id
+      });
+
+      if (error.message.includes('non trouvé') || error.message.includes('introuvable')) {
+        next(createError(404, 'Certificat non trouvé'));
+      } else if (error.message.includes('invalide')) {
+        next(createError(400, 'Identifiant invalide'));
+      } else {
+        next(createError(500, 'Erreur lors du téléchargement du certificat'));
+      }
+    }
+  };
+
+  /**
+   * Génère un certificat pour un apprenant et un cours (utilitaire)
    */
   static generateCertificate = async (apprenantId: string, coursId: string): Promise<CertificatDocument | null> => {
     try {
-      logger.info(`🔍 Generating certificate for apprenant=${apprenantId}, cours=${coursId}`);
+      logger.info(`🔍 Génération certificat - apprenant: ${apprenantId}, cours: ${coursId}`);
 
-      // Validation
+      // Validation des IDs
       if (!mongoose.Types.ObjectId.isValid(apprenantId)) {
-        throw new Error('Identifiant d’apprenant invalide');
+        throw new Error('Identifiant d\'apprenant invalide');
       }
       if (!mongoose.Types.ObjectId.isValid(coursId)) {
         throw new Error('Identifiant de cours invalide');
       }
 
-      // Conversion en ObjectId pour correspondre au type IProgression (apprenant: ObjectId, cours: ObjectId|CourseDocument)
-      const apprenantObjId = new mongoose.Types.ObjectId(apprenantId);
-      const coursObjId = new mongoose.Types.ObjectId(coursId);
-
-      // Construire l'objet progression avec les bons types
-      const progressionForCert = {
-        apprenant: apprenantObjId,
-        cours: coursObjId,
+      // Construction de l'objet progression
+      const progression = {
+        apprenant: new mongoose.Types.ObjectId(apprenantId),
+        cours: new mongoose.Types.ObjectId(coursId),
         pourcentage: 100,
         dateFin: new Date(),
-      } as any; // typed as any to match the service signature if nécessaire
+      } as any;
 
-      const cert = await CertificatService.generateIfEligible(progressionForCert);
+      const certificat = await CertificationService.generateIfEligible(progression);
 
-      if (!cert) {
-        logger.info(`🔍 No certificate generated for apprenant=${apprenantId}, cours=${coursId}`);
+      if (certificat) {
+        logger.info(`✅ Certificat généré: ${certificat._id}`);
+        return certificat as unknown as CertificatDocument;
+      } else {
+        logger.info(`ℹ️ Aucun certificat généré - conditions non remplies`);
         return null;
       }
 
-      logger.info(`✅ Certificate generated: ${cert._id}`);
-      // Cast raisonnable si ton ICertificat correspond bien à CertificatDocument
-      return cert as unknown as CertificatDocument;
     } catch (err: unknown) {
       const error = err as Error;
-      logger.error('❌ Error generating certificate:', {
+      logger.error('❌ Erreur generateCertificate:', {
         message: error.message,
         stack: error.stack,
+        apprenantId,
+        coursId
       });
       throw error;
+    }
+  };
+
+  /**
+   * Vérifie l'éligibilité pour un certificat
+   */
+  static checkEligibility = async (req: Request<{ courseId: string }>, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user || !req.user._id) {
+        throw createError(401, 'Utilisateur non authentifié');
+      }
+
+      const courseId = req.params.courseId;
+
+      if (!mongoose.Types.ObjectId.isValid(courseId)) {
+        throw createError(400, 'Identifiant de cours invalide');
+      }
+
+      // Logique de vérification d'éligibilité
+      const isEligible = true; // À implémenter selon votre logique métier
+      
+      res.json({
+        success: true,
+        data: { isEligible },
+        message: isEligible 
+          ? 'Éligible pour un certificat' 
+          : 'Non éligible pour un certificat'
+      });
+
+    } catch (err: unknown) {
+      const error = err as Error;
+      logger.error('❌ Erreur checkEligibility:', {
+        message: error.message,
+        stack: error.stack
+      });
+      next(createError(500, 'Erreur lors de la vérification d\'éligibilité'));
     }
   };
 }

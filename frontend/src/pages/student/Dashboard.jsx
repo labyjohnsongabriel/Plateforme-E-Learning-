@@ -11,256 +11,363 @@ import {
   Alert,
   Button,
   Chip,
+  Tooltip,
+  IconButton,
 } from '@mui/material';
 import { styled, keyframes } from '@mui/material/styles';
-import { Download, Award, BookOpen, TrendingUp } from 'lucide-react';
+import {
+  Download,
+  Award,
+  BookOpen,
+  TrendingUp,
+  Users,
+  Clock,
+  BarChart3,
+  RefreshCw,
+} from 'lucide-react';
 import axios from 'axios';
 
-// Animations
+// === ANIMATIONS PROFESSIONNELLES ===
 const fadeInUp = keyframes`
-  from { opacity: 0; transform: translateY(40px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { 
+    opacity: 0; 
+    transform: translateY(40px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
 `;
 
 const slideIn = keyframes`
-  from { opacity: 0; transform: translateX(-20px); }
-  to { opacity: 1; transform: translateX(0); }
+  from { 
+    opacity: 0; 
+    transform: translateX(-20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateX(0); 
+  }
 `;
 
-// Palette de couleurs
+const pulseGlow = keyframes`
+  0%, 100% { 
+    box-shadow: 0 0 20px rgba(241, 53, 68, 0.3);
+  }
+  50% { 
+    box-shadow: 0 0 30px rgba(241, 53, 68, 0.6);
+  }
+`;
+
+// === PALETTE DE COULEURS PROFESSIONNELLE ===
 const colors = {
   navy: '#010b40',
   lightNavy: '#1a237e',
+  darkNavy: '#00072d',
   red: '#f13544',
   pink: '#ff6b74',
   purple: '#8b5cf6',
-  darkBg: '#0a0e27',
   success: '#10b981',
+  warning: '#f59e0b',
+  info: '#3b82f6',
+  glass: 'rgba(255, 255, 255, 0.08)',
+  glassDark: 'rgba(1, 11, 64, 0.6)',
+  border: 'rgba(241, 53, 68, 0.2)',
 };
 
-// Styled Components
+// === COMPOSANTS STYLISÉS PROFESSIONNELS ===
 const DashboardCard = styled(Card)(({ theme }) => ({
-  background: `linear-gradient(135deg, ${colors.navy}b3, ${colors.lightNavy}b3)`,
+  background: `linear-gradient(135deg, ${colors.glass}, ${colors.glassDark})`,
   backdropFilter: 'blur(20px)',
-  borderRadius: '16px',
-  border: `1px solid ${colors.red}33`,
-  padding: theme.spacing(3),
+  borderRadius: '20px',
+  border: `1px solid ${colors.border}`,
+  padding: theme.spacing(3.5),
   transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
   animation: `${fadeInUp} 0.8s ease-out forwards`,
   '&:hover': {
     transform: 'translateY(-8px)',
-    boxShadow: `0 12px 40px ${colors.navy}4d`,
+    boxShadow: `0 20px 50px ${colors.navy}80`,
     borderColor: `${colors.red}66`,
+  },
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(2.5),
+  },
+}));
+
+const StatCard = styled(Box)(({ theme, color = colors.red }) => ({
+  background: `linear-gradient(135deg, ${color}15, ${color}08)`,
+  borderRadius: '16px',
+  padding: theme.spacing(3),
+  border: `1px solid ${color}33`,
+  textAlign: 'center',
+  transition: 'all 0.3s ease',
+  animation: `${fadeInUp} 0.6s ease-out forwards`,
+  '&:hover': {
+    transform: 'translateY(-4px)',
+    borderColor: `${color}66`,
+    boxShadow: `0 12px 30px ${color}33`,
   },
   [theme.breakpoints.down('sm')]: {
     padding: theme.spacing(2),
   },
 }));
 
-const StyledButton = styled(Button)({
+const ActionButton = styled(Button)(({ theme }) => ({
   background: `linear-gradient(135deg, ${colors.red}, ${colors.pink})`,
   color: '#ffffff',
   textTransform: 'none',
   borderRadius: '12px',
-  padding: '8px 16px',
+  padding: '10px 20px',
   fontWeight: 600,
+  fontSize: '0.9rem',
   transition: 'all 0.3s ease',
+  animation: `${pulseGlow} 2s infinite`,
   '&:hover': {
     transform: 'translateY(-2px)',
-    boxShadow: `0 8px 20px ${colors.red}4d`,
+    boxShadow: `0 10px 25px ${colors.red}4d`,
   },
   '&:disabled': {
-    opacity: 0.6,
-    cursor: 'not-allowed',
-  },
-});
-
-const StatCard = styled(Box)(({ theme }) => ({
-  background: `linear-gradient(135deg, ${colors.purple}1a, ${colors.red}1a)`,
-  borderRadius: '12px',
-  padding: theme.spacing(2.5),
-  border: `1px solid ${colors.purple}33`,
-  textAlign: 'center',
-  transition: 'all 0.3s ease',
-  '&:hover': {
-    transform: 'scale(1.05)',
-    borderColor: `${colors.purple}66`,
-  },
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(2),
+    background: 'rgba(255, 255, 255, 0.1)',
+    color: 'rgba(255, 255, 255, 0.3)',
+    animation: 'none',
   },
 }));
 
-/**
- * Composant Dashboard
- * Affiche la progression globale, les certificats et les cours inscrits
- */
+const RefreshButton = styled(IconButton)(({ theme }) => ({
+  color: '#ffffff',
+  background: `linear-gradient(135deg, ${colors.glass}, ${colors.glassDark})`,
+  border: `1px solid ${colors.border}`,
+  transition: 'all 0.3s ease',
+  '&:hover': {
+    background: `${colors.red}1a`,
+    borderColor: colors.red,
+    transform: 'rotate(180deg)',
+  },
+}));
+
+// === COMPOSANT DASHBOARD PRINCIPAL ===
 const Dashboard = () => {
-  const [user, setUser] = useState(null);
-  const [progress, setProgress] = useState(0);
-  const [certificates, setCertificates] = useState([]);
-  const [courses, setCourses] = useState([]);
+  const [dashboardData, setDashboardData] = useState({
+    user: null,
+    progress: 0,
+    certificates: [],
+    courses: [],
+    stats: {
+      totalCourses: 0,
+      completedCourses: 0,
+      totalCertificates: 0,
+      totalStudyTime: 0,
+      averageProgress: 0,
+    },
+  });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
-  const [stats, setStats] = useState({
-    totalCourses: 0,
-    completedCourses: 0,
-    totalCertificates: 0,
-  });
+  const [invalidEnrollments, setInvalidEnrollments] = useState(0);
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
-  /**
-   * Récupère le token du localStorage
-   */
+  // === FONCTIONS D'AUTHENTIFICATION ===
   const getAuthToken = useCallback(() => {
     return localStorage.getItem('token');
   }, []);
 
-  /**
-   * Crée les headers d'authentification
-   */
   const getAuthHeaders = useCallback(() => {
     const token = getAuthToken();
-    if (!token) return null;
-    return {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    };
+    return token
+      ? {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        }
+      : null;
   }, [getAuthToken]);
 
-  /**
-   * Récupère les données du dashboard
-   */
-  const fetchDashboardData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  // === VALIDATION DES ID ===
+  const isValidObjectId = useCallback((id) => {
+    return id && /^[0-9a-fA-F]{24}$/.test(id);
+  }, []);
 
-      const token = getAuthToken();
-      if (!token) {
-        setError('Session expirée. Veuillez vous reconnecter.');
-        setLoading(false);
-        return;
-      }
+  // === CALCUL DES STATISTIQUES AUTOMATIQUES ===
+  const calculateStats = useCallback((courses, certificates, userProgress) => {
+    const totalCourses = courses.length;
+    const completedCourses = courses.filter((course) => course.progress === 100).length;
+    const totalCertificates = certificates.length;
 
-      const headers = getAuthHeaders();
+    // Calcul du temps d'étude total (exemple)
+    const totalStudyTime = courses.reduce((total, course) => {
+      return total + (course.duree || 0); // Supposons que course.duree est en minutes
+    }, 0);
 
-      // Récupérer l'utilisateur actuel
-      const userResponse = await axios.get(`${API_BASE_URL}/auth/me`, { headers });
-      setUser(userResponse.data);
+    // Calcul de la progression moyenne
+    const averageProgress =
+      totalCourses > 0
+        ? Math.round(
+            courses.reduce((sum, course) => sum + (course.progress || 0), 0) / totalCourses
+          )
+        : 0;
 
-      // Récupérer les inscriptions
-      const enrollmentsResponse = await axios.get(`${API_BASE_URL}/learning/enrollments`, {
-        headers,
-      });
-      const enrolledCourses = Array.isArray(enrollmentsResponse.data)
-        ? enrollmentsResponse.data
-        : [];
+    return {
+      totalCourses,
+      completedCourses,
+      totalCertificates,
+      totalStudyTime,
+      averageProgress,
+      completionRate: totalCourses > 0 ? Math.round((completedCourses / totalCourses) * 100) : 0,
+    };
+  }, []);
 
-      // Récupérer la progression pour chaque cours
-      const progressPromises = enrolledCourses.map(async (enrollment) => {
-        try {
-          const progressResponse = await axios.get(
-            `${API_BASE_URL}/learning/progress/${enrollment.coursId?._id || enrollment.coursId}`,
-            { headers }
-          );
-          return {
-            ...enrollment,
-            progress: progressResponse.data.data?.pourcentage || 0,
-            title: enrollment.coursId?.titre || 'Cours sans titre',
-            _id: enrollment._id,
-          };
-        } catch (err) {
-          console.warn(`Erreur récupération progression pour ${enrollment.coursId}:`, err.message);
-          return {
-            ...enrollment,
-            progress: 0,
-            title: enrollment.coursId?.titre || 'Cours sans titre',
-            _id: enrollment._id,
-          };
+  // === RÉCUPÉRATION DES DONNÉES DU DASHBOARD ===
+  const fetchDashboardData = useCallback(
+    async (isRefresh = false) => {
+      try {
+        if (isRefresh) {
+          setRefreshing(true);
+        } else {
+          setLoading(true);
         }
-      });
+        setError(null);
+        setInvalidEnrollments(0);
 
-      const coursesWithProgress = await Promise.all(progressPromises);
+        const token = getAuthToken();
+        if (!token) {
+          throw new Error('Session expirée. Veuillez vous reconnecter.');
+        }
 
-      // Calculer les statistiques
-      const totalProgress =
-        coursesWithProgress.length > 0
-          ? Math.round(
-              coursesWithProgress.reduce((sum, course) => sum + course.progress, 0) /
-                coursesWithProgress.length
-            )
-          : 0;
+        const headers = getAuthHeaders();
 
-      const completedCount = coursesWithProgress.filter((c) => c.progress === 100).length;
+        // Récupération parallèle des données pour de meilleures performances
+        const [userResponse, enrollmentsResponse, certificatesResponse] = await Promise.all([
+          axios.get(`${API_BASE_URL}/auth/me`, { headers }),
+          axios.get(`${API_BASE_URL}/learning/enrollments`, { headers }),
+          axios.get(`${API_BASE_URL}/learning/certificates`, { headers }),
+        ]);
 
-      setProgress(totalProgress);
-      setCourses(coursesWithProgress);
-      setStats({
-        totalCourses: coursesWithProgress.length,
-        completedCourses: completedCount,
-        totalCertificates: 0,
-      });
-
-      // Récupérer les certificats
-      const certificatesResponse = await axios.get(`${API_BASE_URL}/learning/certificates`, {
-        headers,
-      });
-      const certs = Array.isArray(certificatesResponse.data?.data)
-        ? certificatesResponse.data.data
-        : Array.isArray(certificatesResponse.data)
-          ? certificatesResponse.data
+        const userData = userResponse.data;
+        const enrolledCourses = Array.isArray(enrollmentsResponse.data)
+          ? enrollmentsResponse.data
           : [];
+        const certificatesData = Array.isArray(certificatesResponse.data?.data)
+          ? certificatesResponse.data.data
+          : Array.isArray(certificatesResponse.data)
+            ? certificatesResponse.data
+            : [];
 
-      setCertificates(certs);
-      setStats((prev) => ({ ...prev, totalCertificates: certs.length }));
-    } catch (err) {
-      console.error('Erreur chargement dashboard:', err);
-      const errorMessage =
-        err.response?.data?.message || err.message || 'Erreur lors du chargement des données';
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, [API_BASE_URL, getAuthToken, getAuthHeaders]);
+        // Filtrage des inscriptions valides
+        const validEnrollments = enrolledCourses.filter((enrollment) => {
+          const coursId = enrollment.cours?._id || enrollment.cours;
+          if (!isValidObjectId(coursId)) {
+            setInvalidEnrollments((prev) => prev + 1);
+            return false;
+          }
+          return true;
+        });
 
+        // Récupération des progressions en parallèle
+        const progressPromises = validEnrollments.map(async (enrollment) => {
+          const coursId = enrollment.cours?._id || enrollment.cours;
+          try {
+            const progressResponse = await axios.get(
+              `${API_BASE_URL}/learning/progress/${coursId}`,
+              { headers }
+            );
+            return {
+              ...enrollment,
+              progress: progressResponse.data.data?.pourcentage || 0,
+              title: enrollment.cours?.title || 'Cours sans titre',
+              duree: enrollment.cours?.duree || 0,
+              _id: enrollment._id,
+            };
+          } catch (err) {
+            console.warn(`Erreur progression cours ${coursId}:`, err.message);
+            return {
+              ...enrollment,
+              progress: 0,
+              title: enrollment.cours?.title || 'Cours sans titre',
+              duree: enrollment.cours?.duree || 0,
+              _id: enrollment._id,
+            };
+          }
+        });
+
+        const coursesWithProgress = await Promise.all(progressPromises);
+
+        // Calcul automatique de toutes les statistiques
+        const calculatedStats = calculateStats(coursesWithProgress, certificatesData);
+
+        // Mise à jour de l'état avec toutes les données
+        setDashboardData({
+          user: userData,
+          progress: calculatedStats.averageProgress,
+          certificates: certificatesData,
+          courses: coursesWithProgress,
+          stats: calculatedStats,
+        });
+
+        // Logs de développement
+        if (process.env.NODE_ENV === 'development') {
+          console.log('📊 Statistiques calculées:', calculatedStats);
+          console.log('📚 Cours chargés:', coursesWithProgress.length);
+          console.log('🏆 Certificats:', certificatesData.length);
+        }
+      } catch (err) {
+        console.error('❌ Erreur chargement dashboard:', err);
+        const errorMessage =
+          err.response?.data?.message ||
+          err.message ||
+          'Erreur lors du chargement des données du tableau de bord';
+        setError(errorMessage);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [API_BASE_URL, getAuthToken, getAuthHeaders, isValidObjectId, calculateStats]
+  );
+
+  // === CHARGEMENT INITIAL ===
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  /**
-   * Télécharge un certificat
-   */
+  // === TÉLÉCHARGEMENT DE CERTIFICAT ===
   const handleDownloadCertificate = async (certId, coursTitle) => {
     try {
       setDownloadingId(certId);
       const headers = getAuthHeaders();
+
+      if (!headers) {
+        throw new Error("Token d'authentification manquant");
+      }
 
       const response = await axios.get(`${API_BASE_URL}/learning/certificate/${certId}/download`, {
         headers,
         responseType: 'blob',
       });
 
-      // Créer un lien de téléchargement
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `Certificat_${coursTitle}.pdf`);
+      link.setAttribute('download', `Certificat_${coursTitle || 'Certificat'}.pdf`);
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
+      link.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Erreur téléchargement certificat:', err);
-      alert('Erreur lors du téléchargement du certificat');
+      console.error('❌ Erreur téléchargement certificat:', err);
+      setError('Erreur lors du téléchargement du certificat');
     } finally {
       setDownloadingId(null);
     }
   };
 
-  if (loading) {
+  // === ACTUALISATION DES DONNÉES ===
+  const handleRefresh = () => {
+    fetchDashboardData(true);
+  };
+
+  // === AFFICHAGE DU CHARGEMENT ===
+  if (loading && !refreshing) {
     return (
       <Box
         sx={{
@@ -270,51 +377,37 @@ const Dashboard = () => {
           alignItems: 'center',
           height: '100vh',
           width: '100vw',
-          bgcolor: colors.navy,
+          background: `linear-gradient(135deg, ${colors.navy}, ${colors.darkNavy})`,
           animation: `${fadeInUp} 0.5s ease-out`,
         }}
       >
-        <CircularProgress sx={{ color: colors.red }} size={60} />
+        <CircularProgress
+          size={70}
+          thickness={4}
+          sx={{
+            color: colors.red,
+            animation: `${pulseGlow} 2s infinite`,
+          }}
+        />
         <Typography
           sx={{
             color: '#ffffff',
-            fontSize: { xs: '1rem', sm: '1.2rem' },
-            fontWeight: 500,
-            mt: 2,
+            fontSize: { xs: '1.1rem', sm: '1.3rem' },
+            fontWeight: 600,
+            mt: 3,
           }}
         >
-          Chargement du tableau de bord...
+          Chargement de votre tableau de bord...
         </Typography>
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100vh',
-          width: '100vw',
-          bgcolor: colors.navy,
-          p: { xs: 2, sm: 4 },
-        }}
-      >
-        <Alert
-          severity='error'
+        <Typography
           sx={{
-            bgcolor: `${colors.red}1a`,
-            color: colors.red,
-            borderRadius: '12px',
-            '& .MuiAlert-icon': { color: colors.red },
-            width: { xs: '100%', sm: '80%', md: '50%' },
+            color: 'rgba(255, 255, 255, 0.6)',
+            fontSize: '0.9rem',
+            mt: 1,
           }}
-          onClose={() => setError(null)}
         >
-          {error}
-        </Alert>
+          Préparation de vos statistiques d'apprentissage
+        </Typography>
       </Box>
     );
   }
@@ -324,250 +417,386 @@ const Dashboard = () => {
       sx={{
         minHeight: '100vh',
         width: '100vw',
-        bgcolor: colors.navy,
+        background: `linear-gradient(135deg, ${colors.navy}, ${colors.darkNavy})`,
         p: { xs: 2, sm: 3, md: 4 },
         overflow: 'auto',
       }}
     >
-      {/* En-tête */}
+      {/* En-tête avec bouton d'actualisation */}
       <Fade in timeout={800}>
-        <Box sx={{ mb: { xs: 4, sm: 6 } }}>
-          <Typography
-            variant='h3'
-            sx={{
-              color: '#ffffff',
-              fontWeight: 700,
-              mb: 1,
-              fontSize: { xs: '1.5rem', sm: '2rem', md: '2.5rem' },
-            }}
-          >
-            Bienvenue, {user?.prenom || 'Étudiant'} 👋
-          </Typography>
-          <Typography
-            sx={{
-              color: 'rgba(255, 255, 255, 0.6)',
-              fontSize: { xs: '0.9rem', sm: '1rem' },
-            }}
-          >
-            Suivez votre progression d'apprentissage
-          </Typography>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            mb: { xs: 4, sm: 6 },
+            flexDirection: { xs: 'column', sm: 'row' },
+            gap: 2,
+          }}
+        >
+          <Box>
+            <Typography
+              variant='h3'
+              sx={{
+                color: '#ffffff',
+                fontWeight: 800,
+                mb: 1,
+                fontSize: { xs: '1.8rem', sm: '2.5rem', md: '3rem' },
+                background: 'linear-gradient(135deg, #ffffff, #ff6b74)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              Bienvenue, {dashboardData.user?.prenom || 'Étudiant'} 👋
+            </Typography>
+            <Typography
+              sx={{
+                color: 'rgba(255, 255, 255, 0.7)',
+                fontSize: { xs: '1rem', sm: '1.1rem' },
+                fontWeight: 500,
+              }}
+            >
+              Suivez votre progression et vos réalisations
+            </Typography>
+          </Box>
+
+          <Tooltip title='Actualiser les données'>
+            <RefreshButton onClick={handleRefresh} disabled={refreshing} size='large'>
+              <RefreshCw size={20} />
+            </RefreshButton>
+          </Tooltip>
         </Box>
       </Fade>
 
-      {/* Statistiques Rapides */}
-      <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mb: { xs: 3, sm: 4 } }}>
+      {/* Alertes */}
+      {invalidEnrollments > 0 && (
+        <Alert
+          severity='warning'
+          sx={{
+            mb: 3,
+            bgcolor: `${colors.warning}15`,
+            color: colors.warning,
+            borderRadius: '12px',
+            border: `1px solid ${colors.warning}33`,
+            '& .MuiAlert-icon': { color: colors.warning },
+          }}
+          onClose={() => setInvalidEnrollments(0)}
+        >
+          {invalidEnrollments} inscription(s) ignorée(s) - données de cours invalides
+        </Alert>
+      )}
+
+      {error && (
+        <Alert
+          severity='error'
+          sx={{
+            mb: 3,
+            bgcolor: `${colors.red}15`,
+            color: colors.red,
+            borderRadius: '12px',
+            border: `1px solid ${colors.red}33`,
+            '& .MuiAlert-icon': { color: colors.red },
+          }}
+          onClose={() => setError(null)}
+        >
+          {error}
+        </Alert>
+      )}
+
+      {/* CARTES DE STATISTIQUES AUTOMATIQUES */}
+      <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mb: { xs: 4, sm: 6 } }}>
+        {/* Progression Moyenne */}
         <Grid item xs={6} sm={4} md={3}>
-          <StatCard>
-            <TrendingUp size={32} color={colors.red} style={{ marginBottom: '12px' }} />
+          <StatCard color={colors.red}>
+            <TrendingUp size={36} color={colors.red} style={{ marginBottom: '16px' }} />
             <Typography
-              sx={{ color: colors.red, fontWeight: 700, fontSize: { xs: '1.5rem', sm: '1.8rem' } }}
+              sx={{
+                color: colors.red,
+                fontWeight: 800,
+                fontSize: { xs: '1.8rem', sm: '2.2rem' },
+                mb: 0.5,
+              }}
             >
-              {progress}%
+              {dashboardData.stats.averageProgress}%
             </Typography>
             <Typography
               sx={{
-                color: 'rgba(255, 255, 255, 0.6)',
-                fontSize: { xs: '0.8rem', sm: '0.9rem' },
-                mt: 1,
+                color: 'rgba(255, 255, 255, 0.8)',
+                fontSize: { xs: '0.85rem', sm: '0.9rem' },
+                fontWeight: 600,
               }}
             >
-              Progression globale
+              Progression Moyenne
             </Typography>
           </StatCard>
         </Grid>
 
+        {/* Total des Cours */}
         <Grid item xs={6} sm={4} md={3}>
-          <StatCard>
-            <BookOpen size={32} color={colors.purple} style={{ marginBottom: '12px' }} />
+          <StatCard color={colors.purple}>
+            <BookOpen size={36} color={colors.purple} style={{ marginBottom: '16px' }} />
             <Typography
               sx={{
                 color: colors.purple,
-                fontWeight: 700,
-                fontSize: { xs: '1.5rem', sm: '1.8rem' },
+                fontWeight: 800,
+                fontSize: { xs: '1.8rem', sm: '2.2rem' },
+                mb: 0.5,
               }}
             >
-              {stats.totalCourses}
+              {dashboardData.stats.totalCourses}
             </Typography>
             <Typography
               sx={{
-                color: 'rgba(255, 255, 255, 0.6)',
-                fontSize: { xs: '0.8rem', sm: '0.9rem' },
-                mt: 1,
+                color: 'rgba(255, 255, 255, 0.8)',
+                fontSize: { xs: '0.85rem', sm: '0.9rem' },
+                fontWeight: 600,
               }}
             >
-              Cours inscrits
+              Total des Cours
             </Typography>
           </StatCard>
         </Grid>
 
+        {/* Cours Complétés */}
         <Grid item xs={6} sm={4} md={3}>
-          <StatCard>
-            <Award size={32} color={colors.success} style={{ marginBottom: '12px' }} />
+          <StatCard color={colors.success}>
+            <Award size={36} color={colors.success} style={{ marginBottom: '16px' }} />
             <Typography
               sx={{
                 color: colors.success,
-                fontWeight: 700,
-                fontSize: { xs: '1.5rem', sm: '1.8rem' },
+                fontWeight: 800,
+                fontSize: { xs: '1.8rem', sm: '2.2rem' },
+                mb: 0.5,
               }}
             >
-              {stats.completedCourses}
+              {dashboardData.stats.completedCourses}
             </Typography>
             <Typography
               sx={{
-                color: 'rgba(255, 255, 255, 0.6)',
-                fontSize: { xs: '0.8rem', sm: '0.9rem' },
-                mt: 1,
+                color: 'rgba(255, 255, 255, 0.8)',
+                fontSize: { xs: '0.85rem', sm: '0.9rem' },
+                fontWeight: 600,
               }}
             >
-              Cours complétés
+              Cours Complétés
             </Typography>
           </StatCard>
         </Grid>
 
+        {/* Total des Certificats */}
         <Grid item xs={6} sm={4} md={3}>
-          <StatCard>
-            <Award size={32} color={colors.pink} style={{ marginBottom: '12px' }} />
+          <StatCard color={colors.pink}>
+            <Award size={36} color={colors.pink} style={{ marginBottom: '16px' }} />
             <Typography
-              sx={{ color: colors.pink, fontWeight: 700, fontSize: { xs: '1.5rem', sm: '1.8rem' } }}
+              sx={{
+                color: colors.pink,
+                fontWeight: 800,
+                fontSize: { xs: '1.8rem', sm: '2.2rem' },
+                mb: 0.5,
+              }}
             >
-              {stats.totalCertificates}
+              {dashboardData.stats.totalCertificates}
             </Typography>
             <Typography
               sx={{
-                color: 'rgba(255, 255, 255, 0.6)',
-                fontSize: { xs: '0.8rem', sm: '0.9rem' },
-                mt: 1,
+                color: 'rgba(255, 255, 255, 0.8)',
+                fontSize: { xs: '0.85rem', sm: '0.9rem' },
+                fontWeight: 600,
               }}
             >
-              Certificats
+              Total Certificats
+            </Typography>
+          </StatCard>
+        </Grid>
+
+        {/* Taux de Réussite */}
+        <Grid item xs={6} sm={4} md={3}>
+          <StatCard color={colors.info}>
+            <BarChart3 size={36} color={colors.info} style={{ marginBottom: '16px' }} />
+            <Typography
+              sx={{
+                color: colors.info,
+                fontWeight: 800,
+                fontSize: { xs: '1.8rem', sm: '2.2rem' },
+                mb: 0.5,
+              }}
+            >
+              {dashboardData.stats.completionRate}%
+            </Typography>
+            <Typography
+              sx={{
+                color: 'rgba(255, 255, 255, 0.8)',
+                fontSize: { xs: '0.85rem', sm: '0.9rem' },
+                fontWeight: 600,
+              }}
+            >
+              Taux de Réussite
+            </Typography>
+          </StatCard>
+        </Grid>
+
+        {/* Temps d'Étude Total */}
+        <Grid item xs={6} sm={4} md={3}>
+          <StatCard color={colors.warning}>
+            <Clock size={36} color={colors.warning} style={{ marginBottom: '16px' }} />
+            <Typography
+              sx={{
+                color: colors.warning,
+                fontWeight: 800,
+                fontSize: { xs: '1.8rem', sm: '2.2rem' },
+                mb: 0.5,
+              }}
+            >
+              {Math.round(dashboardData.stats.totalStudyTime / 60)}h
+            </Typography>
+            <Typography
+              sx={{
+                color: 'rgba(255, 255, 255, 0.8)',
+                fontSize: { xs: '0.85rem', sm: '0.9rem' },
+                fontWeight: 600,
+              }}
+            >
+              Temps d'Étude
             </Typography>
           </StatCard>
         </Grid>
       </Grid>
 
-      <Grid container spacing={{ xs: 2, sm: 3, md: 4 }}>
-        {/* Progression Globale */}
-        <Grid item xs={12} md={6}>
+      {/* CONTENU PRINCIPAL */}
+      <Grid container spacing={{ xs: 3, sm: 4, md: 4 }}>
+        {/* PROGRESSION GLOBALE */}
+        <Grid item xs={12} lg={6}>
           <DashboardCard elevation={0}>
-            <Typography
-              variant='h5'
-              sx={{
-                color: '#ffffff',
-                fontWeight: 600,
-                mb: 3,
-                fontSize: { xs: '1.2rem', sm: '1.5rem' },
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-              }}
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}
             >
-              <TrendingUp size={24} color={colors.red} />
-              Progression Globale
-            </Typography>
+              <Typography
+                variant='h5'
+                sx={{
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  fontSize: { xs: '1.3rem', sm: '1.6rem' },
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.5,
+                }}
+              >
+                <TrendingUp size={28} color={colors.red} />
+                Aperçu de la Progression
+              </Typography>
+              <Chip
+                label={`${dashboardData.stats.averageProgress}% Moyenne`}
+                sx={{
+                  backgroundColor: `${colors.red}33`,
+                  color: colors.red,
+                  fontWeight: 700,
+                  fontSize: '0.8rem',
+                }}
+              />
+            </Box>
+
             <LinearProgress
               variant='determinate'
-              value={progress}
+              value={dashboardData.stats.averageProgress}
               sx={{
-                height: 14,
-                borderRadius: 6,
+                height: 16,
+                borderRadius: 8,
                 backgroundColor: `${colors.red}33`,
                 '& .MuiLinearProgress-bar': {
                   background: `linear-gradient(135deg, ${colors.red}, ${colors.pink})`,
-                  borderRadius: 6,
+                  borderRadius: 8,
+                  animation: `${pulseGlow} 2s infinite`,
                 },
               }}
             />
+
             <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                mt: 3,
-              }}
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 3 }}
             >
               <Typography
-                sx={{
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  fontSize: { xs: '0.9rem', sm: '0.95rem' },
-                }}
+                sx={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.9rem', fontWeight: 600 }}
               >
-                {progress}% complété
+                Progression globale sur {dashboardData.stats.totalCourses} cours
               </Typography>
-              <Chip
-                label={progress === 100 ? '✓ Terminé' : 'En cours'}
-                sx={{
-                  backgroundColor: progress === 100 ? `${colors.success}33` : `${colors.red}33`,
-                  color: progress === 100 ? colors.success : colors.red,
-                  fontWeight: 600,
-                }}
-              />
+              <Typography sx={{ color: colors.red, fontSize: '0.9rem', fontWeight: 700 }}>
+                {dashboardData.stats.averageProgress}%
+              </Typography>
             </Box>
           </DashboardCard>
         </Grid>
 
-        {/* Certificats Obtenus */}
-        <Grid item xs={12} md={6}>
+        {/* CERTIFICATS */}
+        <Grid item xs={12} lg={6}>
           <DashboardCard elevation={0}>
             <Typography
               variant='h5'
               sx={{
                 color: '#ffffff',
-                fontWeight: 600,
+                fontWeight: 700,
                 mb: 3,
-                fontSize: { xs: '1.2rem', sm: '1.5rem' },
+                fontSize: { xs: '1.3rem', sm: '1.6rem' },
                 display: 'flex',
                 alignItems: 'center',
-                gap: 1,
+                gap: 1.5,
               }}
             >
-              <Award size={24} color={colors.pink} />
-              Certificats Obtenus ({certificates.length})
+              <Award size={28} color={colors.pink} />
+              Mes Certificats ({dashboardData.stats.totalCertificates})
             </Typography>
+
             <Stack spacing={2}>
-              {certificates.length > 0 ? (
-                certificates.map((cert) => (
+              {dashboardData.certificates.length > 0 ? (
+                dashboardData.certificates.map((cert) => (
                   <Box
                     key={cert._id}
                     sx={{
-                      backgroundColor: `${colors.navy}33`,
+                      background: `linear-gradient(135deg, ${colors.glass}, ${colors.glassDark})`,
                       borderRadius: '12px',
-                      p: 2,
-                      border: `1px solid ${colors.red}33`,
+                      p: 2.5,
+                      border: `1px solid ${colors.border}`,
                       transition: 'all 0.3s ease',
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
                       '&:hover': {
-                        backgroundColor: `${colors.red}1a`,
+                        background: `${colors.red}1a`,
                         borderColor: colors.red,
+                        transform: 'translateY(-2px)',
                       },
                     }}
                   >
-                    <Box>
+                    <Box sx={{ flex: 1 }}>
                       <Typography
                         sx={{
                           color: '#ffffff',
-                          fontSize: { xs: '0.9rem', sm: '1rem' },
-                          fontWeight: 500,
+                          fontSize: { xs: '0.95rem', sm: '1rem' },
+                          fontWeight: 600,
+                          mb: 0.5,
                         }}
                       >
-                        {cert.coursId?.titre || cert.title || 'Certificat'}
+                        {cert.cours?.title || cert.title || 'Certificat de formation'}
                       </Typography>
                       <Typography
                         sx={{
                           color: 'rgba(255, 255, 255, 0.6)',
                           fontSize: { xs: '0.8rem', sm: '0.85rem' },
-                          mt: 0.5,
                         }}
                       >
-                        {new Date(cert.dateEmission).toLocaleDateString('fr-FR')}
+                        Émis le{' '}
+                        {new Date(cert.dateEmission).toLocaleDateString('fr-FR', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })}
                       </Typography>
                     </Box>
-                    <StyledButton
+
+                    <ActionButton
                       size='small'
                       disabled={downloadingId === cert._id}
                       onClick={() =>
-                        handleDownloadCertificate(cert._id, cert.coursId?.titre || cert.title)
+                        handleDownloadCertificate(cert._id, cert.cours?.title || cert.title)
                       }
                       startIcon={
                         downloadingId === cert._id ? (
@@ -577,23 +806,17 @@ const Dashboard = () => {
                         )
                       }
                     >
-                      {downloadingId === cert._id ? 'Téléchargement...' : 'Télécharger'}
-                    </StyledButton>
+                      {downloadingId === cert._id ? 'Télé...' : 'PDF'}
+                    </ActionButton>
                   </Box>
                 ))
               ) : (
-                <Box
-                  sx={{
-                    textAlign: 'center',
-                    py: 3,
-                    color: 'rgba(255, 255, 255, 0.5)',
-                  }}
-                >
-                  <Award size={40} style={{ marginBottom: '12px', opacity: 0.5 }} />
-                  <Typography sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }}>
-                    Aucun certificat pour le moment.
+                <Box sx={{ textAlign: 'center', py: 4, color: 'rgba(255, 255, 255, 0.5)' }}>
+                  <Award size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
+                  <Typography sx={{ fontSize: '1rem', fontWeight: 600, mb: 1 }}>
+                    Aucun certificat pour le moment
                   </Typography>
-                  <Typography sx={{ fontSize: { xs: '0.8rem', sm: '0.9rem' }, mt: 1 }}>
+                  <Typography sx={{ fontSize: '0.9rem' }}>
                     Complétez vos cours pour obtenir des certificats
                   </Typography>
                 </Box>
@@ -602,39 +825,40 @@ const Dashboard = () => {
           </DashboardCard>
         </Grid>
 
-        {/* Mes Cours Inscrits */}
+        {/* COURS INSCRITS */}
         <Grid item xs={12}>
           <DashboardCard elevation={0}>
             <Typography
               variant='h5'
               sx={{
                 color: '#ffffff',
-                fontWeight: 600,
+                fontWeight: 700,
                 mb: 3,
-                fontSize: { xs: '1.2rem', sm: '1.5rem' },
+                fontSize: { xs: '1.3rem', sm: '1.6rem' },
                 display: 'flex',
                 alignItems: 'center',
-                gap: 1,
+                gap: 1.5,
               }}
             >
-              <BookOpen size={24} color={colors.purple} />
-              Mes Cours Inscrits ({courses.length})
+              <BookOpen size={28} color={colors.purple} />
+              Mes Cours ({dashboardData.stats.totalCourses})
             </Typography>
-            <Stack spacing={2}>
-              {courses.length > 0 ? (
-                courses.map((course, index) => (
+
+            <Stack spacing={2.5}>
+              {dashboardData.courses.length > 0 ? (
+                dashboardData.courses.map((course, index) => (
                   <Box
                     key={course._id}
                     sx={{
-                      backgroundColor: `${colors.navy}33`,
-                      borderRadius: '12px',
-                      p: { xs: 2, sm: 2.5 },
-                      border: `1px solid ${colors.red}33`,
+                      background: `linear-gradient(135deg, ${colors.glass}, ${colors.glassDark})`,
+                      borderRadius: '16px',
+                      p: { xs: 2.5, sm: 3 },
+                      border: `1px solid ${colors.border}`,
                       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                       animation: `${slideIn} 0.5s ease-out ${index * 0.1}s forwards`,
                       opacity: 0,
                       '&:hover': {
-                        backgroundColor: `${colors.red}1a`,
+                        background: `${colors.red}1a`,
                         transform: 'translateY(-4px)',
                         borderColor: colors.red,
                       },
@@ -645,70 +869,81 @@ const Dashboard = () => {
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
-                        mb: 2,
+                        mb: 2.5,
                       }}
                     >
                       <Typography
                         sx={{
                           color: '#ffffff',
-                          fontSize: { xs: '0.9rem', sm: '1rem' },
-                          fontWeight: 600,
+                          fontSize: { xs: '1rem', sm: '1.1rem' },
+                          fontWeight: 700,
+                          flex: 1,
+                          mr: 2,
                         }}
                       >
                         {course.title}
                       </Typography>
+
                       <Chip
                         label={`${course.progress || 0}%`}
                         sx={{
                           backgroundColor:
                             course.progress === 100 ? `${colors.success}33` : `${colors.red}33`,
                           color: course.progress === 100 ? colors.success : colors.red,
-                          fontWeight: 700,
+                          fontWeight: 800,
+                          fontSize: '0.8rem',
+                          minWidth: '70px',
                         }}
                       />
                     </Box>
+
                     <LinearProgress
                       variant='determinate'
                       value={course.progress || 0}
                       sx={{
-                        height: 8,
-                        borderRadius: 3,
+                        height: 10,
+                        borderRadius: 5,
                         backgroundColor: `${colors.red}33`,
                         '& .MuiLinearProgress-bar': {
                           background: `linear-gradient(90deg, ${colors.red}, ${colors.pink})`,
-                          borderRadius: 3,
+                          borderRadius: 5,
                         },
                       }}
                     />
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        mt: 1.5,
-                      }}
-                    >
+
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
                       <Typography
                         sx={{
-                          color: 'rgba(255, 255, 255, 0.5)',
-                          fontSize: { xs: '0.75rem', sm: '0.8rem' },
+                          color: 'rgba(255, 255, 255, 0.6)',
+                          fontSize: '0.85rem',
+                          fontWeight: 500,
                         }}
                       >
-                        {course.progress === 100 ? '✓ Complété' : 'En cours'}
+                        {course.progress === 100
+                          ? '🎉 Formation terminée !'
+                          : '📚 En progression...'}
+                      </Typography>
+
+                      <Typography
+                        sx={{
+                          color: 'rgba(255, 255, 255, 0.6)',
+                          fontSize: '0.85rem',
+                          fontWeight: 500,
+                        }}
+                      >
+                        Durée: {course.duree || 0} min
                       </Typography>
                     </Box>
                   </Box>
                 ))
               ) : (
-                <Box
-                  sx={{
-                    textAlign: 'center',
-                    py: 4,
-                    color: 'rgba(255, 255, 255, 0.5)',
-                  }}
-                >
-                  <BookOpen size={40} style={{ marginBottom: '12px', opacity: 0.5 }} />
-                  <Typography sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }}>
-                    Aucun cours inscrit pour le moment.
+                <Box sx={{ textAlign: 'center', py: 5, color: 'rgba(255, 255, 255, 0.5)' }}>
+                  <BookOpen size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
+                  <Typography sx={{ fontSize: '1.1rem', fontWeight: 600, mb: 1 }}>
+                    Aucun cours inscrit pour le moment
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.95rem' }}>
+                    Explorez notre catalogue pour commencer votre apprentissage
                   </Typography>
                 </Box>
               )}

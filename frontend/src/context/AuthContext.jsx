@@ -53,6 +53,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [initialized, setInitialized] = useState(false); // Nouveau state pour éviter les boucles
   const { addNotification } = useNotifications();
   const navigate = useNavigate();
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -113,6 +114,7 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback(() => {
     console.log('🔒 Logging out user');
     setUser(null);
+    setInitialized(true); // Marquer comme initialisé pour éviter les boucles
     localStorage.removeItem('user');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('token');
@@ -122,11 +124,20 @@ export const AuthProvider = ({ children }) => {
   }, [navigate, addNotification]);
 
   const initializeAuth = useCallback(async () => {
-    setIsLoading(true); // Ensure loading is true at start
+    // Éviter les initialisations multiples
+    if (initialized) {
+      console.log('⏳ Auth already initialized, skipping...');
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
     const storedUser = localStorage.getItem('user');
+    
     if (!storedUser) {
       console.log('🚫 No user in localStorage, setting loading to false');
       setIsLoading(false);
+      setInitialized(true);
       return;
     }
 
@@ -136,6 +147,7 @@ export const AuthProvider = ({ children }) => {
         throw new Error('Données utilisateur corrompues');
       }
       console.log('⏳ Initializing auth with user:', userData.email);
+      
       if (isTokenExpired(userData.token)) {
         console.log('🔄 Token expired, attempting refresh');
         const refreshed = await refreshToken();
@@ -143,17 +155,22 @@ export const AuthProvider = ({ children }) => {
           console.log('❌ Refresh failed, logging out');
           logout();
           setIsLoading(false);
+          setInitialized(true);
           return;
         }
         // Si refresh réussi, user est déjà mis à jour via refreshToken
         setIsLoading(false);
+        setInitialized(true);
         return;
       }
+      
       console.log('⏳ Verifying user with token:', userData.token.slice(0, 10) + '...');
       const response = await axios.get(`${API_BASE_URL}/api/auth/profile`, {
         headers: { Authorization: `Bearer ${userData.token}` },
         validateStatus: (status) => status < 500,
+        timeout: 10000, // Timeout pour éviter les attentes infinies
       });
+      
       console.log('Profile response:', response.data);
       if (response.status === 200) {
         const formattedUser = {
@@ -190,22 +207,29 @@ export const AuthProvider = ({ children }) => {
         errorMessage = 'Profil non trouvé. Veuillez vérifier votre compte.';
       } else if (err.response?.status === 500) {
         errorMessage = 'Erreur serveur lors de la vérification de la session.';
-      } else if (err.code === 'ERR_NETWORK') {
+      } else if (err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED') {
         errorMessage = 'Impossible de se connecter au serveur. Veuillez vérifier votre connexion.';
+        // En cas d'erreur réseau, on garde l'utilisateur connecté localement
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const userData = JSON.parse(storedUser);
+          setUser(userData);
+          console.log('📱 Using cached user data due to network error');
+        }
       } else {
         errorMessage =
           err.response?.data?.message || 'Session invalide. Veuillez vous reconnecter.';
       }
       addNotification(errorMessage, 'error');
       // Éviter logout automatique si réseau down
-      if (err.code !== 'ERR_NETWORK') {
+      if (err.code !== 'ERR_NETWORK' && err.code !== 'ECONNABORTED') {
         logout();
       }
-      navigate('/login', { replace: true }); // Use replace to avoid loops
     } finally {
       setIsLoading(false);
+      setInitialized(true); // Marquer comme initialisé
     }
-  }, [addNotification, API_BASE_URL, navigate, refreshToken, logout]);
+  }, [addNotification, API_BASE_URL, refreshToken, logout, initialized]);
 
   const login = useCallback(
     async (email, password, rememberMe) => {
@@ -219,7 +243,10 @@ export const AuthProvider = ({ children }) => {
         const response = await axios.post(
           `${API_BASE_URL}/api/auth/login`,
           { email: email.trim(), password },
-          { headers: { 'Content-Type': 'application/json' } }
+          { 
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 15000 
+          }
         );
         console.log('Login response:', response.data);
         if (response.headers['content-type'].includes('application/json')) {
@@ -238,7 +265,7 @@ export const AuthProvider = ({ children }) => {
             token,
           };
           setUser(formattedUser);
-          // Toujours sauvegarder user dans localStorage pour éviter absence de données
+          setInitialized(true); // Marquer comme initialisé
           localStorage.setItem('user', JSON.stringify(formattedUser));
           localStorage.setItem('token', token);
           if (rememberMe && refreshToken) {
@@ -262,7 +289,7 @@ export const AuthProvider = ({ children }) => {
       } catch (err) {
         console.error('❌ Login error:', err);
         let errorMessage;
-        if (err.code === 'ERR_NETWORK') {
+        if (err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED') {
           errorMessage =
             'Impossible de se connecter au serveur. Veuillez vérifier votre connexion.';
         } else if (err.response) {
@@ -328,6 +355,7 @@ export const AuthProvider = ({ children }) => {
         console.log('📤 Registering user with email:', email);
         const response = await axios.post(`${API_BASE_URL}/api/auth/register`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 15000
         });
         console.log('Register response:', response.data);
         if (response.headers['content-type'].includes('application/json')) {
@@ -346,6 +374,7 @@ export const AuthProvider = ({ children }) => {
             token,
           };
           setUser(formattedUser);
+          setInitialized(true); // Marquer comme initialisé
           localStorage.setItem('user', JSON.stringify(formattedUser));
           localStorage.setItem('token', token);
           if (rememberMe && refreshToken) {
@@ -369,7 +398,7 @@ export const AuthProvider = ({ children }) => {
       } catch (err) {
         console.error('❌ Register error:', err);
         let errorMessage;
-        if (err.code === 'ERR_NETWORK') {
+        if (err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED') {
           errorMessage =
             'Impossible de se connecter au serveur. Veuillez vérifier votre connexion.';
         } else if (err.response) {
@@ -402,8 +431,10 @@ export const AuthProvider = ({ children }) => {
   );
 
   useEffect(() => {
-    initializeAuth();
-  }, [initializeAuth]);
+    if (!initialized) {
+      initializeAuth();
+    }
+  }, [initializeAuth, initialized]);
 
   const contextValue = {
     user,

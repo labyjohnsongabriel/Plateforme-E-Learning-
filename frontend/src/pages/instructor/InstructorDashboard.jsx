@@ -1,3 +1,4 @@
+// src/components/instructor/InstructorDashboard.jsx
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import {
   Box,
@@ -22,7 +23,7 @@ import {
   createTheme,
 } from '@mui/material';
 import { styled, keyframes } from '@mui/material/styles';
-import { Pie, Bar } from 'react-chartjs-2';
+import { Pie } from 'react-chartjs-2';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../../context/AuthContext';
@@ -99,6 +100,7 @@ const floatingAnimation = keyframes`
 // Composants stylisés
 const DashboardContainer = styled(Box)(({ theme }) => ({
   minHeight: '100vh',
+  width: '100vw',
   background: `linear-gradient(135deg, ${colors.navy || '#010b40'}, ${colors.lightNavy || '#1a237e'})`,
   padding: theme.spacing(4),
   position: 'relative',
@@ -175,11 +177,11 @@ const InstructorDashboard = () => {
       try {
         if (!user) return;
 
-        const baseURL = import.meta.env.VITE_API_BASE_URL;
+        const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
         const headers = { Authorization: `Bearer ${user.token}` };
 
         // Récupérer le profil avec statistiques
-        const profileRes = await axios.get(`${baseURL}/api/instructors/${user.id}/profile`, {
+        const profileRes = await axios.get(`${baseURL}/api/instructeurs/${user.id}/profile`, {
           headers,
         });
 
@@ -297,6 +299,7 @@ const InstructorDashboard = () => {
       <Box
         sx={{
           minHeight: '100vh',
+          width: '100vw',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
@@ -316,6 +319,7 @@ const InstructorDashboard = () => {
       <Box
         sx={{
           minHeight: '100vh',
+          width: '100vw',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
@@ -647,7 +651,7 @@ const InstructorDashboard = () => {
                   fullWidth
                   variant='outlined'
                   component={Link}
-                  to='/instructor/courses/create'
+                  to='/instructor/create-course'
                   startIcon={<SchoolIcon />}
                   sx={{
                     color: colors.white || '#ffffff',

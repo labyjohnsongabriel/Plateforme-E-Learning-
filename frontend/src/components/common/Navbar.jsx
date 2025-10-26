@@ -26,6 +26,7 @@ import {
   Tooltip,
   Fade,
   Zoom,
+  Snackbar,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -47,6 +48,7 @@ import {
   MarkEmailRead as MarkEmailReadIcon,
   Login as LoginIcon,
   PersonAdd as RegisterIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -56,7 +58,7 @@ import axios from 'axios';
 function HideOnScroll({ children }) {
   const trigger = useScrollTrigger({ threshold: 50 });
   return (
-    <Slide appear={false} direction='down' in={!trigger}>
+    <Slide appear={false} direction="down" in={!trigger}>
       {children}
     </Slide>
   );
@@ -69,22 +71,22 @@ const Navbar = ({ onToggleSidebar }) => {
   const [scrolled, setScrolled] = useState(false);
   const [profileData, setProfileData] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
-  const [error, setError] = useState('');
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState('info');
 
   const { user, logout } = useAuth() || { user: null, logout: () => {} };
+  const notificationsContext = useNotifications();
   const {
-    notifications,
-    unreadCount,
-    fetchNotifications,
-    isLoading: loadingNotifications,
-    error: notificationsError,
-  } = useNotifications() || {
-    notifications: [],
-    unreadCount: 0,
-    fetchNotifications: () => {},
-    isLoading: false,
-    error: '',
-  };
+    notifications = [],
+    unreadCount = 0,
+    fetchNotifications = () => {},
+    markAsRead = () => {},
+    markAllAsRead = () => {},
+    deleteNotification = () => {},
+    isLoading: loadingNotifications = false,
+    error: notificationsError = '',
+  } = notificationsContext || {};
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -94,13 +96,14 @@ const Navbar = ({ onToggleSidebar }) => {
   // Vérifier si l'utilisateur est connecté
   const isAuthenticated = Boolean(user && user.token);
 
-  const defaultAvatar = '/images/default-avatar.png';
+  // Utiliser une URL d'image de recherche comme avatar par défaut (exemple : une image générique d'avatar)
+  const defaultAvatar = 'https://static.vecteezy.com/system/resources/thumbnails/053/547/120/small_2x/generic-user-profile-avatar-for-online-platforms-and-social-media-vector.jpg'; // Chemin d'une image de recherche
 
-  // Déterminer le rôle actuel
-  const userRole = profileData?.role || user?.role || 'ETUDIANT';
-  const isStudent = userRole.toUpperCase() === 'ETUDIANT';
-  const isInstructor = userRole.toUpperCase() === 'ENSEIGNANT';
-  const isAdmin = userRole.toUpperCase() === 'ADMIN';
+  // Normaliser le rôle en majuscules pour cohérence
+  const userRole = (profileData?.role || user?.role || 'ETUDIANT').toUpperCase();
+  const isStudent = userRole === 'ETUDIANT';
+  const isInstructor = userRole === 'ENSEIGNANT';
+  const isAdmin = userRole === 'ADMIN';
 
   // Définir les rôles constants
   const ROLES = {
@@ -117,6 +120,13 @@ const Navbar = ({ onToggleSidebar }) => {
     [ROLES.ADMIN]: 'admin',
   };
 
+  // Afficher une notification snackbar
+  const showNotification = useCallback((message, severity = 'info') => {
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
+  }, []);
+
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 20);
@@ -132,7 +142,8 @@ const Navbar = ({ onToggleSidebar }) => {
     }
     setLoadingProfile(true);
     try {
-      const response = await axios.get('/api/auth/profile', {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+      const response = await axios.get(`${API_BASE_URL}/auth/profile`, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
       setProfileData(response.data.data || response.data);
@@ -141,33 +152,49 @@ const Navbar = ({ onToggleSidebar }) => {
       if (error.response?.status === 401) {
         logout();
         navigate('/login');
+        showNotification('Session expirée, veuillez vous reconnecter', 'error');
+      } else {
+        showNotification('Erreur lors du chargement du profil', 'error');
       }
       setProfileData(null);
     } finally {
       setLoadingProfile(false);
     }
-  }, [user, logout, navigate]);
+  }, [user, logout, navigate, showNotification]);
+
+  // Fonction pour récupérer les notifications avec gestion d'erreur
+  const fetchNotificationsWithFallback = useCallback(async () => {
+    if (!user?.token || !fetchNotifications) return;
+
+    try {
+      await fetchNotifications();
+    } catch (err) {
+      console.warn('Erreur récupération notifications:', err);
+      showNotification('Erreur lors du chargement des notifications', 'error');
+    }
+  }, [user, fetchNotifications, showNotification]);
 
   useEffect(() => {
     if (user?.token) {
       fetchProfile();
-      if (fetchNotifications) {
-        fetchNotifications();
-        const interval = setInterval(() => {
-          if (document.visibilityState === 'visible') {
-            fetchNotifications();
-          }
-        }, 30000);
-        return () => clearInterval(interval);
-      }
+      fetchNotificationsWithFallback();
+
+      // Polling des notifications toutes les 30 secondes
+      const interval = setInterval(() => {
+        if (document.visibilityState === 'visible' && user?.token) {
+          fetchNotificationsWithFallback();
+        }
+      }, 30000);
+
+      return () => clearInterval(interval);
     } else {
       setProfileData(null);
     }
-  }, [user, fetchNotifications, fetchProfile]);
+  }, [user, fetchNotificationsWithFallback, fetchProfile]);
 
   const handleNotificationOpen = (event) => {
     setNotificationAnchor(event.currentTarget);
-    if (fetchNotifications) fetchNotifications();
+    fetchNotificationsWithFallback();
   };
 
   const handleProfileOpen = (event) => {
@@ -182,13 +209,13 @@ const Navbar = ({ onToggleSidebar }) => {
     setNotificationAnchor(null);
     setProfileAnchor(null);
     setMobileMenuAnchor(null);
-    setError('');
   };
 
   const handleLogout = () => {
     logout();
     navigate('/login');
     handleClose();
+    showNotification('Déconnexion réussie', 'success');
   };
 
   const handleNavigation = (path) => {
@@ -199,59 +226,70 @@ const Navbar = ({ onToggleSidebar }) => {
   };
 
   const handleMarkAsRead = async (notificationId, e) => {
-    e.stopPropagation();
+    if (e) e.stopPropagation();
+
     try {
-      await axios.put(
-        `/api/notifications/${notificationId}/read`,
-        {},
-        { headers: { Authorization: `Bearer ${user.token}` } }
-      );
-      if (fetchNotifications) fetchNotifications();
+      await markAsRead(notificationId);
+      showNotification('Notification marquée comme lue', 'success');
     } catch (error) {
       console.error('Erreur marquage:', error);
+      showNotification('Erreur lors du marquage', 'error');
     }
   };
 
   const handleDeleteNotification = async (notificationId, e) => {
-    e.stopPropagation();
+    if (e) e.stopPropagation();
+
     try {
-      await axios.delete(`/api/notifications/${notificationId}`, {
-        headers: { Authorization: `Bearer ${user.token}` },
-      });
-      if (fetchNotifications) fetchNotifications();
+      await deleteNotification(notificationId);
+      showNotification('Notification supprimée', 'success');
     } catch (error) {
       console.error('Erreur suppression:', error);
+      showNotification('Erreur lors de la suppression', 'error');
     }
   };
 
   const handleMarkAllAsRead = async () => {
     try {
-      await axios.put(
-        '/api/notifications/mark-all-read',
-        {},
-        { headers: { Authorization: `Bearer ${user.token}` } }
-      );
-      if (fetchNotifications) fetchNotifications();
+      await markAllAsRead();
+      showNotification('Toutes les notifications marquées comme lues', 'success');
     } catch (error) {
       console.error('Erreur marquage global:', error);
+      showNotification('Erreur lors du marquage global', 'error');
     }
   };
 
   const handleNotificationClick = async (notification) => {
     if (!notification.lu) {
-      await handleMarkAsRead(notification._id, { stopPropagation: () => {} });
+      await handleMarkAsRead(notification._id);
     }
+
+
     switch (notification.type) {
-      case 'RAPPEL_COURS':
-        if (notification.courseId) navigate(`/student/course/${notification.courseId}`);
+      case 'COURSE_ACCESS':
+      case 'COURSE_UPDATE':
+        if (notification.courseId) {
+          navigate(`/student/course/${notification.courseId}`);
+        }
         break;
-      case 'CERTIFICAT':
+      case 'CERTIFICATE_READY':
         navigate('/student/certificates');
         break;
-      case 'PROGRESSION':
+      case 'PROGRESS_UPDATE':
         navigate('/student/progress');
         break;
+      case 'SYSTEM_ALERT':
+        if (notification.link) {
+          navigate(notification.link);
+        }
+        break;
+      case 'NEW_COURSE':
+        navigate('/catalog');
+        break;
       default:
+        if (notification.link) {
+          navigate(notification.link);
+        }
         break;
     }
     handleClose();
@@ -277,12 +315,12 @@ const Navbar = ({ onToggleSidebar }) => {
     // Si l'utilisateur est connecté, afficher les pages selon son rôle
     const baseItems = [
       { label: 'Accueil', path: '/', roles: [ROLES.ALL] },
-      { label: 'Catalogue', path: '/catalog', roles: [ROLES.ALL] },
-      { label: 'À propos', path: '/about', roles: [ROLES.ALL] },
-      { label: 'Contact', path: '/contact', roles: [ROLES.ALL] },
+      { label: 'Catalogue', path: '/catalog', roles: [ROLES.STUDENT] },
+      { label: 'À propos', path: '/about', roles: [ROLES.STUDENT] },
+      { label: 'Contact', path: '/contact', roles: [ROLES.STUDENT] },
       {
         label: 'Tableau de bord',
-        path: `/${PATH_PREFIXES[userRole.toUpperCase()] || 'student'}/dashboard`,
+        path: `/${PATH_PREFIXES[userRole] || 'student'}/dashboard`,
         roles: [ROLES.STUDENT, ROLES.INSTRUCTOR, ROLES.ADMIN],
       },
       {
@@ -300,11 +338,8 @@ const Navbar = ({ onToggleSidebar }) => {
         path: '/student/certificates',
         roles: [ROLES.STUDENT],
       },
-      {
-        label: 'Paramètres',
-        path: '/student/settings',
-        roles: [ROLES.STUDENT],
-      },
+ 
+      
       {
         label: 'Créer un Cours',
         path: '/instructor/courses/create',
@@ -313,6 +348,11 @@ const Navbar = ({ onToggleSidebar }) => {
       {
         label: 'Analytiques',
         path: '/instructor/analytics',
+        roles: [ROLES.INSTRUCTOR],
+      },
+      {
+        label: 'Gestion des cours',
+        path: '/instructor/manageCourses', // Corrigé
         roles: [ROLES.INSTRUCTOR],
       },
       {
@@ -339,7 +379,7 @@ const Navbar = ({ onToggleSidebar }) => {
 
     return baseItems.filter(
       (item) =>
-        item.roles.includes(ROLES.ALL) || (userRole && item.roles.includes(userRole.toUpperCase()))
+        item.roles.includes(ROLES.ALL) || (userRole && item.roles.includes(userRole))
     );
   }, [userRole, isAuthenticated]);
 
@@ -350,7 +390,7 @@ const Navbar = ({ onToggleSidebar }) => {
     if (data?.prenom && data?.nom) {
       return `${data.prenom[0]}${data.nom[0]}`.toUpperCase();
     }
-    return 'U';
+    return data?.email?.[0]?.toUpperCase() || 'U';
   }, [profileData, user]);
 
   const getUserFullName = useCallback(() => {
@@ -358,11 +398,11 @@ const Navbar = ({ onToggleSidebar }) => {
     if (data?.prenom && data?.nom) {
       return `${data.prenom} ${data.nom}`;
     }
-    return 'Utilisateur';
+    return data?.email || 'Utilisateur';
   }, [profileData, user]);
 
   const getRoleColor = (role) => {
-    switch (role?.toUpperCase()) {
+    switch (role) {
       case 'ADMIN':
         return '#ff1744';
       case 'ENSEIGNANT':
@@ -375,7 +415,7 @@ const Navbar = ({ onToggleSidebar }) => {
   };
 
   const getRoleLabel = (role) => {
-    switch (role?.toUpperCase()) {
+    switch (role) {
       case 'ETUDIANT':
         return 'Étudiant';
       case 'ENSEIGNANT':
@@ -389,13 +429,28 @@ const Navbar = ({ onToggleSidebar }) => {
 
   const getNotificationIcon = (type) => {
     const icons = {
-      RAPPEL_COURS: <BookmarkIcon sx={{ color: '#3b82f6', fontSize: 20 }} />,
-      CERTIFICAT: <FavoriteIcon sx={{ color: '#10b981', fontSize: 20 }} />,
-      PROGRESSION: <DashboardIcon sx={{ color: '#f59e0b', fontSize: 20 }} />,
+      COURSE_ACCESS: <BookmarkIcon sx={{ color: '#3b82f6', fontSize: 20 }} />,
+      COURSE_UPDATE: <BookmarkIcon sx={{ color: '#8b5cf6', fontSize: 20 }} />,
+      CERTIFICATE_READY: <FavoriteIcon sx={{ color: '#10b981', fontSize: 20 }} />,
+      PROGRESS_UPDATE: <DashboardIcon sx={{ color: '#f59e0b', fontSize: 20 }} />,
+      SYSTEM_ALERT: <WarningIcon sx={{ color: '#ef4444', fontSize: 20 }} />,
+      NEW_COURSE: <SchoolIcon sx={{ color: '#06b6d4', fontSize: 20 }} />,
     };
     return (
       icons[type] || <NotificationsIcon sx={{ color: theme.palette.primary.main, fontSize: 20 }} />
     );
+  };
+
+  const getNotificationColor = (type) => {
+    const colors = {
+      COURSE_ACCESS: '#3b82f6',
+      COURSE_UPDATE: '#8b5cf6',
+      CERTIFICATE_READY: '#10b981',
+      PROGRESS_UPDATE: '#f59e0b',
+      SYSTEM_ALERT: '#ef4444',
+      NEW_COURSE: '#06b6d4',
+    };
+    return colors[type] || theme.palette.primary.main;
   };
 
   const formatNotificationTime = (dateString) => {
@@ -415,6 +470,15 @@ const Navbar = ({ onToggleSidebar }) => {
     return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   };
 
+  const getPriorityBadge = (priority) => {
+    const priorities = {
+      HIGH: { label: 'Haute', color: '#ef4444' },
+      MEDIUM: { label: 'Moyenne', color: '#f59e0b' },
+      LOW: { label: 'Basse', color: '#10b981' },
+    };
+    return priorities[priority] || { label: 'Normale', color: '#6b7280' };
+  };
+
   const navbarStyles = {
     background: scrolled
       ? `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.98)} 0%, ${alpha(theme.palette.primary.dark, 0.98)} 100%)`
@@ -427,7 +491,7 @@ const Navbar = ({ onToggleSidebar }) => {
 
   return (
     <HideOnScroll>
-      <AppBar position='fixed' sx={navbarStyles} elevation={scrolled ? 4 : 0}>
+      <AppBar position="fixed" sx={navbarStyles} elevation={scrolled ? 4 : 0}>
         <Toolbar
           sx={{
             justifyContent: 'space-between',
@@ -438,41 +502,38 @@ const Navbar = ({ onToggleSidebar }) => {
             width: '100%',
           }}
         >
-          <Fade in={Boolean(error || notificationsError)} timeout={300}>
-            <Box>
-              {(error || notificationsError) && (
-                <Alert
-                  severity='error'
-                  onClose={() => setError('')}
-                  icon={<CloseIcon fontSize='inherit' />}
-                  sx={{
-                    position: 'fixed',
-                    top: 90,
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    zIndex: 2000,
-                    maxWidth: '500px',
-                    width: '90%',
-                    boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
-                    borderRadius: 2,
-                    animation: 'slideDown 0.3s ease-out',
-                    '@keyframes slideDown': {
-                      '0%': { transform: 'translateX(-50%) translateY(-20px)', opacity: 0 },
-                      '100%': { transform: 'translateX(-50%) translateY(0)', opacity: 1 },
-                    },
-                  }}
-                >
-                  {error || notificationsError}
-                </Alert>
-              )}
-            </Box>
-          </Fade>
+          {/* Notification Snackbar */}
+          <Snackbar
+            open={snackbarOpen}
+            autoHideDuration={4000}
+            onClose={() => setSnackbarOpen(false)}
+            anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+            sx={{
+              mt: 8,
+              '& .MuiSnackbarContent-root': {
+                borderRadius: 2,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+              },
+            }}
+          >
+            <Alert
+              severity={snackbarSeverity}
+              onClose={() => setSnackbarOpen(false)}
+              sx={{
+                width: '100%',
+                borderRadius: 2,
+                fontWeight: 600,
+              }}
+            >
+              {snackbarMessage}
+            </Alert>
+          </Snackbar>
 
           {/* Logo et Brand */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, md: 2 } }}>
             {isAuthenticated && (
               <IconButton
-                color='inherit'
+                color="inherit"
                 onClick={onToggleSidebar}
                 sx={{
                   display: { xs: 'flex', md: 'none' },
@@ -483,7 +544,7 @@ const Navbar = ({ onToggleSidebar }) => {
                   },
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}
-                aria-label='Menu'
+                aria-label="Ouvrir le menu latéral"
               >
                 <MenuIcon />
               </IconButton>
@@ -502,7 +563,7 @@ const Navbar = ({ onToggleSidebar }) => {
               onClick={() => navigate('/')}
             >
               <SchoolIcon
-                className='logo-icon'
+                className="logo-icon"
                 sx={{
                   fontSize: { xs: 32, md: 38 },
                   mr: 1.5,
@@ -512,9 +573,9 @@ const Navbar = ({ onToggleSidebar }) => {
                 }}
               />
               <Typography
-                className='brand-text'
-                variant='h5'
-                component='div'
+                className="brand-text"
+                variant="h5"
+                component="div"
                 sx={{
                   fontFamily: "'Poppins', 'Ubuntu', sans-serif",
                   fontWeight: 800,
@@ -536,9 +597,9 @@ const Navbar = ({ onToggleSidebar }) => {
             {/* Navigation Desktop */}
             <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.5, ml: 4 }}>
               {navItems.map((item, index) => (
-                <Tooltip key={item.path || index} title={item.label} arrow placement='bottom'>
+                <Tooltip key={item.path || index} title={item.label} arrow placement="bottom">
                   <Button
-                    color='inherit'
+                    color="inherit"
                     onClick={() => handleNavigation(item.path)}
                     sx={{
                       px: 2.5,
@@ -574,6 +635,7 @@ const Navbar = ({ onToggleSidebar }) => {
                       textTransform: 'none',
                       letterSpacing: '0.3px',
                     }}
+                    aria-label={item.label}
                   >
                     {item.label}
                   </Button>
@@ -588,7 +650,7 @@ const Navbar = ({ onToggleSidebar }) => {
             {!isAuthenticated && (
               <>
                 <Button
-                  variant='outlined'
+                  variant="outlined"
                   startIcon={<LoginIcon />}
                   onClick={() => navigate('/login')}
                   sx={{
@@ -609,11 +671,12 @@ const Navbar = ({ onToggleSidebar }) => {
                     },
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
+                  aria-label="Se connecter"
                 >
                   Connexion
                 </Button>
                 <Button
-                  variant='contained'
+                  variant="contained"
                   startIcon={<RegisterIcon />}
                   onClick={() => navigate('/register')}
                   sx={{
@@ -633,13 +696,14 @@ const Navbar = ({ onToggleSidebar }) => {
                     },
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
+                  aria-label="S'inscrire"
                 >
                   S'inscrire
                 </Button>
 
                 {/* Menu mobile pour utilisateurs non connectés */}
                 <IconButton
-                  color='inherit'
+                  color="inherit"
                   onClick={handleMobileMenuOpen}
                   sx={{
                     display: { xs: 'flex', sm: 'none' },
@@ -649,6 +713,7 @@ const Navbar = ({ onToggleSidebar }) => {
                     },
                     transition: 'all 0.3s ease',
                   }}
+                  aria-label="Ouvrir le menu mobile"
                 >
                   <MenuIcon />
                 </IconButton>
@@ -658,9 +723,10 @@ const Navbar = ({ onToggleSidebar }) => {
             {/* Si l'utilisateur EST connecté */}
             {isAuthenticated && (
               <>
-                <Tooltip title='Rechercher' arrow>
+                {/* Suppression temporaire du bouton de recherche car la route n'existe pas
+                <Tooltip title="Rechercher" arrow>
                   <IconButton
-                    color='inherit'
+                    color="inherit"
                     onClick={() => navigate('/search')}
                     sx={{
                       display: { xs: 'none', sm: 'flex' },
@@ -670,14 +736,15 @@ const Navbar = ({ onToggleSidebar }) => {
                       },
                       transition: 'all 0.3s ease',
                     }}
+                    aria-label="Rechercher"
                   >
                     <SearchIcon />
                   </IconButton>
                 </Tooltip>
-
+                */}
                 <Tooltip title={`${unreadCount} notification${unreadCount > 1 ? 's' : ''}`} arrow>
                   <IconButton
-                    color='inherit'
+                    color="inherit"
                     onClick={handleNotificationOpen}
                     sx={{
                       '&:hover': {
@@ -686,11 +753,12 @@ const Navbar = ({ onToggleSidebar }) => {
                       },
                       transition: 'all 0.3s ease',
                     }}
+                    aria-label={`Ouvrir les notifications (${unreadCount} non lues)`}
                   >
                     <Badge
                       badgeContent={unreadCount}
-                      color='secondary'
-                      overlap='circular'
+                      color="secondary"
+                      overlap="circular"
                       sx={{
                         '& .MuiBadge-badge': {
                           animation: unreadCount > 0 ? 'pulse 2s infinite' : 'none',
@@ -710,7 +778,7 @@ const Navbar = ({ onToggleSidebar }) => {
                 </Tooltip>
 
                 <IconButton
-                  color='inherit'
+                  color="inherit"
                   onClick={handleMobileMenuOpen}
                   sx={{
                     display: { xs: 'flex', md: 'none' },
@@ -720,12 +788,13 @@ const Navbar = ({ onToggleSidebar }) => {
                     },
                     transition: 'all 0.3s ease',
                   }}
+                  aria-label="Ouvrir le menu de profil mobile"
                 >
                   <AccountCircle />
                 </IconButton>
 
                 {/* Profile Desktop */}
-                <Tooltip title='Mon compte' arrow>
+                <Tooltip title="Mon compte" arrow>
                   <Box
                     sx={{
                       display: { xs: 'none', md: 'flex' },
@@ -757,13 +826,17 @@ const Navbar = ({ onToggleSidebar }) => {
                         border: `2px solid ${alpha('#fff', 0.4)}`,
                         boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
                       }}
-                      src={profileData?.avatar || user?.avatar}
+                      src={profileData?.avatar || user?.avatar || defaultAvatar}
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = defaultAvatar; 
+                      }}
                     >
                       {getUserInitials()}
                     </Avatar>
                     <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                       <Typography
-                        variant='subtitle2'
+                        variant="subtitle2"
                         fontWeight={700}
                         lineHeight={1.2}
                         sx={{
@@ -778,7 +851,7 @@ const Navbar = ({ onToggleSidebar }) => {
                       </Typography>
                       <Chip
                         label={getRoleLabel(userRole)}
-                        size='small'
+                        size="small"
                         sx={{
                           height: 18,
                           fontSize: '0.65rem',
@@ -833,29 +906,30 @@ const Navbar = ({ onToggleSidebar }) => {
                   }}
                 >
                   <Box>
-                    <Typography variant='h6' fontWeight={800} sx={{ letterSpacing: '0.3px' }}>
+                    <Typography variant="h6" fontWeight={800} sx={{ letterSpacing: '0.3px' }}>
                       Notifications
                     </Typography>
-                    <Typography variant='caption' sx={{ opacity: 0.95, fontWeight: 500 }}>
+                    <Typography variant="caption" sx={{ opacity: 0.95, fontWeight: 500 }}>
                       {unreadCount} non {unreadCount === 1 ? 'lue' : 'lues'}
                     </Typography>
                   </Box>
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     {loadingNotifications && (
-                      <CircularProgress size={20} color='inherit' thickness={5} />
+                      <CircularProgress size={20} color="inherit" thickness={5} />
                     )}
                     {unreadCount > 0 && (
-                      <Tooltip title='Tout marquer comme lu'>
+                      <Tooltip title="Tout marquer comme lu">
                         <IconButton
-                          size='small'
+                          size="small"
                           onClick={handleMarkAllAsRead}
                           sx={{
                             color: 'white',
                             bgcolor: alpha('#fff', 0.2),
                             '&:hover': { bgcolor: alpha('#fff', 0.3) },
                           }}
+                          aria-label="Marquer toutes les notifications comme lues"
                         >
-                          <MarkEmailReadIcon fontSize='small' />
+                          <MarkEmailReadIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                     )}
@@ -865,107 +939,130 @@ const Navbar = ({ onToggleSidebar }) => {
 
               <Box sx={{ maxHeight: 450, overflow: 'auto' }}>
                 {notifications && notifications.length > 0 ? (
-                  notifications.map((notification, index) => (
-                    <MenuItem
-                      key={notification._id || index}
-                      onClick={() => handleNotificationClick(notification)}
-                      sx={{
-                        py: 2,
-                        px: 2.5,
-                        borderBottom:
-                          index < notifications.length - 1
-                            ? `1px solid ${theme.palette.grey[100]}`
-                            : 'none',
-                        backgroundColor: !notification.lu
-                          ? alpha(theme.palette.primary.main, 0.05)
-                          : 'transparent',
-                        '&:hover': {
-                          backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                        },
-                        transition: 'all 0.2s ease',
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', width: '100%', gap: 2 }}>
-                        <Box sx={{ mt: 0.5 }}>{getNotificationIcon(notification.type)}</Box>
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Box
-                            sx={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'flex-start',
-                              mb: 0.5,
-                            }}
-                          >
-                            <Typography
-                              variant='body2'
-                              fontWeight={notification.lu ? 500 : 700}
-                              sx={{ flex: 1, pr: 1 }}
+                  notifications.map((notification, index) => {
+                    const priority = getPriorityBadge(notification.priority);
+                    return (
+                      <MenuItem
+                        key={notification._id || index}
+                        onClick={() => handleNotificationClick(notification)}
+                        sx={{
+                          py: 2,
+                          px: 2.5,
+                          borderBottom:
+                            index < notifications.length - 1
+                              ? `1px solid ${theme.palette.grey[100]}`
+                              : 'none',
+                          backgroundColor: !notification.lu
+                            ? alpha(getNotificationColor(notification.type), 0.08)
+                            : 'transparent',
+                          '&:hover': {
+                            backgroundColor: alpha(getNotificationColor(notification.type), 0.12),
+                          },
+                          transition: 'all 0.2s ease',
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', width: '100%', gap: 2 }}>
+                          <Box sx={{ mt: 0.5 }}>{getNotificationIcon(notification.type)}</Box>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'flex-start',
+                                mb: 0.5,
+                              }}
                             >
-                              {notification.message || 'Notification'}
-                            </Typography>
-                            {!notification.lu && (
-                              <CircleIcon
+                              <Typography
+                                variant="body2"
+                                fontWeight={notification.lu ? 500 : 700}
+                                sx={{ flex: 1, pr: 1 }}
+                              >
+                                {notification.message || 'Notification'}
+                              </Typography>
+                              {!notification.lu && (
+                                <CircleIcon
+                                  sx={{
+                                    fontSize: 9,
+                                    color: getNotificationColor(notification.type),
+                                    flexShrink: 0,
+                                  }}
+                                />
+                              )}
+                            </Box>
+
+                            {/* Badge de priorité */}
+                            {notification.priority && notification.priority !== 'LOW' && (
+                              <Chip
+                                label={priority.label}
+                                size="small"
                                 sx={{
-                                  fontSize: 9,
-                                  color: theme.palette.secondary.main,
-                                  flexShrink: 0,
+                                  height: 16,
+                                  fontSize: '0.6rem',
+                                  fontWeight: 700,
+                                  bgcolor: priority.color,
+                                  color: 'white',
+                                  mb: 0.5,
+                                  '& .MuiChip-label': { px: 1 },
                                 }}
                               />
                             )}
-                          </Box>
-                          <Box
-                            sx={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                            }}
-                          >
-                            <Typography
-                              variant='caption'
-                              color='text.secondary'
-                              sx={{ fontSize: '0.7rem', fontWeight: 500 }}
+
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                              }}
                             >
-                              {formatNotificationTime(notification.createdAt)}
-                            </Typography>
-                            <Box sx={{ display: 'flex', gap: 0.5 }}>
-                              {!notification.lu && (
-                                <Tooltip title='Marquer comme lu'>
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ fontSize: '0.7rem', fontWeight: 500 }}
+                              >
+                                {formatNotificationTime(notification.createdAt)}
+                              </Typography>
+                              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                {!notification.lu && (
+                                  <Tooltip title="Marquer comme lu">
+                                    <IconButton
+                                      size="small"
+                                      onClick={(e) => handleMarkAsRead(notification._id, e)}
+                                      sx={{
+                                        p: 0.5,
+                                        '&:hover': {
+                                          bgcolor: alpha(theme.palette.success.main, 0.1),
+                                        },
+                                      }}
+                                      aria-label="Marquer la notification comme lue"
+                                    >
+                                      <CheckCircleIcon
+                                        sx={{ fontSize: 17, color: theme.palette.success.main }}
+                                      />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+                                <Tooltip title="Supprimer">
                                   <IconButton
-                                    size='small'
-                                    onClick={(e) => handleMarkAsRead(notification._id, e)}
+                                    size="small"
+                                    onClick={(e) => handleDeleteNotification(notification._id, e)}
                                     sx={{
                                       p: 0.5,
-                                      '&:hover': {
-                                        bgcolor: alpha(theme.palette.success.main, 0.1),
-                                      },
+                                      '&:hover': { p: 0.5, bgcolor: alpha(theme.palette.error.main, 0.1) },
                                     }}
+                                    aria-label="Supprimer la notification"
                                   >
-                                    <CheckCircleIcon
-                                      sx={{ fontSize: 17, color: theme.palette.success.main }}
+                                    <DeleteIcon
+                                      sx={{ fontSize: 17, color: theme.palette.error.main }}
                                     />
                                   </IconButton>
                                 </Tooltip>
-                              )}
-                              <Tooltip title='Supprimer'>
-                                <IconButton
-                                  size='small'
-                                  onClick={(e) => handleDeleteNotification(notification._id, e)}
-                                  sx={{
-                                    p: 0.5,
-                                    '&:hover': { bgcolor: alpha(theme.palette.error.main, 0.1) },
-                                  }}
-                                >
-                                  <DeleteIcon
-                                    sx={{ fontSize: 17, color: theme.palette.error.main }}
-                                  />
-                                </IconButton>
-                              </Tooltip>
+                              </Box>
                             </Box>
                           </Box>
                         </Box>
-                      </Box>
-                    </MenuItem>
-                  ))
+                      </MenuItem>
+                    );
+                  })
                 ) : (
                   <Box
                     sx={{
@@ -977,8 +1074,11 @@ const Navbar = ({ onToggleSidebar }) => {
                     }}
                   >
                     <NotificationsIcon sx={{ fontSize: 56, color: theme.palette.grey[300] }} />
-                    <Typography variant='body2' color='text.secondary' fontWeight={500}>
+                    <Typography variant="body2" color="text.secondary" fontWeight={500}>
                       Aucune notification
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Les nouvelles notifications apparaîtront ici
                     </Typography>
                   </Box>
                 )}
@@ -994,7 +1094,7 @@ const Navbar = ({ onToggleSidebar }) => {
                   }}
                 >
                   <Button
-                    size='small'
+                    size="small"
                     onClick={() => handleNavigation('/notifications')}
                     sx={{
                       color: theme.palette.primary.main,
@@ -1002,6 +1102,7 @@ const Navbar = ({ onToggleSidebar }) => {
                       textTransform: 'none',
                       '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.08) },
                     }}
+                    aria-label="Voir toutes les notifications"
                   >
                     Voir tout
                   </Button>
@@ -1049,33 +1150,37 @@ const Navbar = ({ onToggleSidebar }) => {
                     border: `4px solid ${alpha('#fff', 0.3)}`,
                     boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
                   }}
-                  src={profileData?.avatar || user?.avatar}
+                  src={profileData?.avatar || user?.avatar || defaultAvatar}
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = defaultAvatar; // Fallback si erreur de chargement
+                  }}
                 >
                   {getUserInitials()}
                 </Avatar>
                 {loadingProfile ? (
-                  <CircularProgress size={24} color='inherit' thickness={5} />
+                  <CircularProgress size={24} color="inherit" thickness={5} />
                 ) : (
                   <>
                     <Typography
-                      variant='h6'
+                      variant="h6"
                       fontWeight={800}
                       sx={{ letterSpacing: '0.3px', color: 'white' }}
                     >
                       {getUserFullName()}
                     </Typography>
-                    <Typography variant='body2' sx={{ opacity: 0.95, mb: 1.5, fontWeight: 500 }}>
+                    <Typography variant="body2" sx={{ opacity: 0.95, mb: 1.5, fontWeight: 500 }}>
                       {profileData?.email || user?.email || 'email@example.com'}
                     </Typography>
                     <Stack
-                      direction='row'
+                      direction="row"
                       spacing={1}
-                      justifyContent='center'
+                      justifyContent="center"
                       sx={{ flexWrap: 'wrap' }}
                     >
                       <Chip
                         label={getRoleLabel(userRole)}
-                        size='small'
+                        size="small"
                         sx={{
                           bgcolor: alpha(getRoleColor(userRole), 0.25),
                           color: 'white',
@@ -1086,7 +1191,7 @@ const Navbar = ({ onToggleSidebar }) => {
                       {isStudent && (profileData?.level || user?.level) && (
                         <Chip
                           label={`Niveau ${profileData?.level || user?.level}`}
-                          size='small'
+                          size="small"
                           sx={{
                             bgcolor: alpha('#fff', 0.25),
                             color: 'white',
@@ -1102,9 +1207,7 @@ const Navbar = ({ onToggleSidebar }) => {
               <Box sx={{ p: 1.5 }}>
                 <MenuItem
                   onClick={() =>
-                    handleNavigation(
-                      `/${PATH_PREFIXES[userRole.toUpperCase()] || 'student'}/profil`
-                    )
+                    handleNavigation(`/${PATH_PREFIXES[userRole] || 'student'}/profil`)
                   }
                   sx={{
                     borderRadius: 2,
@@ -1118,12 +1221,14 @@ const Navbar = ({ onToggleSidebar }) => {
                   }}
                 >
                   <ListItemIcon>
-                    <ProfileIcon fontSize='small' sx={{ color: theme.palette.primary.main }} />
+                    <ProfileIcon fontSize="small" sx={{ color: theme.palette.primary.main }} />
                   </ListItemIcon>
-                  <ListItemText primary='Mon Profil' primaryTypographyProps={{ fontWeight: 600 }} />
+                    <ListItemText primary="Mon Profil" primaryTypographyProps={{ fontWeight: 600 }} />
                 </MenuItem>
                 <MenuItem
-                  onClick={() => handleNavigation('/student/settings')}
+                  onClick={() =>
+                    handleNavigation(`/${PATH_PREFIXES[userRole] || 'student'}/settings`)
+                  }
                   sx={{
                     borderRadius: 2,
                     py: 1.5,
@@ -1136,15 +1241,13 @@ const Navbar = ({ onToggleSidebar }) => {
                   }}
                 >
                   <ListItemIcon>
-                    <SettingsIcon fontSize='small' sx={{ color: theme.palette.primary.main }} />
+                    <SettingsIcon fontSize="small" sx={{ color: theme.palette.primary.main }} />
                   </ListItemIcon>
-                  <ListItemText primary='Paramètres' primaryTypographyProps={{ fontWeight: 600 }} />
+                  <ListItemText primary="Paramètres" primaryTypographyProps={{ fontWeight: 600 }} />
                 </MenuItem>
                 <MenuItem
                   onClick={() =>
-                    handleNavigation(
-                      `/${PATH_PREFIXES[userRole.toUpperCase()] || 'student'}/dashboard`
-                    )
+                    handleNavigation(`/${PATH_PREFIXES[userRole] || 'student'}/dashboard`)
                   }
                   sx={{
                     borderRadius: 2,
@@ -1158,10 +1261,10 @@ const Navbar = ({ onToggleSidebar }) => {
                   }}
                 >
                   <ListItemIcon>
-                    <DashboardIcon fontSize='small' sx={{ color: theme.palette.primary.main }} />
+                    <DashboardIcon fontSize="small" sx={{ color: theme.palette.primary.main }} />
                   </ListItemIcon>
                   <ListItemText
-                    primary='Tableau de bord'
+                    primary="Tableau de bord"
                     primaryTypographyProps={{ fontWeight: 600 }}
                   />
                 </MenuItem>
@@ -1180,10 +1283,10 @@ const Navbar = ({ onToggleSidebar }) => {
                   }}
                 >
                   <ListItemIcon>
-                    <LogoutIcon fontSize='small' sx={{ color: theme.palette.error.main }} />
+                    <LogoutIcon fontSize="small" sx={{ color: theme.palette.error.main }} />
                   </ListItemIcon>
                   <ListItemText
-                    primary='Déconnexion'
+                    primary="Déconnexion"
                     primaryTypographyProps={{ fontWeight: 700 }}
                   />
                 </MenuItem>
@@ -1232,23 +1335,27 @@ const Navbar = ({ onToggleSidebar }) => {
                     border: `3px solid ${alpha('#fff', 0.3)}`,
                     boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
                   }}
-                  src={profileData?.avatar || user?.avatar}
+                  src={profileData?.avatar || user?.avatar || defaultAvatar}
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = defaultAvatar;
+                  }}
                 >
                   {getUserInitials()}
                 </Avatar>
                 <Box sx={{ flex: 1 }}>
                   {loadingProfile ? (
-                    <CircularProgress size={20} color='inherit' thickness={5} />
+                    <CircularProgress size={20} color="inherit" thickness={5} />
                   ) : (
                     <>
                       <Typography
-                        variant='subtitle1'
+                        variant="subtitle1"
                         fontWeight={800}
                         sx={{ letterSpacing: '0.3px', color: 'white' }}
                       >
                         {getUserFullName()}
                       </Typography>
-                      <Typography variant='caption' sx={{ opacity: 0.95, fontWeight: 500 }}>
+                      <Typography variant="caption" sx={{ opacity: 0.95, fontWeight: 500 }}>
                         {getRoleLabel(userRole)}
                         {isStudent &&
                           (profileData?.level || user?.level) &&
@@ -1269,10 +1376,10 @@ const Navbar = ({ onToggleSidebar }) => {
                 }}
               >
                 <SchoolIcon sx={{ fontSize: 48, mb: 1.5, opacity: 0.9 }} />
-                <Typography variant='h6' fontWeight={800} sx={{ letterSpacing: '0.3px', mb: 0.5 }}>
+                <Typography variant="h6" fontWeight={800} sx={{ letterSpacing: '0.3px', mb: 0.5 }}>
                   Youth Computing
                 </Typography>
-                <Typography variant='body2' sx={{ opacity: 0.9, fontWeight: 500 }}>
+                <Typography variant="body2" sx={{ opacity: 0.9, fontWeight: 500 }}>
                   Plateforme d'apprentissage en ligne
                 </Typography>
               </Paper>
@@ -1309,7 +1416,7 @@ const Navbar = ({ onToggleSidebar }) => {
                 ))
               ) : (
                 <Typography
-                  variant='body2'
+                  variant="body2"
                   sx={{ p: 2, color: 'text.secondary', textAlign: 'center' }}
                 >
                   Aucun élément
@@ -1334,10 +1441,10 @@ const Navbar = ({ onToggleSidebar }) => {
                     }}
                   >
                     <ListItemIcon>
-                      <LoginIcon fontSize='small' sx={{ color: theme.palette.primary.main }} />
+                      <LoginIcon fontSize="small" sx={{ color: theme.palette.primary.main }} />
                     </ListItemIcon>
                     <ListItemText
-                      primary='Connexion'
+                      primary="Connexion"
                       primaryTypographyProps={{ fontWeight: 700 }}
                     />
                   </MenuItem>
@@ -1355,7 +1462,7 @@ const Navbar = ({ onToggleSidebar }) => {
                     }}
                   >
                     <ListItemIcon>
-                      <RegisterIcon fontSize='small' sx={{ color: theme.palette.secondary.main }} />
+                      <RegisterIcon fontSize="small" sx={{ color: theme.palette.secondary.main }} />
                     </ListItemIcon>
                     <ListItemText
                       primary="S'inscrire"
@@ -1371,9 +1478,7 @@ const Navbar = ({ onToggleSidebar }) => {
                   <Divider sx={{ my: 1.5 }} />
                   <MenuItem
                     onClick={() =>
-                      handleNavigation(
-                        `/${PATH_PREFIXES[userRole.toUpperCase()] || 'student'}/profil`
-                      )
+                      handleNavigation(`/${PATH_PREFIXES[userRole] || 'student'}/profil`)
                     }
                     sx={{
                       borderRadius: 2,
@@ -1387,15 +1492,17 @@ const Navbar = ({ onToggleSidebar }) => {
                     }}
                   >
                     <ListItemIcon>
-                      <ProfileIcon fontSize='small' sx={{ color: theme.palette.primary.main }} />
+                      <ProfileIcon fontSize="small" sx={{ color: theme.palette.primary.main }} />
                     </ListItemIcon>
                     <ListItemText
-                      primary='Mon Profil'
+                      primary="Mon Profil"
                       primaryTypographyProps={{ fontWeight: 600 }}
                     />
                   </MenuItem>
                   <MenuItem
-                    onClick={() => handleNavigation('/student/settings')}
+                    onClick={() =>
+                      handleNavigation(`/${PATH_PREFIXES[userRole] || 'student'}/settings`)
+                    }
                     sx={{
                       borderRadius: 2,
                       py: 1.5,
@@ -1408,10 +1515,10 @@ const Navbar = ({ onToggleSidebar }) => {
                     }}
                   >
                     <ListItemIcon>
-                      <SettingsIcon fontSize='small' sx={{ color: theme.palette.primary.main }} />
+                      <SettingsIcon fontSize="small" sx={{ color: theme.palette.primary.main }} />
                     </ListItemIcon>
                     <ListItemText
-                      primary='Paramètres'
+                      primary="Paramètres"
                       primaryTypographyProps={{ fontWeight: 600 }}
                     />
                   </MenuItem>
@@ -1430,10 +1537,10 @@ const Navbar = ({ onToggleSidebar }) => {
                     }}
                   >
                     <ListItemIcon>
-                      <LogoutIcon fontSize='small' sx={{ color: theme.palette.error.main }} />
+                      <LogoutIcon fontSize="small" sx={{ color: theme.palette.error.main }} />
                     </ListItemIcon>
                     <ListItemText
-                      primary='Déconnexion'
+                      primary="Déconnexion"
                       primaryTypographyProps={{ fontWeight: 700 }}
                     />
                   </MenuItem>

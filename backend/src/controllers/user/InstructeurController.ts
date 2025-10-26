@@ -9,13 +9,7 @@ import {
   RoleUtilisateur,
 } from '../../types';
 
-/**
- * Contrôleur pour gérer les fonctionnalités des instructeurs.
- */
 class InstructeurController {
-  /**
-   * Récupère les cours créés par un instructeur.
-   */
   static getCourses = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { id } = req.params;
@@ -38,9 +32,6 @@ class InstructeurController {
     }
   };
 
-  /**
-   * Crée un nouveau cours pour un instructeur.
-   */
   static createCourse = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { id } = req.params;
@@ -55,7 +46,6 @@ class InstructeurController {
         throw createError(400, 'Les champs titre, durée, domaineId et niveau sont requis');
       }
 
-      // Création du cours
       const cours = await Cours.create({
         titre,
         description: description || '',
@@ -69,13 +59,11 @@ class InstructeurController {
         estPublie: false,
       });
 
-      // Récupération de l'instructeur
       const instructeur = await User.findById(id) as UserDocument;
       if (!instructeur) {
         throw createError(404, 'Instructeur non trouvé');
       }
 
-      // ✅ Correction TypeScript ici
       instructeur.coursEnCoursEdition?.push(cours._id as mongoose.Types.ObjectId);
 
       await instructeur.save();
@@ -90,9 +78,6 @@ class InstructeurController {
     }
   };
 
-  /**
-   * Met à jour un cours créé par un instructeur.
-   */
   static updateCourse = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { id, courseId } = req.params;
@@ -134,9 +119,6 @@ class InstructeurController {
     }
   };
 
-  /**
-   * Soumet un cours pour approbation.
-   */
   static submitForApproval = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { id, courseId } = req.params;
@@ -179,9 +161,6 @@ class InstructeurController {
     }
   };
 
-  /**
-   * Récupère les cours en cours d'édition par un instructeur.
-   */
   static getCoursesInProgress = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { id } = req.params;
@@ -203,9 +182,6 @@ class InstructeurController {
     }
   };
 
-  /**
-   * Récupère le profil d'un instructeur.
-   */
   static getProfile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { id } = req.params;
@@ -229,7 +205,6 @@ class InstructeurController {
   };
 }
 
-// ✅ Export des méthodes individuelles
 export const getCourses = InstructeurController.getCourses;
 export const createCourse = InstructeurController.createCourse;
 export const updateCourse = InstructeurController.updateCourse;

@@ -1,7 +1,6 @@
 import { Schema, Types, Model } from 'mongoose';
 import User, { IUser } from './User';
 
-// Interface pour le document Instructeur
 interface IInstructeur extends IUser {
   coursCrees: Types.ObjectId[];
   coursEnCoursEdition: Types.ObjectId[];
@@ -11,7 +10,6 @@ interface IInstructeur extends IUser {
   updatedAt: Date;
 }
 
-// Schéma pour le discriminateur Instructeur
 const instructeurSchema = new Schema<IInstructeur>(
   {
     coursCrees: [
@@ -40,14 +38,11 @@ const instructeurSchema = new Schema<IInstructeur>(
   { timestamps: true }
 );
 
-// Index pour optimiser les recherches par cours créés
 instructeurSchema.index({ coursCrees: 1 }, { unique: false, partialFilterExpression: { coursCrees: { $exists: true } } });
 
-// Middleware pour population automatique
 instructeurSchema.pre('find', function (this: any, next) {
   this.populate('coursCrees coursEnCoursEdition');
   next();
 });
 
-// Discriminateur pour Instructeur
 export default User.discriminator('Instructeur', instructeurSchema);

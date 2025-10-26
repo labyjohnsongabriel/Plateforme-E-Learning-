@@ -1,3 +1,4 @@
+// CoursController (unchanged)
 import { Request, Response, NextFunction } from 'express';
 import createError from 'http-errors';
 import mongoose from 'mongoose';
@@ -253,6 +254,11 @@ class CoursService {
         })
         .populate({
           path: 'instructeurId',
+          select: 'prenom nom',
+          options: { strictPopulate: false },
+        })
+        .populate({
+          path: 'createur',
           select: 'prenom nom',
           options: { strictPopulate: false },
         })

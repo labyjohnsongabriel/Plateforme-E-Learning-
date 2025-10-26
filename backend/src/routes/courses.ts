@@ -13,8 +13,7 @@ import createError from 'http-errors';
 
 const router: Router = Router();
 
-/* -------------------- 🔷 ROUTES DOMAINE -------------------- */
-// Créer un domaine (admin seulement)
+/* ==================== DOMAINE ROUTES ==================== */
 router.post(
   '/domaine',
   authMiddleware,
@@ -23,13 +22,9 @@ router.post(
   DomaineController.create
 );
 
-// Récupérer tous les domaines (public)
 router.get('/domaine', DomaineController.getAll);
-
-// Récupérer un domaine par ID (public)
 router.get('/domaine/:id', DomaineController.getById);
 
-// Mettre à jour un domaine (admin)
 router.put(
   '/domaine/:id',
   authMiddleware,
@@ -38,7 +33,6 @@ router.put(
   DomaineController.update
 );
 
-// Supprimer un domaine (admin)
 router.delete(
   '/domaine/:id',
   authMiddleware,
@@ -46,7 +40,6 @@ router.delete(
   DomaineController.delete
 );
 
-// Stats d'un domaine (admin)
 router.get(
   '/domaine/:id/stats',
   authMiddleware,
@@ -55,7 +48,7 @@ router.get(
     try {
       const domaine = await Domaine.findById(req.params.id);
       if (!domaine) throw createError(404, 'Domaine non trouvé');
-      const stats = await domaine.getStatistiques(); // Assume getStatistiques is implemented in model
+      const stats = await domaine.getStatistiques();
       res.json(stats);
     } catch (err) {
       next(err);
@@ -63,8 +56,7 @@ router.get(
   }
 );
 
-/* -------------------- 🔷 ROUTES COURS -------------------- */
-// Mes cours (étudiant)
+/* ==================== COURS ROUTES ==================== */
 router.get(
   '/my-courses',
   authMiddleware,
@@ -72,10 +64,8 @@ router.get(
   CoursController.getMyCourses
 );
 
-// Récupérer les cours publics (pas d'auth requis)
 router.get('/public', CoursController.getPublicCourses);
 
-// Récupérer les stats des cours (admin)
 router.get(
   '/stats',
   authMiddleware,
@@ -83,60 +73,6 @@ router.get(
   CoursController.getStats
 );
 
-/* -------------------- 🔷 ROUTES CONTENU -------------------- */
-// Récupérer contenu par ID (auth)
-router.get('/contenu/:id', authMiddleware, ContenuController.getById);
-
-// Supprimer contenu (admin)
-router.delete(
-  '/contenu/:id',
-  authMiddleware,
-  authorize([RoleUtilisateur.ADMIN]),
-  ContenuController.delete
-);
-
-// Récupérer contenus par courseId (query param)
-router.get('/contenu', authMiddleware, ContenuController.getByCourseId);
-
-/* -------------------- 🔷 ROUTES QUIZ -------------------- */
-// Créer quiz (admin)
-router.post(
-  '/quiz',
-  authMiddleware,
-  authorize([RoleUtilisateur.ADMIN]),
-  validate(courseValidator.createQuiz),
-  QuizController.create
-);
-
-// Récupérer quiz par ID (auth)
-router.get('/quiz/:id', authMiddleware, QuizController.getById);
-
-// Mettre à jour quiz (admin)
-router.put(
-  '/quiz/:id',
-  authMiddleware,
-  authorize([RoleUtilisateur.ADMIN]),
-  validate(courseValidator.updateQuiz),
-  QuizController.update
-);
-
-// Supprimer quiz (admin)
-router.delete(
-  '/quiz/:id',
-  authMiddleware,
-  authorize([RoleUtilisateur.ADMIN]),
-  QuizController.delete
-);
-
-// Soumettre quiz (étudiant)
-router.post(
-  '/quiz/:id/soumettre',
-  authMiddleware,
-  authorize([RoleUtilisateur.ETUDIANT]),
-  QuizController.soumettre
-);
-
-// Créer un cours (admin)
 router.post(
   '/',
   authMiddleware,
@@ -145,7 +81,6 @@ router.post(
   CoursController.create
 );
 
-// Récupérer tous les cours (admin)
 router.get(
   '/',
   authMiddleware,
@@ -153,10 +88,75 @@ router.get(
   CoursController.getAll
 );
 
-// Récupérer un cours par ID (public si publié, sinon auth)
-router.get('/:id', CoursController.getById);
+/* ==================== CONTENU ROUTES – DOIVENT ÊTRE AVANT /:id ==================== */
+router.get('/contenu/:id', authMiddleware, ContenuController.getById);
 
-// Mettre à jour un cours (admin)
+router.get('/contenu', authMiddleware, ContenuController.getByCourseId); // AVANT /:id
+
+router.post(
+  '/contenu',
+  authMiddleware,
+  authorize([RoleUtilisateur.ADMIN]),
+  ContenuController.create
+);
+
+router.put(
+  '/contenu/:id',
+  authMiddleware,
+  authorize([RoleUtilisateur.ADMIN]),
+  ContenuController.update
+);
+
+router.delete(
+  '/contenu/:id',
+  authMiddleware,
+  authorize([RoleUtilisateur.ADMIN]),
+  ContenuController.delete
+);
+
+router.put(
+  '/contenu/:id/complete',
+  authMiddleware,
+  authorize([RoleUtilisateur.ETUDIANT]),
+  ContenuController.complete
+);
+
+/* ==================== QUIZ ROUTES ==================== */
+router.post(
+  '/quiz',
+  authMiddleware,
+  authorize([RoleUtilisateur.ADMIN]),
+  validate(courseValidator.createQuiz),
+  QuizController.create
+);
+
+router.get('/quiz/:id', authMiddleware, QuizController.getById);
+
+router.put(
+  '/quiz/:id',
+  authMiddleware,
+  authorize([RoleUtilisateur.ADMIN]),
+  validate(courseValidator.updateQuiz),
+  QuizController.update
+);
+
+router.delete(
+  '/quiz/:id',
+  authMiddleware,
+  authorize([RoleUtilisateur.ADMIN]),
+  QuizController.delete
+);
+
+router.post(
+  '/quiz/:id/soumettre',
+  authMiddleware,
+  authorize([RoleUtilisateur.ETUDIANT]),
+  QuizController.soumettre
+);
+
+/* ==================== COURS DÉTAIL – DOIT ÊTRE EN DERNIER ==================== */
+router.get('/:id', CoursController.getById); // ← APRÈS /contenu
+
 router.put(
   '/:id',
   authMiddleware,
@@ -165,7 +165,6 @@ router.put(
   CoursController.update
 );
 
-// Supprimer un cours (admin)
 router.delete(
   '/:id',
   authMiddleware,

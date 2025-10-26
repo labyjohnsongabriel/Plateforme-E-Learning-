@@ -13,6 +13,22 @@ export enum RoleUtilisateur {
 
 export type StatutInscription = 'EN_COURS' | 'TERMINE' | 'ANNULE';
 
+export interface Statistics {
+  progression: number;
+  coursTermines: number;
+  coursInscrits: number;
+  certificats: number;
+  heuresEtude: number;
+}
+export interface IContenu {
+  titre: string;
+  description?: string;
+  type: string;
+  url?: string;
+  cours: string | Types.ObjectId;
+  ordre?: number;
+}
+
 export interface UserDocument extends Document {
   _id: Types.ObjectId;
   nom: string;
@@ -30,6 +46,7 @@ export interface UserDocument extends Document {
   coursEnCoursEdition?: Types.ObjectId[];
   progres?: Types.ObjectId[];
   certificats?: Types.ObjectId[];
+  statistics?: Statistics;
   mettreAJourProfil?: (updates: UserData) => Promise<void>;
   visualiserProgres?: () => Promise<any>;
   gererUtilisateurs?: () => Promise<UserDocument[]>;
@@ -77,7 +94,7 @@ export interface CourseDocument extends Document {
   description?: string;
   duree: number;
   niveau: NiveauFormation;
-  domaineId: Types.ObjectId | Record<string, any>; // Allow populated domaine object
+  domaineId: Types.ObjectId | Record<string, any>;
   etudiants?: Types.ObjectId[];
   contenu?: any[];
   quizzes: Types.ObjectId[];
@@ -94,7 +111,7 @@ export interface CourseCreateData {
   description?: string;
   duree: number;
   domaineId: string | Types.ObjectId;
-  domaine?: string | Types.ObjectId; // Added optional domaine property
+  domaine?: string | Types.ObjectId;
   niveau: 'ALFA' | 'BETA' | 'GAMMA' | 'DELTA';
   contenu?: any[];
   quizzes?: (string | Types.ObjectId)[];
@@ -108,7 +125,7 @@ export interface CourseUpdateData {
   description?: string;
   duree?: number;
   domaineId?: string | Types.ObjectId;
-  domaine?: string | Types.ObjectId; // Added optional domaine property
+  domaine?: string | Types.ObjectId;
   niveau?: 'ALFA' | 'BETA' | 'GAMMA' | 'DELTA';
   contenu?: any[];
   quizzes?: (string | Types.ObjectId)[];
@@ -121,7 +138,7 @@ export interface CourseData {
   description?: string;
   niveau: string;
   domaineId: string | Types.ObjectId;
-  domaine?: string | Types.ObjectId; // Added optional domaine property
+  domaine?: string | Types.ObjectId;
   contenu?: any;
   createur: string | Types.ObjectId;
   duree: number;

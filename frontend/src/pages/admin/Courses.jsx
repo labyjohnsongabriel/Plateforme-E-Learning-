@@ -1,3 +1,4 @@
+// src/pages/admin/Courses.jsx
 import React, { useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import {
   Box,
@@ -56,7 +57,7 @@ import { AuthContext } from '../../context/AuthContext';
 import { colors } from '../../utils/colors';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/courses';
-const MODULES_BASE_URL = API_BASE_URL.replace('/courses', '/modules');
+const CONTENTS_BASE_URL = `${API_BASE_URL}/contenu`;
 const USERS_BASE_URL = API_BASE_URL.replace('/courses', '/users');
 
 // Animations
@@ -194,27 +195,27 @@ const Courses = () => {
   const [instructors, setInstructors] = useState([]);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedCourseDetails, setSelectedCourseDetails] = useState(null);
-  const [detailsModules, setDetailsModules] = useState([]);
+  const [detailsContenus, setDetailsContenus] = useState([]);
   const [tabValue, setTabValue] = useState(0);
-  const [currentModules, setCurrentModules] = useState([]);
-  const [addModuleForm, setAddModuleForm] = useState({
+  const [currentContenus, setCurrentContenus] = useState([]);
+  const [addContenuForm, setAddContenuForm] = useState({
     titre: '',
     url: '',
     ordre: 1,
     type: 'VIDEO',
   });
-  const [editingModule, setEditingModule] = useState(null);
+  const [editingContenu, setEditingContenu] = useState(null);
 
   const nextOrdre = useMemo(
-    () => (currentModules.length > 0 ? Math.max(...currentModules.map((m) => m.ordre)) + 1 : 1),
-    [currentModules]
+    () => (currentContenus.length > 0 ? Math.max(...currentContenus.map((m) => m.ordre)) + 1 : 1),
+    [currentContenus]
   );
 
   useEffect(() => {
-    if (!editingModule) {
-      setAddModuleForm((prev) => ({ ...prev, ordre: nextOrdre }));
+    if (!editingContenu) {
+      setAddContenuForm((prev) => ({ ...prev, ordre: nextOrdre }));
     }
-  }, [nextOrdre, editingModule]);
+  }, [nextOrdre, editingContenu]);
 
   // Vérification admin
   useEffect(() => {
@@ -304,9 +305,9 @@ const Courses = () => {
     }
   }, [user, navigate]);
 
-  // Récupération des modules
-  const fetchModules = useCallback(
-    async (courseId, setModulesState = setCurrentModules) => {
+  // Récupération des contenus
+  const fetchContenus = useCallback(
+    async (courseId, setContenusState = setCurrentContenus) => {
       if (!courseId || !/^[0-9a-fA-F]{24}$/.test(courseId)) {
         console.warn('courseId invalide ou manquant:', courseId);
         setFormError('ID du cours invalide ou manquant');
@@ -318,25 +319,28 @@ const Courses = () => {
         return;
       }
       try {
-        const response = await axios.get(`${MODULES_BASE_URL}?courseId=${courseId}`, {
+        const response = await axios.get(`${CONTENTS_BASE_URL}`, {
+          params: { courseId },
           headers: { Authorization: `Bearer ${user.token}` },
         });
-        const modulesData = response.data.data || [];
-        setModulesState(
-          modulesData.map((module) => ({
-            ...module,
-            _id: module._id.toString(),
-            ordre: module.ordre || 1,
-            type: module.type || 'VIDEO',
-            url: module.url || '',
+        const contenusData = response.data.data || [];
+        setContenusState(
+          contenusData.map((contenu) => ({
+            ...contenu,
+            _id: contenu._id.toString(),
+            ordre: contenu.ordre || 1,
+            type: contenu.type || 'VIDEO',
+            url: contenu.url || '',
           }))
         );
       } catch (err) {
-        console.error('Erreur lors du chargement des modules:', err);
-        setFormError(err.response?.data?.message || 'Erreur lors du chargement des modules');
+        console.error('Erreur lors du chargement des contenus:', err);
+        setFormError(err.response?.data?.message || 'Erreur lors du chargement des contenus');
         if (err.response?.status === 401) {
           setError('Session expirée. Veuillez vous reconnecter.');
           navigate('/login');
+        } else if (err.response?.status === 404) {
+          setFormError('Aucun contenu trouvé pour ce cours.');
         }
       }
     },
@@ -416,29 +420,29 @@ const Courses = () => {
     }
   }, [user, fetchDomaines, fetchInstructors, fetchStats, fetchCourses]);
 
-  // Gestion des modules lors de l'ouverture de la modale
+  // Gestion des contenus lors de l'ouverture de la modale
   useEffect(() => {
     if (modalOpen && editingCourse?._id) {
       setTabValue(0);
       setFormError('');
       if (modalMode === 'create') {
-        setCurrentModules([]);
-        setAddModuleForm({ titre: '', url: '', ordre: 1, type: 'VIDEO' });
-        setEditingModule(null);
+        setCurrentContenus([]);
+        setAddContenuForm({ titre: '', url: '', ordre: 1, type: 'VIDEO' });
+        setEditingContenu(null);
       } else if (editingCourse?._id) {
-        fetchModules(editingCourse._id);
-        setAddModuleForm({ titre: '', url: '', ordre: nextOrdre, type: 'VIDEO' });
-        setEditingModule(null);
+        fetchContenus(editingCourse._id);
+        setAddContenuForm({ titre: '', url: '', ordre: nextOrdre, type: 'VIDEO' });
+        setEditingContenu(null);
       }
     }
-  }, [modalOpen, modalMode, editingCourse?._id, nextOrdre, fetchModules]);
+  }, [modalOpen, modalMode, editingCourse?._id, nextOrdre, fetchContenus]);
 
-  // Chargement des modules pour les détails
+  // Chargement des contenus pour les détails
   useEffect(() => {
     if (detailsModalOpen && selectedCourseDetails?._id) {
-      fetchModules(selectedCourseDetails._id, setDetailsModules);
+      fetchContenus(selectedCourseDetails._id, setDetailsContenus);
     }
-  }, [detailsModalOpen, selectedCourseDetails?._id, fetchModules]);
+  }, [detailsModalOpen, selectedCourseDetails?._id, fetchContenus]);
 
   // Ouvrir la modale pour création/édition
   const openModal = (mode, course = null) => {
@@ -485,13 +489,13 @@ const Courses = () => {
     return '';
   };
 
-  // Validation du formulaire de module
-  const validateModuleForm = () => {
-    if (!addModuleForm.titre.trim()) return 'Le titre du module est requis';
-    if (!addModuleForm.url.trim()) return "L'URL du module est requise";
-    if (!['VIDEO', 'DOCUMENT', 'QUIZ', 'EXERCICE'].includes(addModuleForm.type))
-      return 'Le type de module doit être VIDEO, DOCUMENT, QUIZ ou EXERCICE';
-    const ordreNum = parseInt(addModuleForm.ordre);
+  // Validation du formulaire de contenu
+  const validateContenuForm = () => {
+    if (!addContenuForm.titre.trim()) return 'Le titre du contenu est requis';
+    if (!addContenuForm.url.trim()) return "L'URL du contenu est requise";
+    if (!['VIDEO', 'DOCUMENT', 'QUIZ', 'EXERCICE'].includes(addContenuForm.type))
+      return 'Le type de contenu doit être VIDEO, DOCUMENT, QUIZ ou EXERCICE';
+    const ordreNum = parseInt(addContenuForm.ordre);
     if (isNaN(ordreNum) || ordreNum < 1) return "L'ordre doit être un nombre positif";
     return '';
   };
@@ -522,7 +526,7 @@ const Courses = () => {
         const newCourse = response.data.data || response.data;
         setEditingCourse({ ...newCourse, _id: newCourse._id.toString() });
         setModalMode('edit');
-        await fetchModules(newCourse._id);
+        await fetchContenus(newCourse._id);
         setTabValue(1);
       } else if (editingCourse?._id) {
         response = await axios.put(`${API_BASE_URL}/${editingCourse._id}`, data, {
@@ -551,9 +555,9 @@ const Courses = () => {
     }
   };
 
-  // Ajout module
-  const handleAddModule = async () => {
-    const validationError = validateModuleForm();
+  // Ajout contenu
+  const handleAddContenu = async () => {
+    const validationError = validateContenuForm();
     if (validationError) {
       setFormError(validationError);
       return;
@@ -564,44 +568,46 @@ const Courses = () => {
     }
     try {
       const data = {
-        titre: addModuleForm.titre.trim(),
-        url: addModuleForm.url.trim(),
-        ordre: parseInt(addModuleForm.ordre),
-        coursId: editingCourse._id,
-        type: addModuleForm.type,
+        titre: addContenuForm.titre.trim(),
+        url: addContenuForm.url.trim(),
+        ordre: parseInt(addContenuForm.ordre),
+        cours: editingCourse._id, // Changed from coursId to cours to match backend model
+        type: addContenuForm.type,
       };
-      const response = await axios.post(MODULES_BASE_URL, data, {
+      const response = await axios.post(CONTENTS_BASE_URL, data, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
-      const newModule = { ...response.data.data, _id: response.data.data._id.toString() };
-      const newModulesList = [...currentModules, newModule];
-      setCurrentModules(newModulesList);
+      const newContenu = { ...response.data.data, _id: response.data.data._id.toString() };
+      const newContenusList = [...currentContenus, newContenu];
+      setCurrentContenus(newContenusList);
       await axios.put(
         `${API_BASE_URL}/${editingCourse._id}`,
         {
-          contenu: newModulesList.map((m) => m._id),
+          contenu: newContenusList.map((m) => m._id),
         },
         {
           headers: { Authorization: `Bearer ${user.token}` },
         }
       );
-      setAddModuleForm({ titre: '', url: '', ordre: nextOrdre, type: 'VIDEO' });
+      setAddContenuForm({ titre: '', url: '', ordre: nextOrdre, type: 'VIDEO' });
       setFormError('');
-      setSuccess('Module ajouté avec succès');
+      setSuccess('Contenu ajouté avec succès');
       setSnackbarOpen(true);
       fetchCourses();
     } catch (err) {
-      console.error("Erreur lors de l'ajout du module:", err);
-      const errorMessage = err.response?.data?.message || "Erreur lors de l'ajout du module";
+      console.error("Erreur lors de l'ajout du contenu:", err);
+      const errorMessage = err.response?.data?.message || "Erreur lors de l'ajout du contenu";
       const errorDetails = err.response?.data?.errors || [];
-      setFormError(`${errorMessage} ${errorDetails.length ? `- Détails: ${JSON.stringify(errorDetails)}` : ''}`);
+      setFormError(
+        `${errorMessage} ${errorDetails.length ? `- Détails: ${JSON.stringify(errorDetails)}` : ''}`
+      );
       setSnackbarOpen(true);
     }
   };
 
-  // Mise à jour module
-  const handleUpdateModule = async () => {
-    const validationError = validateModuleForm();
+  // Mise à jour contenu
+  const handleUpdateContenu = async () => {
+    const validationError = validateContenuForm();
     if (validationError) {
       setFormError(validationError);
       return;
@@ -610,79 +616,85 @@ const Courses = () => {
       setFormError('ID du cours invalide');
       return;
     }
-    if (!editingModule?._id) {
-      setFormError('ID du module invalide');
+    if (!editingContenu?._id) {
+      setFormError('ID du contenu invalide');
       return;
     }
     try {
       const data = {
-        titre: addModuleForm.titre.trim(),
-        url: addModuleForm.url.trim(),
-        ordre: parseInt(addModuleForm.ordre),
-        type: addModuleForm.type,
+        titre: addContenuForm.titre.trim(),
+        url: addContenuForm.url.trim(),
+        ordre: parseInt(addContenuForm.ordre),
+        type: addContenuForm.type,
       };
-      const response = await axios.put(`${MODULES_BASE_URL}/${editingModule._id}`, data, {
+      const response = await axios.put(`${CONTENTS_BASE_URL}/${editingContenu._id}`, data, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
-      const updatedModulesList = currentModules.map((m) =>
-        m._id === editingModule._id
+      const updatedContenusList = currentContenus.map((m) =>
+        m._id === editingContenu._id
           ? { ...response.data.data, _id: response.data.data._id.toString() }
           : m
       );
-      setCurrentModules(updatedModulesList);
+      setCurrentContenus(updatedContenusList);
       await axios.put(
         `${API_BASE_URL}/${editingCourse._id}`,
         {
-          contenu: updatedModulesList.map((m) => m._id),
+          contenu: updatedContenusList.map((m) => m._id),
         },
         {
           headers: { Authorization: `Bearer ${user.token}` },
         }
       );
-      setEditingModule(null);
-      setAddModuleForm({ titre: '', url: '', ordre: nextOrdre, type: 'VIDEO' });
+      setEditingContenu(null);
+      setAddContenuForm({ titre: '', url: '', ordre: nextOrdre, type: 'VIDEO' });
       setFormError('');
-      setSuccess('Module mis à jour avec succès');
+      setSuccess('Contenu mis à jour avec succès');
       setSnackbarOpen(true);
       fetchCourses();
     } catch (err) {
-      console.error('Erreur lors de la mise à jour du module:', err);
-      const errorMessage = err.response?.data?.message || 'Erreur lors de la mise à jour du module';
+      console.error('Erreur lors de la mise à jour du contenu:', err);
+      const errorMessage =
+        err.response?.data?.message || 'Erreur lors de la mise à jour du contenu';
       const errorDetails = err.response?.data?.errors || [];
-      setFormError(`${errorMessage} ${errorDetails.length ? `- Détails: ${JSON.stringify(errorDetails)}` : ''}`);
+      setFormError(
+        `${errorMessage} ${errorDetails.length ? `- Détails: ${JSON.stringify(errorDetails)}` : ''}`
+      );
       setSnackbarOpen(true);
     }
   };
 
-  // Suppression module
-  const handleDeleteModule = async (moduleId) => {
-    if (!moduleId || !/^[0-9a-fA-F]{24}$/.test(moduleId)) {
-      setFormError('ID du module invalide');
+  // Suppression contenu
+  const handleDeleteContenu = async (contenuId) => {
+    if (!contenuId || !/^[0-9a-fA-F]{24}$/.test(contenuId)) {
+      setFormError('ID du contenu invalide');
       return;
     }
     try {
-      await axios.delete(`${MODULES_BASE_URL}/${moduleId}`, {
+      await axios.delete(`${CONTENTS_BASE_URL}/${contenuId}`, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
-      const updatedModulesList = currentModules.filter((m) => m._id !== moduleId);
-      setCurrentModules(updatedModulesList);
+      const updatedContenusList = currentContenus.filter((m) => m._id !== contenuId);
+      setCurrentContenus(updatedContenusList);
       await axios.put(
         `${API_BASE_URL}/${editingCourse._id}`,
         {
-          contenu: updatedModulesList.map((m) => m._id),
+          contenu: updatedContenusList.map((m) => m._id),
         },
         {
           headers: { Authorization: `Bearer ${user.token}` },
         }
       );
-      setSuccess('Module supprimé avec succès');
+      setSuccess('Contenu supprimé avec succès');
       setSnackbarOpen(true);
       fetchCourses();
     } catch (err) {
-      console.error('Erreur lors de la suppression du module:', err);
-      const errorMessage = err.response?.data?.message || 'Erreur lors de la suppression du module';
+      console.error('Erreur lors de la suppression du contenu:', err);
+      const errorMessage =
+        err.response?.data?.message || 'Erreur lors de la suppression du contenu';
       const errorDetails = err.response?.data?.errors || [];
-      setFormError(`${errorMessage} ${errorDetails.length ? `- Détails: ${JSON.stringify(errorDetails)}` : ''}`);
+      setFormError(
+        `${errorMessage} ${errorDetails.length ? `- Détails: ${JSON.stringify(errorDetails)}` : ''}`
+      );
       setSnackbarOpen(true);
     }
   };
@@ -801,7 +813,7 @@ const Courses = () => {
         })
       : 'N/A';
 
-  const getModulesCount = (modules) => (Array.isArray(modules) ? modules.length : 0);
+  const getContenusCount = (contenus) => (Array.isArray(contenus) ? contenus.length : 0);
 
   // Écran de chargement
   if (authLoading || isLoading) {
@@ -1066,7 +1078,7 @@ const Courses = () => {
                       <StyledTableCell>Titre</StyledTableCell>
                       <StyledTableCell>Domaine</StyledTableCell>
                       <StyledTableCell>Niveau</StyledTableCell>
-                      <StyledTableCell>Modules</StyledTableCell>
+                      <StyledTableCell>Contenus</StyledTableCell>
                       <StyledTableCell>Statut</StyledTableCell>
                       <StyledTableCell>Approbation</StyledTableCell>
                       <StyledTableCell>Instructeur</StyledTableCell>
@@ -1131,7 +1143,7 @@ const Courses = () => {
                           </StyledTableCell>
                           <StyledTableCell>
                             <Chip
-                              label={`${getModulesCount(course.contenu)} module(s)`}
+                              label={`${getContenusCount(course.contenu)} contenu(s)`}
                               size='small'
                               sx={{
                                 bgcolor: alpha('#10b981', 0.2),
@@ -1280,7 +1292,7 @@ const Courses = () => {
           <Box sx={{ width: '100%', mb: 2 }}>
             <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} centered>
               <Tab label='Infos Cours' />
-              <Tab label={`${currentModules.length} Modules`} />
+              <Tab label={`${currentContenus.length} Contenus`} />
             </Tabs>
           </Box>
           {formError && (
@@ -1499,17 +1511,17 @@ const Courses = () => {
             <>
               {!editingCourse?._id ? (
                 <Alert severity='info'>
-                  Sauvegardez d'abord les informations du cours pour ajouter des modules.
+                  Sauvegardez d'abord les informations du cours pour ajouter des contenus.
                 </Alert>
               ) : (
                 <>
                   <Typography variant='h6' sx={{ mb: 2, color: colors.white || '#ffffff' }}>
-                    Gestion des Modules
+                    Gestion des Contenus
                   </Typography>
                   <Box sx={{ mb: 2 }}>
-                    {currentModules.map((module) => (
+                    {currentContenus.map((contenu) => (
                       <Box
-                        key={module._id}
+                        key={contenu._id}
                         sx={{
                           display: 'flex',
                           justifyContent: 'space-between',
@@ -1523,7 +1535,7 @@ const Courses = () => {
                       >
                         <Box>
                           <Typography sx={{ color: colors.white || '#ffffff', fontWeight: 600 }}>
-                            {module.ordre}. {module.titre} ({module.type})
+                            {contenu.ordre}. {contenu.titre} ({contenu.type})
                           </Typography>
                           <Typography
                             sx={{
@@ -1531,19 +1543,19 @@ const Courses = () => {
                               fontSize: '0.8rem',
                             }}
                           >
-                            {module.url ? `${module.url.substring(0, 50)}...` : 'Aucun contenu'}
+                            {contenu.url ? `${contenu.url.substring(0, 50)}...` : 'Aucun contenu'}
                           </Typography>
                         </Box>
                         <Box>
                           <IconButton
                             size='small'
                             onClick={() => {
-                              setEditingModule(module);
-                              setAddModuleForm({
-                                titre: module.titre,
-                                url: module.url || '',
-                                ordre: module.ordre,
-                                type: module.type || 'VIDEO',
+                              setEditingContenu(contenu);
+                              setAddContenuForm({
+                                titre: contenu.titre,
+                                url: contenu.url || '',
+                                ordre: contenu.ordre,
+                                type: contenu.type || 'VIDEO',
                               });
                             }}
                             sx={{ color: '#f59e0b' }}
@@ -1552,7 +1564,7 @@ const Courses = () => {
                           </IconButton>
                           <IconButton
                             size='small'
-                            onClick={() => handleDeleteModule(module._id)}
+                            onClick={() => handleDeleteContenu(contenu._id)}
                             sx={{ color: '#ef4444' }}
                           >
                             <Delete fontSize='small' />
@@ -1570,10 +1582,10 @@ const Courses = () => {
                     }}
                   >
                     <TextField
-                      label='Titre du Module'
-                      value={addModuleForm.titre}
+                      label='Titre du Contenu'
+                      value={addContenuForm.titre}
                       onChange={(e) =>
-                        setAddModuleForm({ ...addModuleForm, titre: e.target.value })
+                        setAddContenuForm({ ...addContenuForm, titre: e.target.value })
                       }
                       fullWidth
                       margin='normal'
@@ -1585,8 +1597,10 @@ const Courses = () => {
                     />
                     <TextField
                       label='URL du Contenu'
-                      value={addModuleForm.url}
-                      onChange={(e) => setAddModuleForm({ ...addModuleForm, url: e.target.value })}
+                      value={addContenuForm.url}
+                      onChange={(e) =>
+                        setAddContenuForm({ ...addContenuForm, url: e.target.value })
+                      }
                       fullWidth
                       margin='normal'
                       required
@@ -1597,12 +1611,12 @@ const Courses = () => {
                     />
                     <FormControl fullWidth margin='normal'>
                       <InputLabel sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}>
-                        Type de Module
+                        Type de Contenu
                       </InputLabel>
                       <Select
-                        value={addModuleForm.type}
+                        value={addContenuForm.type}
                         onChange={(e) =>
-                          setAddModuleForm({ ...addModuleForm, type: e.target.value })
+                          setAddContenuForm({ ...addContenuForm, type: e.target.value })
                         }
                         required
                         sx={{
@@ -1627,9 +1641,12 @@ const Courses = () => {
                     <TextField
                       label='Ordre'
                       type='number'
-                      value={addModuleForm.ordre}
+                      value={addContenuForm.ordre}
                       onChange={(e) =>
-                        setAddModuleForm({ ...addModuleForm, ordre: parseInt(e.target.value) || 1 })
+                        setAddContenuForm({
+                          ...addContenuForm,
+                          ordre: parseInt(e.target.value) || 1,
+                        })
                       }
                       fullWidth
                       margin='normal'
@@ -1643,19 +1660,19 @@ const Courses = () => {
                     <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
                       <Button
                         variant='contained'
-                        onClick={editingModule ? handleUpdateModule : handleAddModule}
+                        onClick={editingContenu ? handleUpdateContenu : handleAddContenu}
                         sx={{
                           background: `linear-gradient(135deg, ${colors.fuchsia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`,
                           color: colors.white || '#ffffff',
                         }}
                       >
-                        {editingModule ? 'Mettre à jour' : 'Ajouter Module'}
+                        {editingContenu ? 'Mettre à jour' : 'Ajouter Contenu'}
                       </Button>
-                      {editingModule && (
+                      {editingContenu && (
                         <Button
                           onClick={() => {
-                            setEditingModule(null);
-                            setAddModuleForm({
+                            setEditingContenu(null);
+                            setAddContenuForm({
                               titre: '',
                               url: '',
                               ordre: nextOrdre,
@@ -1875,10 +1892,10 @@ const Courses = () => {
                     variant='subtitle1'
                     sx={{ fontWeight: 500, color: alpha(colors.white || '#ffffff', 0.9) }}
                   >
-                    Nombre de modules :
+                    Nombre de contenus :
                   </Typography>
                   <Chip
-                    label={`${detailsModules.length} module(s)`}
+                    label={`${detailsContenus.length} contenu(s)`}
                     size='small'
                     sx={{
                       bgcolor: alpha('#10b981', 0.2),
@@ -1902,23 +1919,23 @@ const Courses = () => {
                     {formatDate(selectedCourseDetails.createdAt)}
                   </Typography>
                 </Grid>
-                {detailsModules.length > 0 && (
+                {detailsContenus.length > 0 && (
                   <Grid item xs={12}>
                     <Typography
                       variant='subtitle1'
                       sx={{ fontWeight: 500, color: alpha(colors.white || '#ffffff', 0.9), mt: 2 }}
                     >
-                      Modules :
+                      Contenus :
                     </Typography>
                     <Box sx={{ mt: 1, pl: 2 }}>
-                      {detailsModules.map((module, index) => (
+                      {detailsContenus.map((contenu, index) => (
                         <Typography
-                          key={module._id}
+                          key={contenu._id}
                           variant='body2'
                           sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}
                         >
-                          - {module.titre || `Module ${index + 1}`} ({module.type}):{' '}
-                          {module.url?.substring(0, 50) || 'Aucun contenu'}
+                          - {contenu.titre || `Contenu ${index + 1}`} ({contenu.type}):{' '}
+                          {contenu.url?.substring(0, 50) || 'Aucun contenu'}
                         </Typography>
                       ))}
                     </Box>

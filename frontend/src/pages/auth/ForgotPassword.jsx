@@ -17,19 +17,23 @@ import { styled, keyframes } from '@mui/material/styles';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowRight, KeyRound, CheckCircle2, ArrowLeft } from 'lucide-react';
 
-// Palette de couleurs professionnelle
+// Palette de couleurs harmonisée avec Register.jsx et About.jsx
 const colors = {
-  primary: '#0F172A',
-  secondary: '#1E293B',
-  accent: '#3B82F6',
-  accentHover: '#2563EB',
+  primary: '#010b40', // Bleu marine principal
+  secondary: '#f13544', // Fuchsia pour accents créatifs
+  accent: '#f13544', // Fuchsia comme accent principal
+  accentHover: '#d91f2e', // Variation plus foncée du fuchsia pour hover
   success: '#10B981',
   error: '#EF4444',
   white: '#FFFFFF',
-  gray100: '#F1F5F9',
+  gray100: '#F8FAFC',
   gray200: '#E2E8F0',
+  gray300: '#CBD5E1',
   gray400: '#94A3B8',
+  gray500: '#64748B',
   gray600: '#475569',
+  gray700: '#334155',
+  gray800: '#1E293B',
 };
 
 // Animations sophistiquées
@@ -66,17 +70,17 @@ const pulse = keyframes`
 
 // Composants stylisés professionnels
 const ForgotPasswordCard = styled(Card)(({ theme }) => ({
-  background: colors.white,
+  background: `${colors.primary}cc`, // Semi-transparent navy
   borderRadius: '24px',
   padding: theme.spacing(5),
   width: '100%',
   maxWidth: 480,
-  boxShadow: '0 20px 60px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.1)',
+  boxShadow: `0 20px 60px ${colors.primary}33, 0 0 1px ${colors.accent}33`,
   animation: `${fadeInScale} 0.5s cubic-bezier(0.4, 0, 0.2, 1)`,
   transition: 'all 0.3s ease',
-  border: `1px solid ${colors.gray200}`,
+  border: `1px solid ${colors.gray800}`,
   '&:hover': {
-    boxShadow: '0 24px 70px rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.1)',
+    boxShadow: `0 24px 70px ${colors.accent}33, 0 0 1px ${colors.accent}66`,
   },
   [theme.breakpoints.down('sm')]: {
     padding: theme.spacing(4),
@@ -87,17 +91,18 @@ const ForgotPasswordCard = styled(Card)(({ theme }) => ({
 const StyledTextField = styled(TextField)(({ theme }) => ({
   '& .MuiOutlinedInput-root': {
     borderRadius: '12px',
-    backgroundColor: colors.gray100,
+    backgroundColor: `${colors.primary}cc`, // Semi-transparent navy
+    color: colors.white,
     transition: 'all 0.2s ease',
     border: '2px solid transparent',
     '&:hover': {
-      backgroundColor: colors.white,
+      backgroundColor: `${colors.gray800}cc`,
       '& fieldset': {
-        borderColor: colors.gray200,
+        borderColor: colors.gray700,
       },
     },
     '&.Mui-focused': {
-      backgroundColor: colors.white,
+      backgroundColor: `${colors.gray800}cc`,
       border: `2px solid ${colors.accent}`,
       '& fieldset': {
         borderWidth: 0,
@@ -108,16 +113,20 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
     },
   },
   '& .MuiInputLabel-root': {
-    color: colors.gray600,
+    color: colors.accent, // Fuchsia labels
     fontWeight: 500,
+    fontSize: '14px',
     '&.Mui-focused': {
       color: colors.accent,
     },
   },
   '& .MuiInputBase-input': {
-    color: colors.primary,
+    color: colors.white,
     fontSize: '15px',
     padding: '14px 16px',
+    '&::placeholder': {
+      color: colors.gray400,
+    },
   },
 }));
 
@@ -166,12 +175,12 @@ const SecondaryButton = styled(Button)(({ theme }) => ({
   fontWeight: 600,
   fontSize: '15px',
   textTransform: 'none',
-  color: colors.accent,
-  border: `2px solid ${colors.gray200}`,
+  color: colors.white,
+  border: `2px solid ${colors.gray700}`,
   backgroundColor: 'transparent',
   transition: 'all 0.2s ease',
   '&:hover': {
-    backgroundColor: colors.gray100,
+    backgroundColor: `${colors.gray800}33`,
     borderColor: colors.accent,
     transform: 'translateY(-1px)',
   },
@@ -311,7 +320,11 @@ const ForgotPassword = () => {
             }}
           >
             <Box sx={{ mb: 4 }}>
-              <KeyRound size={56} strokeWidth={1.5} style={{ marginBottom: 24, opacity: 0.9 }} />
+              <KeyRound
+                size={56}
+                strokeWidth={1.5}
+                style={{ marginBottom: 24, opacity: 0.9, color: colors.accent }}
+              />
               <Typography
                 variant='h3'
                 sx={{
@@ -320,6 +333,7 @@ const ForgotPassword = () => {
                   fontSize: { md: '2.5rem', lg: '3rem' },
                   letterSpacing: '-0.02em',
                   lineHeight: 1.2,
+                  color: colors.white,
                 }}
               >
                 Réinitialisation
@@ -356,7 +370,9 @@ const ForgotPassword = () => {
                     style={{ marginTop: 2, flexShrink: 0 }}
                   />
                   <Box>
-                    <Typography sx={{ fontWeight: 600, mb: 0.5, fontSize: '15px' }}>
+                    <Typography
+                      sx={{ fontWeight: 600, mb: 0.5, fontSize: '15px', color: colors.white }}
+                    >
                       {item.title}
                     </Typography>
                     <Typography sx={{ opacity: 0.7, fontSize: '14px', color: colors.gray200 }}>
@@ -394,7 +410,7 @@ const ForgotPassword = () => {
                         variant='h4'
                         sx={{
                           fontWeight: 700,
-                          color: colors.primary,
+                          color: colors.white, // White for header
                           mb: 1,
                           fontSize: '28px',
                           letterSpacing: '-0.01em',
@@ -404,7 +420,7 @@ const ForgotPassword = () => {
                       </Typography>
                       <Typography
                         sx={{
-                          color: colors.gray600,
+                          color: colors.gray200, // Lighter gray for subtitle
                           fontSize: '15px',
                           lineHeight: 1.6,
                         }}
@@ -423,11 +439,11 @@ const ForgotPassword = () => {
                           borderRadius: '12px',
                           backgroundColor: `${colors.success}10`,
                           border: `1px solid ${colors.success}30`,
+                          color: colors.white, // White text for readability
                           '& .MuiAlert-icon': {
                             color: colors.success,
                           },
                           '& .MuiAlert-message': {
-                            color: colors.primary,
                             fontWeight: 500,
                           },
                         }}
@@ -444,11 +460,11 @@ const ForgotPassword = () => {
                           borderRadius: '12px',
                           backgroundColor: `${colors.error}10`,
                           border: `1px solid ${colors.error}30`,
+                          color: colors.white, // White text for readability
                           '& .MuiAlert-icon': {
                             color: colors.error,
                           },
                           '& .MuiAlert-message': {
-                            color: colors.primary,
                             fontWeight: 500,
                           },
                         }}
@@ -464,7 +480,7 @@ const ForgotPassword = () => {
                           mb: 1,
                           fontSize: '14px',
                           fontWeight: 600,
-                          color: colors.gray600,
+                          color: colors.accent, // Fuchsia for labels
                         }}
                       >
                         Adresse email
@@ -504,7 +520,7 @@ const ForgotPassword = () => {
                     </PrimaryButton>
 
                     {/* Divider */}
-                    <Divider sx={{ my: 1 }}>
+                    <Divider sx={{ my: 1, borderColor: colors.gray700 }}>
                       <Typography sx={{ color: colors.gray400, fontSize: '13px', px: 2 }}>
                         ou
                       </Typography>
@@ -526,15 +542,15 @@ const ForgotPassword = () => {
                       sx={{
                         mt: 3,
                         p: 3,
-                        backgroundColor: colors.gray100,
+                        backgroundColor: `${colors.primary}cc`, // Semi-transparent navy
                         borderRadius: '12px',
-                        border: `1px solid ${colors.gray200}`,
+                        border: `1px solid ${colors.gray800}`,
                       }}
                     >
                       <Typography
                         sx={{
                           fontSize: '13px',
-                          color: colors.gray600,
+                          color: colors.gray200, // Lighter gray for readability
                           textAlign: 'center',
                           lineHeight: 1.6,
                         }}
@@ -549,7 +565,7 @@ const ForgotPassword = () => {
                       sx={{
                         textAlign: 'center',
                         fontSize: '13px',
-                        color: colors.gray400,
+                        color: colors.gray200,
                         pt: 1,
                       }}
                     >

@@ -1,4 +1,3 @@
-// About.jsx - Page À propos professionnelle
 import React, { useState, useEffect } from "react";
 import {
   Box,
@@ -23,7 +22,7 @@ import {
   Users,
   Target,
   Award,
-  Globe,  
+  Globe,
   Heart,
   Lightbulb,
   TrendingUp,
@@ -41,6 +40,14 @@ import {
   Mail,
   Phone,
 } from "lucide-react";
+
+// Sample images for team members (replace with actual image paths or URLs in production)
+const teamImages = {
+  sarah: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&h=150&q=80",
+  michael: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&h=150&q=80",
+  emma: "https://images.unsplash.com/photo-1517841905240-472988babdf9?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&h=150&q=80",
+  david: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&h=150&q=80",
+};
 
 // Animations sophistiquées
 const fadeInUp = keyframes`
@@ -96,7 +103,7 @@ const GlassCard = styled(Paper)({
 });
 
 const TeamCard = styled(Card)({
-  background: `linear-gradient(135deg, ${colors.navy}b3, ${colors.lightNavy}b3)`,
+  background: `linear-gradient(135deg, ${colors.navy}cc, ${colors.lightNavy}cc)`, // Semi-transparent navy
   backdropFilter: "blur(20px)",
   borderRadius: "20px",
   border: `1px solid ${colors.red}33`,
@@ -208,7 +215,7 @@ const About = () => {
       name: "Sarah Johnson",
       role: "Directrice Pédagogique",
       speciality: "Informatique & Innovation",
-      avatar: "/api/placeholder/150/150",
+      avatar: teamImages.sarah,
       description: "10+ années d'expérience dans l'enseignement numérique",
       social: { linkedin: "#", twitter: "#", github: "#" },
     },
@@ -216,7 +223,7 @@ const About = () => {
       name: "Michael Chen",
       role: "Responsable Technique",
       speciality: "Développement & Architecture",
-      avatar: "/api/placeholder/150/150",
+      avatar: teamImages.michael,
       description: "Expert en technologies web modernes et formation",
       social: { linkedin: "#", twitter: "#", github: "#" },
     },
@@ -224,7 +231,7 @@ const About = () => {
       name: "Emma Rodriguez",
       role: "Designer UX/UI",
       speciality: "Design & Multimédia",
-      avatar: "/api/placeholder/150/150",
+      avatar: teamImages.emma,
       description:
         "Spécialisée en design d'interfaces et expérience utilisateur",
       social: { linkedin: "#", twitter: "#", dribbble: "#" },
@@ -233,7 +240,7 @@ const About = () => {
       name: "David Kumar",
       role: "Expert Communication",
       speciality: "Marketing & Stratégie",
-      avatar: "/api/placeholder/150/150",
+      avatar: teamImages.david,
       description:
         "Consultant en communication digitale et stratégie de marque",
       social: { linkedin: "#", twitter: "#", instagram: "#" },
@@ -675,13 +682,18 @@ const About = () => {
                           className="team-avatar"
                           src={member.avatar}
                           sx={{
-                            width: 120,
-                            height: 120,
+                            width: { xs: 100, sm: 120, md: 140 },
+                            height: { xs: 100, sm: 120, md: 140 },
                             mx: "auto",
                             mb: 3,
                             border: `4px solid ${colors.red}33`,
                             boxShadow: `0 8px 32px ${colors.navy}4d`,
                             transition: "transform 0.4s ease",
+                            objectFit: "cover",
+                          }}
+                          imgProps={{
+                            style: { objectFit: "cover" },
+                            loading: "lazy",
                           }}
                         />
 
@@ -712,7 +724,7 @@ const About = () => {
                           label={member.speciality}
                           size="small"
                           sx={{
-                            backgroundColor: `${colors.navy}33`,
+                            backgroundColor: `${colors.red}33`,
                             color: "#ffffff",
                             fontWeight: 500,
                             mb: 2,
@@ -723,7 +735,7 @@ const About = () => {
                         <Typography
                           variant="body2"
                           sx={{
-                            color: "rgba(255, 255, 255, 0.6)",
+                            color: "rgba(255, 255, 255, 0.8)",
                             lineHeight: 1.5,
                             mb: 3,
                             fontSize: "1rem",
@@ -743,19 +755,27 @@ const About = () => {
                             transition: "all 0.3s ease",
                           }}
                         >
-                          <IconButton
-                            size="small"
-                            sx={{
-                              backgroundColor: `${colors.red}1a`,
-                              color: colors.red,
-                              "&:hover": {
-                                backgroundColor: colors.red,
-                                color: "#ffffff",
-                              },
-                            }}
-                          >
-                            <UserCheck size={20} />
-                          </IconButton>
+                          {Object.entries(member.social).map(([platform, url], idx) => (
+                            <IconButton
+                              key={idx}
+                              href={url}
+                              size="small"
+                              sx={{
+                                backgroundColor: `${colors.red}1a`,
+                                color: colors.red,
+                                "&:hover": {
+                                  backgroundColor: colors.red,
+                                  color: "#ffffff",
+                                },
+                              }}
+                            >
+                              {platform === "linkedin" && <UserCheck size={20} />}
+                              {platform === "twitter" && <MapPin size={20} />}
+                              {platform === "github" && <Code size={20} />}
+                              {platform === "dribbble" && <Palette size={20} />}
+                              {platform === "instagram" && <Monitor size={20} />}
+                            </IconButton>
+                          ))}
                         </Stack>
                       </Box>
                     </TeamCard>

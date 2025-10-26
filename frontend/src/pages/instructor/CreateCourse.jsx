@@ -1,37 +1,51 @@
-// src/components/instructor/CreateCourse.jsx
 import React, { useState, useContext, useEffect } from 'react';
 import {
   Box,
   Container,
   Typography,
   TextField,
-  MenuItem,
   Button,
   CircularProgress,
   Alert,
-  ThemeProvider,
-  createTheme,
+  Card,
+  CardContent,
+  Grid,
+  Chip,
   FormControl,
   InputLabel,
   Select,
+  MenuItem,
+  Stepper,
+  Step,
+  StepLabel,
+  Paper,
+  Divider,
+  ThemeProvider,
+  createTheme,
 } from '@mui/material';
-import { styled, keyframes } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../../context/AuthContext';
 import { colors } from '../../utils/colors';
-import { School as SchoolIcon } from '@mui/icons-material';
+import {
+  School as SchoolIcon,
+  Timer as TimerIcon,
+  Category as CategoryIcon,
+  Description as DescriptionIcon,
+  TrendingUp as LevelIcon,
+  SaveAlt as SaveIcon,
+  ArrowBack as BackIcon,
+} from '@mui/icons-material';
 
-// Custom theme
 const instructorTheme = createTheme({
   palette: {
-    primary: { main: colors.fuschia || '#f13544', light: colors.lightFuschia || '#ff6b74' },
+    primary: { main: colors.fuchsia || '#f13544', light: colors.lightFuchsia || '#ff6b74' },
     secondary: { main: colors.navy || '#010b40', light: colors.lightNavy || '#1a237e' },
     background: {
       default: colors.navy || '#010b40',
       paper: `linear-gradient(135deg, ${colors.navy || '#010b40'}dd, ${colors.lightNavy || '#1a237e'}dd)`,
     },
-    text: { primary: colors.white || '#ffffff', secondary: 'rgba(255, 255, 255, 0.7)' },
+    text: { primary: colors.white || '#ffffff', secondary: colors.lightNavy || '#1a237e' },
   },
   typography: {
     fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
@@ -39,6 +53,52 @@ const instructorTheme = createTheme({
     h5: { fontWeight: 600 },
   },
   components: {
+    MuiCard: {
+      styleOverrides: {
+        root: { borderRadius: '16px', backgroundColor: `${colors.navy || '#010b40'}cc` },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: { backgroundColor: `${colors.navy || '#010b40'}dd` },
+      },
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          '& .MuiInputBase-root': {
+            backgroundColor: `${colors.navy || '#010b40'}cc`,
+            color: colors.white || '#ffffff',
+          },
+          '& .MuiInputLabel-root': { color: colors.lightFuchsia || '#ff6b74' },
+          '& .MuiOutlinedInput-notchedOutline': { borderColor: colors.lightNavy || '#1a237e' },
+          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: colors.fuchsia || '#f13544' },
+          '& .Mui-focused .MuiOutlinedInput-notchedOutline': {
+            borderColor: colors.fuchsia || '#f13544',
+          },
+        },
+      },
+    },
+    MuiSelect: {
+      styleOverrides: {
+        root: {
+          backgroundColor: `${colors.navy || '#010b40'}cc`,
+          color: colors.white || '#ffffff',
+        },
+        icon: { color: colors.lightFuchsia || '#ff6b74' },
+      },
+    },
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          backgroundColor: colors.navy || '#010b40',
+          color: colors.white || '#ffffff',
+          '&:hover': {
+            backgroundColor: `${colors.lightNavy || '#1a237e'}cc`,
+          },
+        },
+      },
+    },
     MuiButton: {
       styleOverrides: {
         root: {
@@ -47,38 +107,53 @@ const instructorTheme = createTheme({
           fontWeight: 600,
           padding: '10px 20px',
         },
-      },
-    },
-    MuiTextField: {
-      styleOverrides: {
-        root: {
-          '& .MuiInputBase-root': {
-            background: 'rgba(255, 255, 255, 0.05)',
-            color: colors.white || '#ffffff',
-            borderRadius: '8px',
+        containedPrimary: {
+          background: `linear-gradient(135deg, ${colors.fuchsia || '#f13544'}, ${colors.lightFuchsia || '#ff6b74'})`,
+          '&:hover': {
+            background: `linear-gradient(135deg, ${colors.fuchsia || '#f13544'}cc, ${colors.lightFuchsia || '#ff6b74'}cc)`,
           },
-          '& .MuiInputLabel-root': { color: 'rgba(255, 255, 255, 0.7)' },
-          '& .MuiOutlinedInput-root': {
-            '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.3)' },
-            '&:hover fieldset': { borderColor: colors.fuschia || '#f13544' },
-            '&.Mui-focused fieldset': { borderColor: colors.fuschia || '#f13544' },
+        },
+        outlinedSecondary: {
+          color: colors.white || '#ffffff',
+          borderColor: colors.lightNavy || '#1a237e',
+          '&:hover': {
+            borderColor: colors.fuchsia || '#f13544',
+            backgroundColor: `${colors.lightNavy || '#1a237e'}33`,
           },
         },
       },
     },
-    MuiFormControl: {
+    MuiAlert: {
       styleOverrides: {
         root: {
-          '& .MuiInputBase-root': {
-            background: 'rgba(255, 255, 255, 0.05)',
+          color: colors.white || '#ffffff',
+          backgroundColor: `${colors.navy || '#010b40'}cc`,
+          border: `1px solid ${colors.fuchsia || '#f13544'}33`,
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          color: colors.white || '#ffffff',
+        },
+      },
+    },
+    MuiDivider: {
+      styleOverrides: {
+        root: {
+          borderColor: colors.lightNavy || '#1a237e',
+        },
+      },
+    },
+    MuiStepper: {
+      styleOverrides: {
+        root: {
+          '& .MuiStepLabel-label': {
             color: colors.white || '#ffffff',
-            borderRadius: '8px',
           },
-          '& .MuiInputLabel-root': { color: 'rgba(255, 255, 255, 0.7)' },
-          '& .MuiOutlinedInput-root': {
-            '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.3)' },
-            '&:hover fieldset': { borderColor: colors.fuschia || '#f13544' },
-            '&.Mui-focused fieldset': { borderColor: colors.fuschia || '#f13544' },
+          '& .MuiStepLabel-iconContainer': {
+            color: colors.fuchsia || '#f13544',
           },
         },
       },
@@ -86,86 +161,56 @@ const instructorTheme = createTheme({
   },
 });
 
-// Animations
-const fadeInUp = keyframes`
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-`;
-
-const floatingAnimation = keyframes`
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
-`;
-
-// Styled Components
-const FormContainer = styled(Box)(({ theme }) => ({
-  minHeight: '100vh',
-  width: '100vw',
-  background: `linear-gradient(135deg, ${colors.navy || '#010b40'}, ${colors.lightNavy || '#1a237e'})`,
-  padding: theme.spacing(4),
-  position: 'relative',
-  overflow: 'auto',
-  [theme.breakpoints.down('sm')]: { padding: theme.spacing(2) },
-}));
-
-const FormCard = styled(Box)(({ theme }) => ({
-  background: `linear-gradient(135deg, ${colors.navy || '#010b40'}cc, ${colors.lightNavy || '#1a237e'}cc)`,
-  backdropFilter: 'blur(12px)',
-  border: `1px solid ${colors.fuschia || '#f13544'}33`,
-  borderRadius: '16px',
-  padding: theme.spacing(4),
-  animation: `${fadeInUp} 0.6s ease-out`,
-  maxWidth: '600px',
-  margin: '0 auto',
-  position: 'relative',
-  '&::before': {
-    content: '""',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '4px',
-    background: `linear-gradient(90deg, ${colors.fuschia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`,
-    borderRadius: '16px 16px 0 0',
-  },
-}));
-
-const StyledButton = styled(Button)(({ theme }) => ({
-  background: `linear-gradient(135deg, ${colors.fuschia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`,
-  color: colors.white || '#ffffff',
-  boxShadow: `0 4px 16px ${colors.fuschia || '#f13544'}4d`,
-  '&:hover': {
-    background: `linear-gradient(135deg, ${colors.fuschia || '#f13544'}cc, ${colors.lightFuschia || '#ff6b74'}cc)`,
-    boxShadow: `0 6px 20px ${colors.fuschia || '#f13544'}66`,
-    transform: 'translateY(-2px)',
-  },
-  '&:disabled': {
-    background: `linear-gradient(135deg, ${colors.fuschia || '#f13544'}80, ${colors.lightFuschia || '#ff6b74'}80)`,
-    cursor: 'not-allowed',
-  },
-}));
-
 const CreateCourse = () => {
   const { user, isLoading: authLoading } = useContext(AuthContext);
   const navigate = useNavigate();
 
+  const [activeStep, setActiveStep] = useState(0);
   const [formData, setFormData] = useState({
     titre: '',
     description: '',
     duree: '',
     domaineId: '',
-    niveau: 'ALFA', // Utiliser les valeurs en majuscules comme dans le backend
+    niveau: 'ALFA',
   });
-
   const [domaines, setDomaines] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingDomaines, setIsLoadingDomaines] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [domaineError, setDomaineError] = useState(false);
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
-  // Charger les domaines disponibles
+  const steps = ['Informations générales', 'Détails du cours', 'Révision'];
+
+  const niveaux = [
+    {
+      value: 'ALFA',
+      label: 'Alfa (Débutant)',
+      color: '#4CAF50',
+      description: 'Pour les débutants absolus, aucune connaissance préalable requise.',
+    },
+    {
+      value: 'BETA',
+      label: 'Beta (Intermédiaire)',
+      color: '#2196F3',
+      description: 'Pour ceux avec des bases solides, prêt à approfondir.',
+    },
+    {
+      value: 'GAMMA',
+      label: 'Gamma (Avancé)',
+      color: '#FF9800',
+      description: 'Pour les apprenants expérimentés, concepts complexes.',
+    },
+    {
+      value: 'DELTA',
+      label: 'Delta (Expert)',
+      color: '#F44336',
+      description: 'Pour les professionnels, maîtrise avancée et applications réelles.',
+    },
+  ];
+
   useEffect(() => {
     const fetchDomaines = async () => {
       if (!user?.token) return;
@@ -176,12 +221,23 @@ const CreateCourse = () => {
           headers: { Authorization: `Bearer ${user.token}` },
         });
 
-        // Adapter selon la structure de votre réponse API
         const domainesData = response.data.data || response.data || [];
         setDomaines(domainesData);
+        if (domainesData.length === 0) {
+          setError(
+            "Aucun domaine disponible. Veuillez contacter l'administrateur pour ajouter des domaines."
+          );
+        }
       } catch (err) {
         console.error('Erreur lors du chargement des domaines:', err);
-        setError('Erreur lors du chargement des domaines disponibles');
+        let errMsg = 'Erreur lors du chargement des domaines disponibles.';
+        if (err.response?.status === 404) {
+          errMsg = 'Route /api/domaines non trouvée. Assurez-vous que le backend implémente cette endpoint.';
+        } else if (err.response?.status === 401) {
+          errMsg = 'Session expirée. Veuillez vous reconnecter.';
+          navigate('/login');
+        }
+        setError(errMsg);
       } finally {
         setIsLoadingDomaines(false);
       }
@@ -190,27 +246,67 @@ const CreateCourse = () => {
     if (user) {
       fetchDomaines();
     }
-  }, [user, API_BASE_URL]);
+  }, [user, API_BASE_URL, navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    setError('');
+    if (name === 'domaineId') setDomaineError(false);
   };
 
-  const validateForm = () => {
-    if (!formData.titre.trim()) return 'Le titre est requis';
-    if (!formData.description.trim()) return 'La description est requise';
-    if (!formData.duree || parseFloat(formData.duree) <= 0)
-      return 'La durée doit être un nombre positif';
-    if (!formData.domaineId) return 'Le domaine est requis';
-    if (!formData.niveau) return 'Le niveau est requis';
-    return '';
+  const validateStep = (step) => {
+    switch (step) {
+      case 0:
+        const titre = formData.titre.trim();
+        if (!titre) return 'Le titre est requis';
+        if (titre.length < 10) return 'Le titre doit contenir au moins 10 caractères';
+        if (titre.length > 100) return 'Le titre ne doit pas dépasser 100 caractères';
+        return '';
+      case 1:
+        const description = formData.description.trim();
+        if (!description) return 'La description est requise';
+        if (description.length < 50) return 'La description doit contenir au moins 50 caractères';
+        if (description.length > 1000) return 'La description ne doit pas dépasser 1000 caractères';
+        const duree = parseFloat(formData.duree);
+        if (isNaN(duree) || duree <= 0) return 'La durée doit être un nombre positif supérieur à 0';
+        if (duree > 1000) return 'La durée maximale autorisée est de 1000 heures';
+        return '';
+      case 2:
+        if (!formData.domaineId) {
+          setDomaineError(true);
+          return 'Sélectionnez un domaine';
+        }
+        setDomaineError(false);
+        if (!formData.niveau) return 'Sélectionnez un niveau';
+        return '';
+      default:
+        return '';
+    }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleNext = () => {
+    const validationError = validateStep(activeStep);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    if (activeStep === 2 && domaines.length === 0) {
+      setError('Aucun domaine disponible. Impossible de continuer.');
+      return;
+    }
+    setError('');
+    setActiveStep((prev) => prev + 1);
+  };
 
-    const validationError = validateForm();
+  const handleBack = () => {
+    setActiveStep((prev) => prev - 1);
+    setError('');
+    setDomaineError(false);
+  };
+
+  const handleSubmit = async () => {
+    const validationError = validateStep(activeStep);
     if (validationError) {
       setError(validationError);
       return;
@@ -222,53 +318,50 @@ const CreateCourse = () => {
 
     try {
       if (!user || !user.token) {
-        throw new Error('Utilisateur non authentifié');
+        throw new Error('Utilisateur non authentifié. Veuillez vous reconnecter.');
       }
 
-      // Préparer les données selon le format attendu par le backend
       const courseData = {
         titre: formData.titre.trim(),
         description: formData.description.trim(),
         duree: parseFloat(formData.duree),
         domaineId: formData.domaineId,
         niveau: formData.niveau,
-        // Les champs suivants seront gérés automatiquement par le backend
         estPublie: false,
         statutApprobation: 'PENDING',
       };
 
-      console.log('📤 Données envoyées au backend:', courseData);
+      const response = await axios.post(
+        `${API_BASE_URL}/instructeurs/${user.id}/courses`,
+        courseData,
+        {
+          headers: {
+            Authorization: `Bearer ${user.token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
-      // Utiliser l'endpoint standard de création de cours
-      const response = await axios.post(`${API_BASE_URL}/courses`, courseData, {
-        headers: {
-          Authorization: `Bearer ${user.token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      console.log('✅ Réponse du backend:', response.data);
-
-      setSuccess('Cours créé avec succès ! Redirection...');
-
-      // Rediriger vers la liste des cours après un délai
+      setSuccess('Cours créé avec succès ! Vous allez être redirigé...');
       setTimeout(() => navigate('/instructor/courses'), 2000);
     } catch (err) {
-      console.error('❌ Erreur lors de la création du cours:', err);
-
-      // Gestion détaillée des erreurs
-      if (err.response?.data?.errors) {
-        const errorDetails = err.response.data.errors
-          .map((error) => `${error.path}: ${error.msg}`)
-          .join(', ');
-        setError(`Erreur de validation: ${errorDetails}`);
-      } else if (err.response?.data?.message) {
-        setError(err.response.data.message);
-      } else if (err.code === 'NETWORK_ERROR' || err.code === 'ECONNREFUSED') {
-        setError('Impossible de se connecter au serveur. Vérifiez que le backend est démarré.');
-      } else {
-        setError('Erreur lors de la création du cours. Veuillez réessayer.');
+      let errorMessage =
+        'Erreur inattendue lors de la création du cours. Veuillez réessayer plus tard.';
+      if (err.response) {
+        if (err.response.status === 404) {
+          errorMessage = 'Route non trouvée. Vérifiez la configuration du backend.';
+        } else if (err.response.data?.message) {
+          errorMessage = err.response.data.message;
+        } else if (err.response.data?.errors) {
+          errorMessage = err.response.data.errors.map((e) => e.msg).join(', ');
+        } else if (err.response.status === 401) {
+          errorMessage = 'Session expirée. Veuillez vous reconnecter.';
+          navigate('/login');
+        }
+      } else if (err.message) {
+        errorMessage = err.message;
       }
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -278,199 +371,482 @@ const CreateCourse = () => {
     return (
       <Box
         sx={{
-          minHeight: '100vh',
-          width: '100vw',
-          bgcolor: colors.navy || '#010b40',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
+          height: '100vh',
+          width: '100vw',
+          bgcolor: colors.navy || '#010b40',
         }}
       >
-        <CircularProgress sx={{ color: colors.fuschia || '#f13544' }} />
-        <Typography sx={{ ml: 2, color: colors.white || '#ffffff' }}>Chargement...</Typography>
+        <CircularProgress size={60} sx={{ color: colors.fuchsia || '#f13544' }} />
       </Box>
     );
   }
 
+  if (!user || user.role !== 'ENSEIGNANT') {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+          width: '100vw',
+          bgcolor: colors.navy || '#010b40',
+        }}
+      >
+        <Alert
+          severity='error'
+          sx={{
+            p: 3,
+            borderRadius: 2,
+            backgroundColor: `${colors.navy || '#010b40'}cc`,
+            color: colors.white || '#ffffff',
+            border: `1px solid ${colors.fuchsia || '#f13544'}33`,
+          }}
+        >
+          Accès interdit : Réservé aux enseignants uniquement.
+        </Alert>
+      </Box>
+    );
+  }
+
+  const renderStepContent = (step) => {
+    switch (step) {
+      case 0:
+        return (
+          <Box sx={{ p: 2 }}>
+            <Typography
+              variant='h5'
+              gutterBottom
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                color: colors.fuchsia || '#f13544',
+              }}
+            >
+              <SchoolIcon fontSize='large' />
+              Informations de Base du Cours
+            </Typography>
+            <TextField
+              label='Titre du Cours'
+              name='titre'
+              value={formData.titre}
+              onChange={handleChange}
+              fullWidth
+              required
+              variant='outlined'
+              placeholder='Exemple : Apprendre le Développement Web avec React'
+              helperText={`Longueur : ${formData.titre.length}/100 (min 10)`}
+              inputProps={{ maxLength: 100 }}
+              error={
+                formData.titre.length > 0 &&
+                (formData.titre.length < 10 || formData.titre.length > 100)
+              }
+              sx={{ mb: 4 }}
+            />
+          </Box>
+        );
+
+      case 1:
+        return (
+          <Box sx={{ p: 2 }}>
+            <Typography
+              variant='h5'
+              gutterBottom
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                color: colors.fuchsia || '#f13544',
+              }}
+            >
+              <DescriptionIcon fontSize='large' />
+              Détails et Contenu
+            </Typography>
+            <TextField
+              label='Description Détaillée'
+              name='description'
+              value={formData.description}
+              onChange={handleChange}
+              fullWidth
+              required
+              multiline
+              rows={8}
+              variant='outlined'
+              placeholder='Décrivez les objectifs, le programme, les prérequis et les compétences acquises...'
+              helperText={`Longueur : ${formData.description.length}/1000 (min 50)`}
+              inputProps={{ maxLength: 1000 }}
+              error={
+                formData.description.length > 0 &&
+                (formData.description.length < 50 || formData.description.length > 1000)
+              }
+              sx={{ mb: 4 }}
+            />
+            <TextField
+              label='Durée Estimée (heures)'
+              name='duree'
+              type='number'
+              value={formData.duree}
+              onChange={handleChange}
+              fullWidth
+              required
+              variant='outlined'
+              placeholder='Exemple : 15.5'
+              inputProps={{ min: 0.5, step: 0.5, max: 1000 }}
+              InputProps={{
+                startAdornment: (
+                  <TimerIcon sx={{ mr: 1.5, color: colors.lightFuchsia || '#ff6b74' }} />
+                ),
+              }}
+              helperText='Indiquez la durée totale approximative du cours'
+              error={
+                formData.duree &&
+                (parseFloat(formData.duree) <= 0 || parseFloat(formData.duree) > 1000)
+              }
+            />
+          </Box>
+        );
+
+      case 2:
+        return (
+          <Box sx={{ p: 2 }}>
+            <Typography
+              variant='h5'
+              gutterBottom
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                color: colors.fuchsia || '#f13544',
+              }}
+            >
+              <CategoryIcon fontSize='large' />
+              Catégorisation et Récapitulatif
+            </Typography>
+            {isLoadingDomaines ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+                <CircularProgress sx={{ color: colors.fuchsia || '#f13544' }} />
+              </Box>
+            ) : (
+              <FormControl fullWidth required sx={{ mb: 4 }} error={domaineError}>
+                <InputLabel id='domaine-label'>Domaine d'Étude</InputLabel>
+                <Select
+                  labelId='domaine-label'
+                  name='domaineId'
+                  value={formData.domaineId}
+                  onChange={handleChange}
+                  label="Domaine d'Étude"
+                  variant='outlined'
+                  disabled={domaines.length === 0}
+                >
+                  <MenuItem value=''>
+                    <em>Choisissez un domaine</em>
+                  </MenuItem>
+                  {domaines.map((domaine) => (
+                    <MenuItem key={domaine._id} value={domaine._id}>
+                      {domaine.nom}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {domaineError && (
+                  <Typography variant='caption' color='error'>
+                    Sélectionnez un domaine
+                  </Typography>
+                )}
+              </FormControl>
+            )}
+
+            <Typography
+              variant='h6'
+              gutterBottom
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                color: colors.lightFuchsia || '#ff6b74',
+                mt: 4,
+              }}
+            >
+              <LevelIcon fontSize='medium' />
+              Sélection du Niveau
+            </Typography>
+            <Grid container spacing={3}>
+              {niveaux.map((niveau) => (
+                <Grid item xs={12} md={6} key={niveau.value}>
+                  <Card
+                    sx={{
+                      cursor: 'pointer',
+                      border:
+                        formData.niveau === niveau.value
+                          ? `3px solid ${niveau.color}`
+                          : `2px solid ${colors.lightNavy || '#1a237e'}`,
+                      borderRadius: 2,
+                      backgroundColor: `${colors.navy || '#010b40'}cc`,
+                      transition: 'transform 0.2s, box-shadow 0.2s',
+                      '&:hover': {
+                        transform: 'scale(1.02)',
+                        boxShadow: `0 8px 16px ${colors.fuchsia || '#f13544'}33`,
+                      },
+                    }}
+                    onClick={() => setFormData((prev) => ({ ...prev, niveau: niveau.value }))}
+                  >
+                    <CardContent>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          mb: 1,
+                        }}
+                      >
+                        <Typography variant='h6' sx={{ color: niveau.color }}>
+                          {niveau.label}
+                        </Typography>
+                        <Chip
+                          label={niveau.value}
+                          sx={{
+                            bgcolor: niveau.color,
+                            color: colors.white || '#ffffff',
+                            fontWeight: 'bold',
+                          }}
+                        />
+                      </Box>
+                      <Typography variant='body2' sx={{ color: colors.white || '#ffffff' }}>
+                        {niveau.description}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+
+            <Divider sx={{ my: 5, borderColor: colors.lightNavy || '#1a237e' }} />
+
+            <Paper
+              elevation={2}
+              sx={{
+                p: 3,
+                borderRadius: 2,
+                backgroundColor: `${colors.navy || '#010b40'}cc`,
+              }}
+            >
+              <Typography variant='h6' gutterBottom sx={{ color: colors.fuchsia || '#f13544' }}>
+                Récapitulatif Final du Cours
+              </Typography>
+              <Grid container spacing={3}>
+                <Grid item xs={12}>
+                  <Typography variant='subtitle2' sx={{ color: colors.lightFuchsia || '#ff6b74' }}>
+                    Titre :
+                  </Typography>
+                  <Typography
+                    variant='body1'
+                    sx={{ fontWeight: 600, color: colors.white || '#ffffff' }}
+                  >
+                    {formData.titre || 'Non défini'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant='subtitle2' sx={{ color: colors.lightFuchsia || '#ff6b74' }}>
+                    Durée :
+                  </Typography>
+                  <Typography
+                    variant='body1'
+                    sx={{ fontWeight: 600, color: colors.white || '#ffffff' }}
+                  >
+                    {formData.duree ? `${formData.duree} heures` : 'Non définie'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant='subtitle2' sx={{ color: colors.lightFuchsia || '#ff6b74' }}>
+                    Niveau :
+                  </Typography>
+                  <Typography
+                    variant='body1'
+                    sx={{ fontWeight: 600, color: colors.white || '#ffffff' }}
+                  >
+                    {niveaux.find((n) => n.value === formData.niveau)?.label || 'Non sélectionné'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant='subtitle2' sx={{ color: colors.lightFuchsia || '#ff6b74' }}>
+                    Domaine :
+                  </Typography>
+                  <Typography
+                    variant='body1'
+                    sx={{ fontWeight: 600, color: colors.white || '#ffffff' }}
+                  >
+                    {domaines.find((d) => d._id === formData.domaineId)?.nom || 'Non sélectionné'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant='subtitle2' sx={{ color: colors.lightFuchsia || '#ff6b74' }}>
+                    Description :
+                  </Typography>
+                  <Typography
+                    variant='body1'
+                    sx={{
+                      fontWeight: 600,
+                      color: colors.white || '#ffffff',
+                      whiteSpace: 'pre-line',
+                    }}
+                  >
+                    {formData.description || 'Non définie'}
+                  </Typography>
+                </Grid>
+              </Grid>
+            </Paper>
+          </Box>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   return (
     <ThemeProvider theme={instructorTheme}>
-      <FormContainer>
-        {/* Background Decorations */}
-        <Box
-          sx={{
-            position: 'absolute',
-            inset: 0,
-            background: `linear-gradient(${colors.fuschia || '#f13544'}0a 1px, transparent 1px)`,
-            backgroundSize: '40px 40px',
-            opacity: 0.05,
-          }}
-        />
+      <Box
+        sx={{
+          bgcolor: colors.navy || '#010b40',
+          minHeight: '100vh',
+          width: '100vw',
+          py: 6,
+          overflowX: 'hidden',
+        }}
+      >
+        <Container maxWidth={false} sx={{ px: { xs: 2, md: 4 } }}>
+          <Button
+            startIcon={<BackIcon />}
+            onClick={() => navigate('/instructor/courses')}
+            variant='outlined'
+            color='secondary'
+            sx={{
+              mb: 4,
+              borderRadius: 2,
+            }}
+          >
+            Retour aux Cours
+          </Button>
 
-        <Box
-          sx={{
-            position: 'absolute',
-            bottom: 60,
-            right: 30,
-            width: 120,
-            height: 120,
-            background: `linear-gradient(135deg, ${colors.fuschia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`,
-            borderRadius: '50%',
-            opacity: 0.15,
-            animation: `${floatingAnimation} 4s ease-in-out infinite`,
-          }}
-        />
+          <Paper elevation={6} sx={{ p: { xs: 3, md: 5 }, borderRadius: 3 }}>
+            <Box sx={{ mb: 5, textAlign: 'center' }}>
+              <SchoolIcon sx={{ fontSize: 80, color: colors.fuchsia || '#f13544', mb: 2 }} />
+              <Typography
+                variant='h3'
+                gutterBottom
+                fontWeight={800}
+                color={colors.fuchsia || '#f13544'}
+              >
+                Création d'un Nouveau Cours
+              </Typography>
+              <Typography
+                variant='subtitle1'
+                sx={{ maxWidth: 600, mx: 'auto', color: colors.white || '#ffffff' }}
+              >
+                Utilisez cet assistant pas à pas pour concevoir un cours professionnel. Assurez-vous
+                que tous les champs sont remplis correctement.
+              </Typography>
+            </Box>
 
-        <Container maxWidth={false} disableGutters>
-          {/* En-tête */}
-          <Box sx={{ p: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
-            <SchoolIcon sx={{ fontSize: 40, color: colors.fuschia || '#f13544' }} />
-            <Typography
-              variant='h3'
-              sx={{ color: colors.white || '#ffffff', fontSize: { xs: '1.5rem', md: '2.5rem' } }}
-            >
-              Créer un Nouveau Cours
-            </Typography>
-          </Box>
+            <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 5 }}>
+              {steps.map((label, index) => (
+                <Step key={label}>
+                  <StepLabel
+                    sx={{
+                      '& .MuiStepLabel-label': {
+                        fontWeight: activeStep === index ? 700 : 400,
+                        color: colors.white || '#ffffff',
+                      },
+                    }}
+                  >
+                    {label}
+                  </StepLabel>
+                </Step>
+              ))}
+            </Stepper>
 
-          {/* Formulaire */}
-          <FormCard>
             {error && (
-              <Alert severity='error' sx={{ mb: 2 }} onClose={() => setError('')}>
+              <Alert severity='error' sx={{ mb: 4, borderRadius: 2 }} onClose={() => setError('')}>
                 {error}
               </Alert>
             )}
 
             {success && (
-              <Alert severity='success' sx={{ mb: 2 }}>
+              <Alert
+                severity='success'
+                sx={{
+                  mb: 4,
+                  borderRadius: 2,
+                  backgroundColor: `${colors.navy || '#010b40'}cc`,
+                  color: colors.white || '#ffffff',
+                  border: `1px solid ${colors.fuchsia || '#f13544'}33`,
+                }}
+                onClose={() => setSuccess('')}
+              >
                 {success}
               </Alert>
             )}
 
-            <form onSubmit={handleSubmit}>
-              {/* Titre */}
-              <TextField
-                label='Titre du cours'
-                name='titre'
-                value={formData.titre}
-                onChange={handleChange}
-                fullWidth
-                required
-                margin='normal'
-                placeholder='Ex: Introduction à la programmation Python'
-              />
+            {renderStepContent(activeStep)}
 
-              {/* Description */}
-              <TextField
-                label='Description'
-                name='description'
-                value={formData.description}
-                onChange={handleChange}
-                fullWidth
-                multiline
-                rows={4}
-                required
-                margin='normal'
-                placeholder='Décrivez le contenu et les objectifs de votre cours...'
-              />
-
-              {/* Durée */}
-              <TextField
-                label='Durée (en heures)'
-                name='duree'
-                type='number'
-                value={formData.duree}
-                onChange={handleChange}
-                fullWidth
-                required
-                margin='normal'
-                inputProps={{ min: 1, step: 0.5 }}
-                placeholder='Ex: 10.5'
-              />
-
-              {/* Domaine */}
-              <FormControl fullWidth required margin='normal'>
-                <InputLabel>Domaine</InputLabel>
-                <Select
-                  name='domaineId'
-                  value={formData.domaineId}
-                  onChange={handleChange}
-                  label='Domaine'
-                  disabled={isLoadingDomaines}
-                >
-                  <MenuItem value=''>
-                    <em>Sélectionner un domaine</em>
-                  </MenuItem>
-                  {domaines.map((domaine) => (
-                    <MenuItem key={domaine._id} value={domaine._id}>
-                      {domaine.nom || `Domaine ${domaine._id}`}
-                    </MenuItem>
-                  ))}
-                </Select>
-                {isLoadingDomaines && (
-                  <Typography variant='caption' sx={{ color: 'rgba(255, 255, 255, 0.6)', mt: 1 }}>
-                    Chargement des domaines...
-                  </Typography>
-                )}
-              </FormControl>
-
-              {/* Niveau */}
-              <FormControl fullWidth required margin='normal'>
-                <InputLabel>Niveau</InputLabel>
-                <Select
-                  name='niveau'
-                  value={formData.niveau}
-                  onChange={handleChange}
-                  label='Niveau'
-                >
-                  <MenuItem value='ALFA'>Alfa (Débutant)</MenuItem>
-                  <MenuItem value='BETA'>Beta (Intermédiaire)</MenuItem>
-                  <MenuItem value='GAMMA'>Gamma (Avancé)</MenuItem>
-                  <MenuItem value='DELTA'>Delta (Expert)</MenuItem>
-                </Select>
-              </FormControl>
-
-              {/* Bouton de soumission */}
-              <StyledButton
-                type='submit'
-                disabled={isLoading || isLoadingDomaines}
-                fullWidth
-                sx={{ mt: 3, height: '48px' }}
-              >
-                {isLoading ? (
-                  <CircularProgress size={24} sx={{ color: colors.white || '#ffffff' }} />
-                ) : (
-                  'Créer le Cours'
-                )}
-              </StyledButton>
-
-              {/* Bouton annuler */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 6 }}>
               <Button
-                onClick={() => navigate('/instructor/courses')}
-                fullWidth
+                disabled={activeStep === 0 || isLoading}
+                onClick={handleBack}
+                variant='outlined'
+                color='secondary'
+                size='large'
                 sx={{
-                  mt: 2,
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  border: '1px solid rgba(255, 255, 255, 0.3)',
-                  '&:hover': {
-                    border: '1px solid rgba(255, 255, 255, 0.5)',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                  },
+                  borderRadius: 2,
                 }}
               >
-                Annuler
+                Précédent
               </Button>
-            </form>
-          </FormCard>
 
-          {/* Informations supplémentaires */}
-          <Box sx={{ mt: 3, textAlign: 'center' }}>
-            <Typography variant='body2' sx={{ color: 'rgba(255, 255, 255, 0.5)' }}>
-              Le cours sera créé en statut "Brouillon". Vous pourrez le publier après avoir ajouté
-              du contenu.
+              {activeStep === steps.length - 1 ? (
+                <Button
+                  variant='contained'
+                  color='primary'
+                  onClick={handleSubmit}
+                  disabled={isLoading || isLoadingDomaines}
+                  startIcon={
+                    isLoading ? (
+                      <CircularProgress size={24} sx={{ color: colors.white || '#ffffff' }} />
+                    ) : (
+                      <SaveIcon />
+                    )
+                  }
+                  size='large'
+                  sx={{ borderRadius: 2 }}
+                >
+                  {isLoading ? 'Création en cours...' : 'Créer et Sauvegarder le Cours'}
+                </Button>
+              ) : (
+                <Button
+                  variant='contained'
+                  color='primary'
+                  onClick={handleNext}
+                  disabled={isLoading || isLoadingDomaines}
+                  size='large'
+                  sx={{ borderRadius: 2 }}
+                >
+                  Suivant
+                </Button>
+              )}
+            </Box>
+          </Paper>
+
+          <Box sx={{ mt: 5, textAlign: 'center', color: colors.white || '#ffffff' }}>
+            <Typography variant='body1'>
+              Note : Votre cours sera initialement en mode brouillon. Ajoutez du contenu multimédia,
+              quizzes et ressources avant publication.
             </Typography>
           </Box>
         </Container>
-      </FormContainer>
+      </Box>
     </ThemeProvider>
   );
 };

@@ -23,13 +23,11 @@ import { AuthContext } from '../../context/AuthContext';
 import axios from 'axios';
 
 // Palette de couleurs harmonisée pour plateforme e-learning
-// Bleu marine pour professionnalisme et fiabilité
-// Fuchsia pour audace créative et énergie
 const colors = {
-  primary: '#010b40',    // Bleu marine principal
-  secondary: '#f13544',  // Fuchsia pour accents créatifs
-  accent: '#f13544',     // Fuchsia comme accent principal
-  accentHover: '#d91f2e',// Variation plus foncée du fuchsia pour hover
+  primary: '#010b40', // Bleu marine principal
+  secondary: '#f13544', // Fuchsia pour accents créatifs
+  accent: '#f13544', // Fuchsia comme accent principal
+  accentHover: '#d91f2e', // Variation plus foncée du fuchsia pour hover
   success: '#10B981',
   error: '#EF4444',
   white: '#FFFFFF',
@@ -77,17 +75,17 @@ const pulse = keyframes`
 
 // Composants stylisés professionnels, avec touches créatives pour e-learning
 const RegisterCard = styled(Card)(({ theme }) => ({
-  background: colors.white,
+  background: `${colors.primary}cc`, // Semi-transparent navy
   borderRadius: '24px',
   padding: theme.spacing(5),
   width: '100%',
   maxWidth: 520,
-  boxShadow: '0 20px 60px rgba(1, 11, 64, 0.08), 0 0 1px rgba(1, 11, 64, 0.1)',
+  boxShadow: `0 20px 60px ${colors.primary}33, 0 0 1px ${colors.accent}33`,
   animation: `${fadeInScale} 0.6s cubic-bezier(0.4, 0, 0.2, 1)`,
   transition: 'all 0.3s ease',
-  border: `1px solid ${colors.gray200}`,
+  border: `1px solid ${colors.gray800}`,
   '&:hover': {
-    boxShadow: '0 24px 70px rgba(241, 53, 68, 0.12), 0 0 1px rgba(241, 53, 68, 0.1)', // Touch fuchsia sur hover
+    boxShadow: `0 24px 70px ${colors.accent}33, 0 0 1px ${colors.accent}66`,
   },
   [theme.breakpoints.down('sm')]: {
     padding: theme.spacing(4),
@@ -98,17 +96,18 @@ const RegisterCard = styled(Card)(({ theme }) => ({
 const StyledTextField = styled(TextField)(({ theme }) => ({
   '& .MuiOutlinedInput-root': {
     borderRadius: '12px',
-    backgroundColor: colors.gray100,
+    backgroundColor: `${colors.primary}cc`, // Semi-transparent navy
+    color: colors.white,
     transition: 'all 0.2s ease',
     border: '2px solid transparent',
     '&:hover': {
-      backgroundColor: colors.white,
+      backgroundColor: `${colors.gray800}cc`,
       '& fieldset': {
-        borderColor: colors.gray300,
+        borderColor: colors.gray700,
       },
     },
     '&.Mui-focused': {
-      backgroundColor: colors.white,
+      backgroundColor: `${colors.gray800}cc`,
       border: `2px solid ${colors.accent}`,
       '& fieldset': {
         borderWidth: 0,
@@ -119,7 +118,7 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
     },
   },
   '& .MuiInputLabel-root': {
-    color: colors.gray600,
+    color: colors.accent, // Fuchsia labels
     fontWeight: 500,
     fontSize: '14px',
     '&.Mui-focused': {
@@ -127,14 +126,17 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
     },
   },
   '& .MuiInputBase-input': {
-    color: colors.primary,
+    color: colors.white,
     fontSize: '15px',
     padding: '12px 14px',
+    '&::placeholder': {
+      color: colors.gray400,
+    },
   },
 }));
 
 const PrimaryButton = styled(Button)(({ theme }) => ({
-  background: `linear-gradient(135deg, ${colors.accent}, ${colors.accentHover})`, // Gradient fuchsia
+  background: `linear-gradient(135deg, ${colors.accent}, ${colors.accentHover})`,
   borderRadius: '12px',
   padding: '14px 28px',
   fontWeight: 600,
@@ -178,12 +180,12 @@ const SecondaryButton = styled(Button)(({ theme }) => ({
   fontWeight: 600,
   fontSize: '15px',
   textTransform: 'none',
-  color: colors.accent,
-  border: `2px solid ${colors.gray200}`,
+  color: colors.white, // White text for contrast
+  border: `2px solid ${colors.gray700}`,
   backgroundColor: 'transparent',
   transition: 'all 0.2s ease',
   '&:hover': {
-    backgroundColor: colors.gray100,
+    backgroundColor: `${colors.gray800}33`,
     borderColor: colors.accent,
     transform: 'translateY(-1px)',
   },
@@ -292,7 +294,7 @@ const Register = () => {
       sx={{
         minHeight: '100vh',
         width: '100vw',
-        background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`, // Gradient bleu marine à fuchsia
+        background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -371,6 +373,7 @@ const Register = () => {
                   fontSize: { md: '2.5rem', lg: '3rem' },
                   letterSpacing: '-0.02em',
                   lineHeight: 1.2,
+                  color: colors.white,
                 }}
               >
                 Rejoignez Notre
@@ -387,13 +390,17 @@ const Register = () => {
                   color: colors.gray200,
                 }}
               >
-                Créez votre compte et commencez votre parcours d'apprentissage innovant dès aujourd'hui
+                Créez votre compte et commencez votre parcours d'apprentissage innovant dès
+                aujourd'hui
               </Typography>
             </Box>
 
             <Stack spacing={3} sx={{ mt: 5 }}>
               {[
-                { title: 'Inscription rapide', desc: 'Processus simplifié pour un démarrage immédiat' },
+                {
+                  title: 'Inscription rapide',
+                  desc: 'Processus simplifié pour un démarrage immédiat',
+                },
                 { title: 'Sécurité garantie', desc: 'Vos données éducatives sont protégées' },
                 { title: 'Accès immédiat', desc: 'Découvrez nos cours innovants sans attendre' },
               ].map((item, idx) => (
@@ -404,7 +411,9 @@ const Register = () => {
                     style={{ marginTop: 2, flexShrink: 0 }}
                   />
                   <Box>
-                    <Typography sx={{ fontWeight: 600, mb: 0.5, fontSize: '15px' }}>
+                    <Typography
+                      sx={{ fontWeight: 600, mb: 0.5, fontSize: '15px', color: colors.white }}
+                    >
                       {item.title}
                     </Typography>
                     <Typography sx={{ opacity: 0.7, fontSize: '14px', color: colors.gray200 }}>
@@ -428,7 +437,7 @@ const Register = () => {
                         variant='h4'
                         sx={{
                           fontWeight: 700,
-                          color: colors.primary,
+                          color: colors.white, // White for header
                           mb: 1,
                           fontSize: '28px',
                           letterSpacing: '-0.01em',
@@ -438,7 +447,7 @@ const Register = () => {
                       </Typography>
                       <Typography
                         sx={{
-                          color: colors.gray600,
+                          color: colors.gray200, // Lighter gray for subtitle
                           fontSize: '15px',
                         }}
                       >
@@ -454,6 +463,7 @@ const Register = () => {
                           borderRadius: '12px',
                           backgroundColor: `${colors.error}10`,
                           border: `1px solid ${colors.error}30`,
+                          color: colors.white, // White text for readability
                           '& .MuiAlert-icon': {
                             color: colors.error,
                           },
@@ -477,7 +487,7 @@ const Register = () => {
                             mb: 1,
                             fontSize: '14px',
                             fontWeight: 600,
-                            color: colors.gray600,
+                            color: colors.accent, // Fuchsia for labels
                           }}
                         >
                           Nom
@@ -507,7 +517,7 @@ const Register = () => {
                             mb: 1,
                             fontSize: '14px',
                             fontWeight: 600,
-                            color: colors.gray600,
+                            color: colors.accent, // Fuchsia for labels
                           }}
                         >
                           Prénom
@@ -539,7 +549,7 @@ const Register = () => {
                           mb: 1,
                           fontSize: '14px',
                           fontWeight: 600,
-                          color: colors.gray600,
+                          color: colors.accent, // Fuchsia for labels
                         }}
                       >
                         Adresse email
@@ -570,7 +580,7 @@ const Register = () => {
                           mb: 1,
                           fontSize: '14px',
                           fontWeight: 600,
-                          color: colors.gray600,
+                          color: colors.accent, // Fuchsia for labels
                         }}
                       >
                         Mot de passe
@@ -599,8 +609,8 @@ const Register = () => {
                                 sx={{
                                   color: colors.gray400,
                                   '&:hover': {
-                                    backgroundColor: colors.gray100,
-                                    color: colors.gray600,
+                                    backgroundColor: `${colors.gray800}33`,
+                                    color: colors.accent,
                                   },
                                 }}
                               >
@@ -619,7 +629,7 @@ const Register = () => {
                           mb: 1,
                           fontSize: '14px',
                           fontWeight: 600,
-                          color: colors.gray600,
+                          color: colors.accent, // Fuchsia for labels
                         }}
                       >
                         Confirmer le mot de passe
@@ -648,8 +658,8 @@ const Register = () => {
                                 sx={{
                                   color: colors.gray400,
                                   '&:hover': {
-                                    backgroundColor: colors.gray100,
-                                    color: colors.gray600,
+                                    backgroundColor: `${colors.gray800}33`,
+                                    color: colors.accent,
                                   },
                                 }}
                               >
@@ -676,7 +686,7 @@ const Register = () => {
                         />
                       }
                       label={
-                        <Typography sx={{ fontSize: '14px', color: colors.gray600 }}>
+                        <Typography sx={{ fontSize: '14px', color: colors.white }}>
                           Se souvenir de moi après l'inscription
                         </Typography>
                       }
@@ -698,7 +708,7 @@ const Register = () => {
                     </PrimaryButton>
 
                     {/* Divider */}
-                    <Divider sx={{ my: 1 }}>
+                    <Divider sx={{ my: 1, borderColor: colors.gray700 }}>
                       <Typography sx={{ color: colors.gray400, fontSize: '13px', px: 2 }}>
                         ou
                       </Typography>
@@ -714,7 +724,7 @@ const Register = () => {
                       sx={{
                         textAlign: 'center',
                         fontSize: '13px',
-                        color: colors.gray400,
+                        color: colors.gray200,
                         pt: 2,
                       }}
                     >

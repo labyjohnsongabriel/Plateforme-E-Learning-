@@ -22,13 +22,11 @@ import { Mail, Lock, Eye, EyeOff, Shield, ArrowRight } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 
 // Palette de couleurs harmonisée pour plateforme e-learning
-// Bleu marine pour professionnalisme et fiabilité
-// Fuchsia pour audace créative et énergie
 const colors = {
-  primary: '#010b40',    // Bleu marine principal
-  secondary: '#f13544',  // Fuchsia pour accents créatifs
-  accent: '#f13544',     // Fuchsia comme accent principal
-  accentHover: '#d91f2e',// Variation plus foncée du fuchsia pour hover
+  primary: '#010b40', // Bleu marine principal
+  secondary: '#f13544', // Fuchsia pour accents créatifs
+  accent: '#f13544', // Fuchsia comme accent principal
+  accentHover: '#d91f2e', // Variation plus foncée du fuchsia pour hover
   success: '#10B981',
   error: '#EF4444',
   white: '#FFFFFF',
@@ -85,17 +83,17 @@ const pulse = keyframes`
 
 // Composants stylisés professionnels, avec touches créatives pour e-learning
 const LoginCard = styled(Card)(({ theme }) => ({
-  background: colors.white,
+  background: `${colors.primary}cc`, // Semi-transparent navy
   borderRadius: '24px',
   padding: theme.spacing(5),
   width: '100%',
   maxWidth: 480,
-  boxShadow: '0 20px 60px rgba(1, 11, 64, 0.08), 0 0 1px rgba(1, 11, 64, 0.1)',
+  boxShadow: `0 20px 60px ${colors.primary}33, 0 0 1px ${colors.accent}33`,
   animation: `${fadeInScale} 0.5s cubic-bezier(0.4, 0, 0.2, 1)`,
   transition: 'all 0.3s ease',
-  border: `1px solid ${colors.gray200}`,
+  border: `1px solid ${colors.gray800}`,
   '&:hover': {
-    boxShadow: '0 24px 70px rgba(241, 53, 68, 0.12), 0 0 1px rgba(241, 53, 68, 0.1)', // Touch fuchsia sur hover
+    boxShadow: `0 24px 70px ${colors.accent}33, 0 0 1px ${colors.accent}66`,
   },
   [theme.breakpoints.down('sm')]: {
     padding: theme.spacing(4),
@@ -106,17 +104,18 @@ const LoginCard = styled(Card)(({ theme }) => ({
 const StyledTextField = styled(TextField)(({ theme }) => ({
   '& .MuiOutlinedInput-root': {
     borderRadius: '12px',
-    backgroundColor: colors.gray100,
+    backgroundColor: `${colors.primary}cc`, // Semi-transparent navy
+    color: colors.white,
     transition: 'all 0.2s ease',
     border: '2px solid transparent',
     '&:hover': {
-      backgroundColor: colors.white,
+      backgroundColor: `${colors.gray800}cc`,
       '& fieldset': {
-        borderColor: colors.gray300,
+        borderColor: colors.gray700,
       },
     },
     '&.Mui-focused': {
-      backgroundColor: colors.white,
+      backgroundColor: `${colors.gray800}cc`,
       border: `2px solid ${colors.accent}`,
       '& fieldset': {
         borderWidth: 0,
@@ -127,14 +126,14 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
     },
   },
   '& .MuiInputLabel-root': {
-    color: colors.gray600,
+    color: colors.accent,
     fontWeight: 500,
     '&.Mui-focused': {
       color: colors.accent,
     },
   },
   '& .MuiInputBase-input': {
-    color: colors.gray800,
+    color: colors.white,
     fontSize: '15px',
     padding: '14px 16px',
     '&::placeholder': {
@@ -144,7 +143,7 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
 }));
 
 const PrimaryButton = styled(Button)(({ theme }) => ({
-  background: `linear-gradient(135deg, ${colors.accent}, ${colors.accentHover})`, // Gradient fuchsia
+  background: `linear-gradient(135deg, ${colors.accent}, ${colors.accentHover})`,
   borderRadius: '12px',
   padding: '14px 28px',
   fontWeight: 600,
@@ -188,12 +187,12 @@ const SecondaryButton = styled(Button)(({ theme }) => ({
   fontWeight: 600,
   fontSize: '15px',
   textTransform: 'none',
-  color: colors.accent,
-  border: `2px solid ${colors.gray200}`,
+  color: colors.white,
+  border: `2px solid ${colors.gray700}`,
   backgroundColor: 'transparent',
   transition: 'all 0.2s ease',
   '&:hover': {
-    backgroundColor: colors.gray100,
+    backgroundColor: `${colors.gray800}33`,
     borderColor: colors.accent,
     transform: 'translateY(-1px)',
   },
@@ -254,7 +253,7 @@ const Login = () => {
       sx={{
         minHeight: '100vh',
         width: '100vw',
-        background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`, // Gradient bleu marine à fuchsia
+        background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -333,6 +332,7 @@ const Login = () => {
                   fontSize: { md: '2.5rem', lg: '3rem' },
                   letterSpacing: '-0.02em',
                   lineHeight: 1.2,
+                  color: colors.white,
                 }}
               >
                 Plateforme d'E-Learning Sécurisée
@@ -358,7 +358,10 @@ const Login = () => {
                   title: 'Sécurité renforcée',
                   desc: 'Authentification à deux facteurs pour protéger vos cours',
                 },
-                { title: 'Accès rapide', desc: 'Connexion fluide pour un apprentissage ininterrompu' },
+                {
+                  title: 'Accès rapide',
+                  desc: 'Connexion fluide pour un apprentissage ininterrompu',
+                },
                 { title: 'Support 24/7', desc: 'Aide dédiée pour vos besoins éducatifs' },
               ].map((item, idx) => (
                 <Box key={idx} sx={{ display: 'flex', alignItems: 'start', gap: 2 }}>
@@ -373,7 +376,9 @@ const Login = () => {
                     }}
                   />
                   <Box>
-                    <Typography sx={{ fontWeight: 600, mb: 0.5, fontSize: '15px' }}>
+                    <Typography
+                      sx={{ fontWeight: 600, mb: 0.5, fontSize: '15px', color: colors.white }}
+                    >
                       {item.title}
                     </Typography>
                     <Typography sx={{ opacity: 0.7, fontSize: '14px', color: colors.gray200 }}>
@@ -397,7 +402,7 @@ const Login = () => {
                         variant='h4'
                         sx={{
                           fontWeight: 700,
-                          color: colors.gray800,
+                          color: colors.white,
                           mb: 1,
                           fontSize: '28px',
                           letterSpacing: '-0.01em',
@@ -407,7 +412,7 @@ const Login = () => {
                       </Typography>
                       <Typography
                         sx={{
-                          color: colors.gray600,
+                          color: colors.gray200,
                           fontSize: '15px',
                         }}
                       >
@@ -423,6 +428,7 @@ const Login = () => {
                           borderRadius: '12px',
                           backgroundColor: `${colors.error}10`,
                           border: `1px solid ${colors.error}30`,
+                          color: colors.white,
                           '& .MuiAlert-icon': {
                             color: colors.error,
                           },
@@ -439,7 +445,7 @@ const Login = () => {
                           mb: 1,
                           fontSize: '14px',
                           fontWeight: 600,
-                          color: colors.gray700,
+                          color: colors.accent,
                         }}
                       >
                         Adresse email
@@ -456,7 +462,7 @@ const Login = () => {
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position='start'>
-                              <Mail size={20} color={colors.gray500} />
+                              <Mail size={20} color={colors.gray400} />
                             </InputAdornment>
                           ),
                         }}
@@ -470,7 +476,7 @@ const Login = () => {
                           mb: 1,
                           fontSize: '14px',
                           fontWeight: 600,
-                          color: colors.gray700,
+                          color: colors.accent,
                         }}
                       >
                         Mot de passe
@@ -488,7 +494,7 @@ const Login = () => {
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position='start'>
-                              <Lock size={20} color={colors.gray500} />
+                              <Lock size={20} color={colors.gray400} />
                             </InputAdornment>
                           ),
                           endAdornment: (
@@ -497,10 +503,10 @@ const Login = () => {
                                 onClick={() => setShowPassword(!showPassword)}
                                 edge='end'
                                 sx={{
-                                  color: colors.gray500,
+                                  color: colors.gray400,
                                   '&:hover': {
-                                    backgroundColor: colors.gray100,
-                                    color: colors.gray700,
+                                    backgroundColor: `${colors.gray800}33`,
+                                    color: colors.accent,
                                   },
                                 }}
                               >
@@ -528,7 +534,7 @@ const Login = () => {
                           />
                         }
                         label={
-                          <Typography sx={{ fontSize: '14px', color: colors.gray700 }}>
+                          <Typography sx={{ fontSize: '14px', color: colors.white }}>
                             Se souvenir de moi
                           </Typography>
                         }
@@ -568,7 +574,7 @@ const Login = () => {
                     </PrimaryButton>
 
                     {/* Divider */}
-                    <Divider sx={{ my: 1 }}>
+                    <Divider sx={{ my: 1, borderColor: colors.gray700 }}>
                       <Typography sx={{ color: colors.gray400, fontSize: '13px', px: 2 }}>
                         ou
                       </Typography>
@@ -584,7 +590,7 @@ const Login = () => {
                       sx={{
                         textAlign: 'center',
                         fontSize: '13px',
-                        color: colors.gray500,
+                        color: colors.gray200,
                         pt: 2,
                       }}
                     >
@@ -605,7 +611,7 @@ const Login = () => {
                 </form>
               </LoginCard>
             </Fade>
-          </Box>  
+          </Box>
         </Box>
       </Container>
     </Box>

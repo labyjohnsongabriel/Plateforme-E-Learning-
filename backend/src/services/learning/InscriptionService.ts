@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { MongoServerError } from 'mongodb'; // ✅ Correction ici
+import { MongoServerError } from 'mongodb';
 import createError from 'http-errors';
 import Inscription, { IInscription } from '../../models/learning/Inscription';
 import Cours from '../../models/course/Cours';
@@ -41,13 +41,10 @@ class InscriptionService {
 
       return inscription.populate('cours', 'title description');
     } catch (error: unknown) {
-      // ✅ Correction de la gestion d'erreur
       if (error instanceof MongoServerError && error.code === 11000) {
         throw createError(409, 'Inscription déjà existante');
       }
-
-      const errorMessage =
-        error instanceof Error ? error.message : 'Erreur inconnue';
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
       throw createError(500, `Erreur lors de l'inscription : ${errorMessage}`);
     }
   }
@@ -65,10 +62,22 @@ class InscriptionService {
         'cours',
         'title description'
       );
-      return enrollments;
+
+      // Filtrer les inscriptions avec un cours valide
+      const validEnrollments = enrollments.filter((enrollment) => {
+        if (!enrollment.cours || !Types.ObjectId.isValid(enrollment.cours._id)) {
+          console.warn(
+            `Inscription invalide pour utilisateur ${apprenant}:`,
+            JSON.stringify(enrollment, null, 2)
+          );
+          return false;
+        }
+        return true;
+      });
+
+      return validEnrollments as IInscription[];
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Erreur inconnue';
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
       throw createError(
         500,
         `Erreur lors de la récupération des inscriptions : ${errorMessage}`
@@ -108,8 +117,7 @@ class InscriptionService {
 
       return inscription.populate('cours', 'title description');
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Erreur inconnue';
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
       throw createError(
         500,
         `Erreur lors de la mise à jour du statut : ${errorMessage}`
@@ -149,8 +157,7 @@ class InscriptionService {
 
       return { message: 'Inscription supprimée avec succès' };
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Erreur inconnue';
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
       throw createError(
         500,
         `Erreur lors de la suppression de l’inscription : ${errorMessage}`
