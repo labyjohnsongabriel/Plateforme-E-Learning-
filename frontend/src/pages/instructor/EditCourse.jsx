@@ -781,7 +781,7 @@ const EditCourse = () => {
         <Container maxWidth={false} sx={{ px: { xs: 2, md: 4 } }}>
           <Button
             startIcon={<BackIcon />}
-            onClick={() => navigate('/instructor/courses')}
+            onClick={() => navigate('/instructor/manageCourses')}
             variant='outlined'
             color='secondary'
             sx={{ mb: 4, borderRadius: 2 }}

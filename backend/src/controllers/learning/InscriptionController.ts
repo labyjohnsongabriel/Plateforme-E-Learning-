@@ -7,7 +7,7 @@ import { Types } from 'mongoose';
 
 class InscriptionController {
   // =======================
-  // ✅ 1. INSCRIPTION D’UN UTILISATEUR
+  // ✅ 1. INSCRIPTION D'UN UTILISATEUR - CORRIGÉ
   // =======================
   static enroll = async (
     req: Request<{}, {}, { coursId: string }>,
@@ -17,6 +17,11 @@ class InscriptionController {
     try {
       const userId = InscriptionController.getUserId(req);
       const { coursId } = req.body;
+
+      // Validation renforcée
+      if (!coursId) {
+        throw createError(400, 'L\'identifiant du cours est requis');
+      }
 
       if (!Types.ObjectId.isValid(coursId)) {
         throw createError(400, 'Identifiant de cours invalide');
@@ -30,7 +35,7 @@ class InscriptionController {
   };
 
   // =======================
-  // ✅ 2. RÉCUPÉRER LES INSCRIPTIONS D’UN UTILISATEUR
+  // ✅ 2. RÉCUPÉRER LES INSCRIPTIONS D'UN UTILISATEUR - CORRIGÉ
   // =======================
   static getUserEnrollments = async (
     req: Request,
@@ -47,7 +52,7 @@ class InscriptionController {
   };
 
   // =======================
-  // ✅ 3. MISE À JOUR DU STATUT D’UNE INSCRIPTION
+  // ✅ 3. MISE À JOUR DU STATUT D'UNE INSCRIPTION
   // =======================
   static updateStatus = async (
     req: Request<{ id: string }, {}, { statut: StatutInscription }>,
@@ -60,8 +65,11 @@ class InscriptionController {
       const { statut } = req.body;
 
       if (!id) throw createError(400, 'ID manquant dans la requête');
+      if (!Types.ObjectId.isValid(id)) {
+        throw createError(400, 'Identifiant d\'inscription invalide');
+      }
       if (!Object.values(StatutInscription).includes(statut)) {
-        throw createError(400, 'Statut d’inscription invalide');
+        throw createError(400, 'Statut d\'inscription invalide');
       }
 
       const inscription = await InscriptionService.updateStatus(id, statut, userId);
@@ -72,7 +80,7 @@ class InscriptionController {
   };
 
   // =======================
-  // ✅ 4. SUPPRESSION D’UNE INSCRIPTION
+  // ✅ 4. SUPPRESSION D'UNE INSCRIPTION
   // =======================
   static delete = async (
     req: Request<{ id: string }>,
@@ -84,6 +92,9 @@ class InscriptionController {
       const { id } = req.params;
 
       if (!id) throw createError(400, 'ID manquant dans la requête');
+      if (!Types.ObjectId.isValid(id)) {
+        throw createError(400, 'Identifiant d\'inscription invalide');
+      }
 
       const result = await InscriptionService.deleteEnrollment(id, userId);
       res.json(result);
@@ -93,7 +104,7 @@ class InscriptionController {
   };
 
   // =======================
-  // ✅ 5. MÉTHODE PRIVÉE POUR RÉCUPÉRER L’ID UTILISATEUR
+  // ✅ 5. MÉTHODE PRIVÉE POUR RÉCUPÉRER L'ID UTILISATEUR
   // =======================
   private static getUserId(req: Request): string {
     const id = req.user?._id?.toString();

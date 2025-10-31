@@ -1,11 +1,4 @@
-// Corrected Catalog.jsx
-// Fixes:
-// - Changed API_BASE_URL default to match Courses.jsx for consistency.
-// - Changed public courses endpoint to /public to match new route.
-// - Added robust error handling and logging.
-// - Ensured published courses are fetched and displayed correctly.
-// - Fixed 404 by assuming new route, and improved filtering conditions.
-
+// Corrected Catalog.jsx - Fixed enrollment issues
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
@@ -38,7 +31,11 @@ import axios from 'axios';
 import { useNotifications } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/courses';
+// ✅ CORRECTION: URL de base séparée pour les cours et l'apprentissage
+const COURSES_API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/courses';
+const LEARNING_API_BASE_URL = import.meta.env.VITE_API_BASE_URL ? 
+  import.meta.env.VITE_API_BASE_URL.replace('/courses', '') : 
+  'http://localhost:3001/api';
 
 // Animations
 const fadeInUp = keyframes`
@@ -165,10 +162,10 @@ const Catalog = () => {
 
     try {
       const [statsResponse, coursesResponse, domainsResponse] = await Promise.all([
-        axios.get(`${API_BASE_URL}/stats`, { headers }).catch(() => ({
+        axios.get(`${COURSES_API_BASE_URL}/stats`, { headers }).catch(() => ({
           data: { courses: '500+', learners: '1,200+', satisfaction: '95%' },
         })),
-        axios.get(`${API_BASE_URL}/public`, {
+        axios.get(`${COURSES_API_BASE_URL}/public`, {
           params: {
             page,
             limit: coursesPerPage,
@@ -178,7 +175,7 @@ const Catalog = () => {
           },
           headers,
         }),
-        axios.get(`${API_BASE_URL}/domaine`, { headers }),
+        axios.get(`${COURSES_API_BASE_URL}/domaine`, { headers }),
       ]);
 
       setStats(statsResponse.data);
@@ -186,22 +183,28 @@ const Catalog = () => {
       const domainsData = domainsResponse.data.data || domainsResponse.data || [];
       setDomains([{ _id: 'all', nom: 'Tous les domaines' }, ...domainsData]);
 
-      const normalizedCourses = coursesData.map((course) => {
-        let domaineNom = 'N/A';
-        if (course.domaineId?._id && course.domaineId?.nom) {
-          domaineNom = course.domaineId.nom;
-        } else if (typeof course.domaineId === 'string') {
-          const matchingDomain = domainsData.find((d) => d._id === course.domaineId);
-          domaineNom = matchingDomain ? matchingDomain.nom : 'Domaine non défini';
-        }
-        return {
-          ...course,
-          domaineNom,
-          title: course.titre || 'Titre non disponible',
-          description: course.description || 'Description non disponible',
-          level: course.niveau || 'N/A',
-        };
-      });
+      // ✅ CORRECTION: Validation améliorée des cours
+      const normalizedCourses = coursesData
+        .filter(course => course && course._id) // Filtre les cours valides
+        .map((course) => {
+          let domaineNom = 'N/A';
+          if (course.domaineId?._id && course.domaineId?.nom) {
+            domaineNom = course.domaineId.nom;
+          } else if (typeof course.domaineId === 'string') {
+            const matchingDomain = domainsData.find((d) => d._id === course.domaineId);
+            domaineNom = matchingDomain ? matchingDomain.nom : 'Domaine non défini';
+          }
+          return {
+            ...course,
+            domaineNom,
+            title: course.titre || 'Titre non disponible',
+            description: course.description || 'Description non disponible',
+            level: course.niveau || 'N/A',
+            // ✅ S'assurer que l'ID est valide
+            _id: course._id && typeof course._id === 'string' ? course._id : course._id?.toString()
+          };
+        });
+      
       setCourses(normalizedCourses);
       setTotalPages(Math.max(1, coursesResponse.data.totalPages || 1));
     } catch (err) {
@@ -223,6 +226,9 @@ const Catalog = () => {
 
   const filteredCourses = useMemo(() => {
     return courses.filter((course) => {
+      // ✅ CORRECTION: Validation stricte des cours
+      if (!course?._id) return false;
+      
       const courseLevel = course.level || 'N/A';
       const courseDomain = course.domaineId?._id || course.domaineId || 'all';
       const matchesLevel = filterLevel === 'all' || courseLevel === filterLevel;
@@ -252,22 +258,30 @@ const Catalog = () => {
     }
   };
 
+  // ✅ CORRECTION: Fonction d'inscription améliorée
   const handleEnrollClick = (course) => {
+    // Validation stricte du cours
     if (!course?._id) {
+      console.error('❌ Cours invalide pour inscription:', course);
       addNotification('Erreur: Cours non valide', 'error');
       return;
     }
+
+    // Vérification de l'utilisateur
     if (!user) {
       addNotification('Veuillez vous connecter pour vous inscrire', 'warning');
       navigate('/login', { state: { returnUrl: `/course/${course._id}` } });
       return;
     }
+
     setSelectedCourse(course);
     setEnrollDialogOpen(true);
   };
 
+  // ✅ CORRECTION: Fonction de confirmation d'inscription
   const handleEnrollConfirm = async () => {
     if (!selectedCourse?._id) {
+      console.error('❌ Aucun cours sélectionné pour inscription');
       addNotification('Erreur: Aucun cours sélectionné', 'error');
       setEnrollDialogOpen(false);
       return;
@@ -275,56 +289,90 @@ const Catalog = () => {
 
     setEnrollLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      if (!token || !user) {
+      const token = localStorage.getItem('token') || user?.token;
+      if (!token) {
         addNotification('Veuillez vous connecter pour vous inscrire', 'warning');
         navigate('/login', { state: { returnUrl: `/course/${selectedCourse._id}` } });
         setEnrollDialogOpen(false);
         return;
       }
 
+      console.log('🔄 Tentative d\'inscription au cours:', selectedCourse._id);
+
+      // ✅ CORRECTION: URL corrigée pour l'inscription
       const response = await axios.post(
-        `${API_BASE_URL.replace('/courses', '')}/learning/enroll`, // Correction pour endpoint learning
-        { coursId: selectedCourse._id },
+        `${LEARNING_API_BASE_URL}/learning/enroll`,
+        { 
+          coursId: selectedCourse._id 
+        },
         {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
+          timeout: 10000, // Timeout de 10 secondes
         }
       );
 
-      addNotification(`Inscription au cours "${selectedCourse.title}" réussie !`, 'success');
+      console.log('✅ Inscription réussie:', response.data);
+
+      addNotification(
+        `Inscription au cours "${selectedCourse.title}" réussie !`, 
+        'success'
+      );
+      
       setEnrollDialogOpen(false);
       setSelectedCourse(null);
+      
+      // Redirection vers les cours de l'étudiant
       navigate('/student/courses');
+
     } catch (err) {
-      let errorMessage = 'Erreur lors de l’inscription';
+      console.error('❌ Erreur d\'inscription:', err);
+      
+      let errorMessage = 'Erreur lors de l\'inscription';
+      let notificationType = 'error';
+      
       if (err.response) {
-        switch (err.response.status) {
+        const status = err.response.status;
+        const data = err.response.data;
+        
+        console.log('📊 Réponse erreur:', { status, data });
+
+        switch (status) {
           case 400:
-            errorMessage = err.response.data?.message || 'Données invalides';
+            errorMessage = data?.message || 'Données invalides pour l\'inscription';
             break;
           case 401:
             errorMessage = 'Session expirée, veuillez vous reconnecter';
+            notificationType = 'warning';
             navigate('/login', { state: { returnUrl: `/course/${selectedCourse._id}` } });
             break;
           case 403:
-            errorMessage = 'Vous n’avez pas accès à ce cours';
+            errorMessage = 'Vous n\'avez pas accès à ce cours';
             break;
           case 404:
-            errorMessage = 'Cours introuvable';
+            errorMessage = 'Cours introuvable ou non disponible';
             break;
           case 409:
             errorMessage = 'Vous êtes déjà inscrit à ce cours';
+            notificationType = 'info';
+            // Rediriger vers le cours si déjà inscrit
+            navigate('/student/courses');
+            break;
+          case 500:
+            errorMessage = 'Erreur serveur lors de l\'inscription';
             break;
           default:
-            errorMessage = err.response.data?.message || 'Erreur serveur';
+            errorMessage = data?.message || `Erreur ${status} lors de l'inscription`;
         }
       } else if (err.request) {
-        errorMessage = 'Impossible de se connecter au serveur';
+        errorMessage = 'Impossible de se connecter au serveur. Vérifiez votre connexion.';
+      } else {
+        errorMessage = err.message || 'Erreur inattendue lors de l\'inscription';
       }
-      addNotification(errorMessage, 'error');
+
+      addNotification(errorMessage, notificationType, { autoHideDuration: 6000 });
     } finally {
       setEnrollLoading(false);
     }
@@ -335,6 +383,14 @@ const Catalog = () => {
       setEnrollDialogOpen(false);
       setSelectedCourse(null);
     }
+  };
+
+  // ✅ CORRECTION: Vérification améliorée de la validité du cours
+  const isValidCourse = (course) => {
+    return course && 
+           course._id && 
+           course.title && 
+           course.title !== 'Titre non disponible';
   };
 
   return (
@@ -713,126 +769,129 @@ const Catalog = () => {
                 <Grid container spacing={4}>
                   {filteredCourses.length > 0 ? (
                     filteredCourses.map((course, index) => (
-                      <Grid item xs={12} sm={6} md={4} key={course._id || index}>
-                        <Slide direction='up' in={isVisible} timeout={1000 + index * 200}>
-                          <CourseCard elevation={0}>
-                            <Box
-                              sx={{
-                                p: 4,
-                                height: '100%',
-                                display: 'flex',
-                                flexDirection: 'column',
-                              }}
-                            >
-                              <Typography
-                                variant='h6'
+                      // ✅ CORRECTION: Validation du cours avant affichage
+                      isValidCourse(course) && (
+                        <Grid item xs={12} sm={6} md={4} key={course._id}>
+                          <Slide direction='up' in={isVisible} timeout={1000 + index * 200}>
+                            <CourseCard elevation={0}>
+                              <Box
                                 sx={{
-                                  fontWeight: 700,
-                                  color: colors.white,
-                                  mb: 2,
-                                  fontSize: '1.4rem',
-                                  minHeight: '64px',
-                                  display: '-webkit-box',
-                                  WebkitLineClamp: 2,
-                                  WebkitBoxOrient: 'vertical',
-                                  overflow: 'hidden',
+                                  p: 4,
+                                  height: '100%',
+                                  display: 'flex',
+                                  flexDirection: 'column',
                                 }}
                               >
-                                {course.title}
-                              </Typography>
-
-                              <Chip
-                                label={`Niveau: ${course.level}`}
-                                size='small'
-                                sx={{
-                                  backgroundColor: `${colors.navy}33`,
-                                  color: colors.white,
-                                  fontWeight: 500,
-                                  mb: 1,
-                                  fontSize: '0.9rem',
-                                  alignSelf: 'flex-start',
-                                }}
-                              />
-                              <Chip
-                                label={`Domaine: ${course.domaineNom}`}
-                                size='small'
-                                sx={{
-                                  backgroundColor: `${colors.navy}33`,
-                                  color: colors.white,
-                                  fontWeight: 500,
-                                  mb: 2,
-                                  fontSize: '0.9rem',
-                                  alignSelf: 'flex-start',
-                                }}
-                              />
-
-                              <Typography
-                                variant='body2'
-                                sx={{
-                                  color: 'rgba(255, 255, 255, 0.6)',
-                                  lineHeight: 1.5,
-                                  mb: 3,
-                                  fontSize: '1rem',
-                                  flexGrow: 1,
-                                  display: '-webkit-box',
-                                  WebkitLineClamp: 3,
-                                  WebkitBoxOrient: 'vertical',
-                                  overflow: 'hidden',
-                                }}
-                              >
-                                {course.description}
-                              </Typography>
-
-                              <Stack direction='row' spacing={2} sx={{ mt: 'auto' }}>
-                                <Button
-                                  onClick={() => handleDiscover(course._id)}
-                                  variant='contained'
+                                <Typography
+                                  variant='h6'
                                   sx={{
-                                    background: `linear-gradient(135deg, ${colors.red}, ${colors.pink})`,
-                                    borderRadius: '16px',
-                                    px: 3,
-                                    py: 1.5,
-                                    fontWeight: 600,
-                                    textTransform: 'none',
-                                    fontSize: '1rem',
-                                    flex: 1,
-                                    '&:hover': {
-                                      transform: 'translateY(-2px)',
-                                      boxShadow: `0 12px 40px ${colors.red}66`,
-                                    },
-                                  }}
-                                  endIcon={<ChevronRight size={20} />}
-                                >
-                                  Découvrir
-                                </Button>
-
-                                <Button
-                                  onClick={() => handleEnrollClick(course)}
-                                  variant='outlined'
-                                  sx={{
-                                    borderColor: colors.red,
+                                    fontWeight: 700,
                                     color: colors.white,
-                                    borderRadius: '16px',
-                                    px: 3,
-                                    py: 1.5,
-                                    fontWeight: 600,
-                                    textTransform: 'none',
-                                    fontSize: '1rem',
-                                    minWidth: '120px',
-                                    '&:hover': {
-                                      background: colors.red,
-                                      borderColor: colors.red,
-                                      transform: 'translateY(-2px)',
-                                    },
+                                    mb: 2,
+                                    fontSize: '1.4rem',
+                                    minHeight: '64px',
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: 'vertical',
+                                    overflow: 'hidden',
                                   }}
                                 >
-                                  {user ? "S'inscrire" : 'Se connecter pour s’inscrire'}
-                                </Button>
-                              </Stack>
-                            </Box>
-                          </CourseCard>
-                        </Slide>
-                      </Grid>
+                                  {course.title}
+                                </Typography>
+
+                                <Chip
+                                  label={`Niveau: ${course.level}`}
+                                  size='small'
+                                  sx={{
+                                    backgroundColor: `${colors.navy}33`,
+                                    color: colors.white,
+                                    fontWeight: 500,
+                                    mb: 1,
+                                    fontSize: '0.9rem',
+                                    alignSelf: 'flex-start',
+                                  }}
+                                />
+                                <Chip
+                                  label={`Domaine: ${course.domaineNom}`}
+                                  size='small'
+                                  sx={{
+                                    backgroundColor: `${colors.navy}33`,
+                                    color: colors.white,
+                                    fontWeight: 500,
+                                    mb: 2,
+                                    fontSize: '0.9rem',
+                                    alignSelf: 'flex-start',
+                                  }}
+                                />
+
+                                <Typography
+                                  variant='body2'
+                                  sx={{
+                                    color: 'rgba(255, 255, 255, 0.6)',
+                                    lineHeight: 1.5,
+                                    mb: 3,
+                                    fontSize: '1rem',
+                                    flexGrow: 1,
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 3,
+                                    WebkitBoxOrient: 'vertical',
+                                    overflow: 'hidden',
+                                  }}
+                                >
+                                  {course.description}
+                                </Typography>
+
+                                <Stack direction='row' spacing={2} sx={{ mt: 'auto' }}>
+                                  <Button
+                                    onClick={() => handleDiscover(course._id)}
+                                    variant='contained'
+                                    sx={{
+                                      background: `linear-gradient(135deg, ${colors.red}, ${colors.pink})`,
+                                      borderRadius: '16px',
+                                      px: 3,
+                                      py: 1.5,
+                                      fontWeight: 600,
+                                      textTransform: 'none',
+                                      fontSize: '1rem',
+                                      flex: 1,
+                                      '&:hover': {
+                                        transform: 'translateY(-2px)',
+                                        boxShadow: `0 12px 40px ${colors.red}66`,
+                                      },
+                                    }}
+                                    endIcon={<ChevronRight size={20} />}
+                                  >
+                                    Découvrir
+                                  </Button>
+
+                                  <Button
+                                    onClick={() => handleEnrollClick(course)}
+                                    variant='outlined'
+                                    sx={{
+                                      borderColor: colors.red,
+                                      color: colors.white,
+                                      borderRadius: '16px',
+                                      px: 3,
+                                      py: 1.5,
+                                      fontWeight: 600,
+                                      textTransform: 'none',
+                                      fontSize: '1rem',
+                                      minWidth: '120px',
+                                      '&:hover': {
+                                        background: colors.red,
+                                        borderColor: colors.red,
+                                        transform: 'translateY(-2px)',
+                                      },
+                                    }}
+                                  >
+                                    {user ? "S'inscrire" : 'Se connecter'}
+                                  </Button>
+                                </Stack>
+                              </Box>
+                            </CourseCard>
+                          </Slide>
+                        </Grid>
+                      )
                     ))
                   ) : (
                     <Box sx={{ textAlign: 'center', width: '100%', py: 8 }}>
@@ -996,13 +1055,13 @@ const Catalog = () => {
             {selectedCourse && (
               <GlassCard sx={{ p: 3 }}>
                 <Typography variant='h6' sx={{ color: colors.white, fontWeight: 600, mb: 1 }}>
-                  {selectedCourse.title || 'Titre non disponible'}
+                  {selectedCourse.title}
                 </Typography>
                 <Typography variant='body2' sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                  {selectedCourse.description || 'Description non disponible'}
+                  {selectedCourse.description}
                 </Typography>
                 <Chip
-                  label={`Niveau: ${selectedCourse.level || selectedCourse.niveau?.nom || 'N/A'}`}
+                  label={`Niveau: ${selectedCourse.level}`}
                   size='small'
                   sx={{
                     backgroundColor: `${colors.red}33`,

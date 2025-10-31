@@ -38,17 +38,34 @@ import {
   Switch,
   Tabs,
   Tab,
+  Card,
+  CardContent,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  Divider,
 } from '@mui/material';
 import {
   Delete,
   Edit,
   Visibility,
-  Add,
+  Add as AddIcon,
+  Edit as EditIcon ,
+  Delete as DeleteIcon, 
   Search,
   School,
   CheckCircle,
   Schedule,
   Publish as PublishIcon,
+  Timer as TimerIcon,
+  Category as CategoryIcon,
+  Description as DescriptionIcon,
+  TrendingUp as LevelIcon,
+  VideoLibrary as VideoIcon,
+  Article as ArticleIcon,
+  Quiz as QuizIcon,
+  Preview as PreviewIcon,
 } from '@mui/icons-material';
 import { styled, keyframes } from '@mui/material/styles';
 import axios from 'axios';
@@ -56,9 +73,9 @@ import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import { colors } from '../../utils/colors';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/courses';
-const CONTENTS_BASE_URL = `${API_BASE_URL}/contenu`;
-const USERS_BASE_URL = API_BASE_URL.replace('/courses', '/users');
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+const COURSES_BASE_URL = `${API_BASE_URL}/courses`;
+const USERS_BASE_URL = `${API_BASE_URL}/users`;
 
 // Animations
 const fadeInUp = keyframes`
@@ -133,7 +150,7 @@ const ActionButton = styled(IconButton)(({ theme }) => ({
 }));
 
 const PrimaryButton = styled(Button)(({ theme }) => ({
-  background: `linear-gradient(135deg, ${colors.fuchsia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`,
+  background: `linear-gradient(135deg, ${colors.fuchsia || '#f13544'}, ${colors.lightFuchsia || '#ff6b74'})`,
   borderRadius: 12,
   padding: theme.spacing(1.5, 4),
   fontWeight: 700,
@@ -142,7 +159,7 @@ const PrimaryButton = styled(Button)(({ theme }) => ({
   boxShadow: `0 8px 24px ${alpha(colors.fuchsia || '#f13544', 0.4)}`,
   color: colors.white || '#ffffff',
   '&:hover': {
-    background: `linear-gradient(135deg, ${colors.fuchsia || '#f13544'}dd, ${colors.lightFuschia || '#ff6b74'}dd)`,
+    background: `linear-gradient(135deg, ${colors.fuchsia || '#f13544'}dd, ${colors.lightFuchsia || '#ff6b74'}dd)`,
     boxShadow: `0 12px 32px ${alpha(colors.fuchsia || '#f13544', 0.6)}`,
     transform: 'translateY(-2px)',
   },
@@ -154,7 +171,7 @@ const Courses = () => {
   const navigate = useNavigate();
   const theme = useTheme();
 
-  // State management
+  // State management principal
   const [courses, setCourses] = useState([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -182,12 +199,12 @@ const Courses = () => {
   const [formData, setFormData] = useState({
     titre: '',
     description: '',
-    domaine: '',
+    domaineId: '',
     niveau: '',
     duree: '',
     estPublie: false,
     statutApprobation: 'PENDING',
-    instructeur: '',
+    instructeurId: '',
   });
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState('');
@@ -195,27 +212,70 @@ const Courses = () => {
   const [instructors, setInstructors] = useState([]);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedCourseDetails, setSelectedCourseDetails] = useState(null);
-  const [detailsContenus, setDetailsContenus] = useState([]);
   const [tabValue, setTabValue] = useState(0);
-  const [currentContenus, setCurrentContenus] = useState([]);
-  const [addContenuForm, setAddContenuForm] = useState({
+
+  // États pour la gestion des sections et contenus
+  const [contenu, setContenu] = useState({ sections: [] });
+  const [currentSection, setCurrentSection] = useState({
     titre: '',
-    url: '',
+    description: '',
     ordre: 1,
-    type: 'VIDEO',
+    modules: [],
   });
-  const [editingContenu, setEditingContenu] = useState(null);
+  const [currentModule, setCurrentModule] = useState({
+    titre: '',
+    type: 'VIDEO',
+    contenu: '',
+    duree: '',
+    ordre: 1,
+  });
+  const [editingSectionIndex, setEditingSectionIndex] = useState(null);
+  const [editingModuleIndex, setEditingModuleIndex] = useState(null);
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [selectedPreviewSection, setSelectedPreviewSection] = useState(null);
 
-  const nextOrdre = useMemo(
-    () => (currentContenus.length > 0 ? Math.max(...currentContenus.map((m) => m.ordre)) + 1 : 1),
-    [currentContenus]
-  );
+  const typesModule = [
+    {
+      value: 'VIDEO',
+      label: 'Vidéo',
+      icon: <VideoIcon />,
+      description: 'Contenu vidéo (URL YouTube, Vimeo, etc.)',
+    },
+    {
+      value: 'TEXTE',
+      label: 'Article/Texte',
+      icon: <ArticleIcon />,
+      description: 'Contenu textuel ou document',
+    },
+    { value: 'QUIZ', label: 'Quiz', icon: <QuizIcon />, description: 'Évaluation interactive' },
+  ];
 
-  useEffect(() => {
-    if (!editingContenu) {
-      setAddContenuForm((prev) => ({ ...prev, ordre: nextOrdre }));
-    }
-  }, [nextOrdre, editingContenu]);
+  const niveaux = [
+    {
+      value: 'ALFA',
+      label: 'Alfa (Débutant)',
+      color: '#4CAF50',
+      description: 'Pour les débutants absolus, aucune connaissance préalable requise.',
+    },
+    {
+      value: 'BETA',
+      label: 'Beta (Intermédiaire)',
+      color: '#2196F3',
+      description: 'Pour ceux avec des bases solides, prêt à approfondir.',
+    },
+    {
+      value: 'GAMMA',
+      label: 'Gamma (Avancé)',
+      color: '#FF9800',
+      description: 'Pour les apprenants expérimentés, concepts complexes.',
+    },
+    {
+      value: 'DELTA',
+      label: 'Delta (Expert)',
+      color: '#F44336',
+      description: 'Pour les professionnels, maîtrise avancée et applications réelles.',
+    },
+  ];
 
   // Vérification admin
   useEffect(() => {
@@ -226,23 +286,55 @@ const Courses = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Récupération des domaines
+  // CORRECTION : Utiliser le bon endpoint pour les domaines
   const fetchDomaines = useCallback(async () => {
     if (!user?.token) return;
     try {
-      const response = await axios.get(`${API_BASE_URL}/domaine`, {
-        headers: { Authorization: `Bearer ${user.token}` },
-      });
+      // Essayer différents endpoints possibles
+      const endpoints = [
+        `${API_BASE_URL}/domaines`,
+        `${API_BASE_URL}/domaine`,
+        `${API_BASE_URL}/instructeurs/domaines`
+      ];
+
+      let response;
+      let lastError;
+
+      for (const endpoint of endpoints) {
+        try {
+          response = await axios.get(endpoint, {
+            headers: { Authorization: `Bearer ${user.token}` },
+          });
+          if (response.data) break; // Si on a une réponse valide, on sort de la boucle
+        } catch (err) {
+          lastError = err;
+          console.log(`Endpoint ${endpoint} non disponible, tentative suivante...`);
+        }
+      }
+
+      if (!response) {
+        throw lastError || new Error('Aucun endpoint de domaines disponible');
+      }
+
       const domainesData = response.data.data || response.data || [];
       setDomaines(
         domainesData.map((domaine) => ({
           ...domaine,
-          _id: domaine._id.toString(),
+          _id: domaine._id?.toString() || domaine.id?.toString(),
+          nom: domaine.nom || 'Domaine sans nom'
         }))
       );
+
+      if (domainesData.length === 0) {
+        console.warn('Aucun domaine trouvé');
+      }
     } catch (err) {
       console.error('Erreur lors du chargement des domaines:', err);
-      setError('Erreur lors du chargement des domaines');
+      const errorMsg = err.response?.status === 404 
+        ? "La route pour les domaines n'existe pas encore. Contactez l'administrateur backend."
+        : 'Erreur lors du chargement des domaines disponibles';
+      setError(errorMsg);
+      
       if (err.response?.status === 401) {
         setError('Session expirée. Veuillez vous reconnecter.');
         navigate('/login');
@@ -257,7 +349,7 @@ const Courses = () => {
       return;
     }
     try {
-      const response = await axios.get(`${USERS_BASE_URL}?role=ENSEIGNANT`, {
+      const response = await axios.get(`${USERS_BASE_URL}`, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
       const instructorsData = Array.isArray(response.data.data)
@@ -275,9 +367,6 @@ const Courses = () => {
             'Inconnu',
         }))
       );
-      if (instructorsData.length === 0) {
-        setError('Aucun instructeur trouvé.');
-      }
     } catch (err) {
       console.error('Erreur lors du chargement des instructeurs:', err);
       setError('Erreur lors du chargement des instructeurs');
@@ -292,12 +381,13 @@ const Courses = () => {
   const fetchStats = useCallback(async () => {
     if (!user?.token) return;
     try {
-      const response = await axios.get(`${API_BASE_URL}/stats`, {
+      const response = await axios.get(`${COURSES_BASE_URL}/stats`, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
       setStats(response.data);
     } catch (err) {
       console.error('Erreur lors du chargement des stats:', err);
+      // Ne pas afficher d'erreur pour les stats, ce n'est pas critique
       if (err.response?.status === 401) {
         setError('Session expirée. Veuillez vous reconnecter.');
         navigate('/login');
@@ -305,55 +395,13 @@ const Courses = () => {
     }
   }, [user, navigate]);
 
-  // Récupération des contenus
-  const fetchContenus = useCallback(
-    async (courseId, setContenusState = setCurrentContenus) => {
-      if (!courseId || !/^[0-9a-fA-F]{24}$/.test(courseId)) {
-        console.warn('courseId invalide ou manquant:', courseId);
-        setFormError('ID du cours invalide ou manquant');
-        return;
-      }
-      if (!user?.token) {
-        console.warn('Token utilisateur manquant');
-        setFormError('Authentification requise');
-        return;
-      }
-      try {
-        const response = await axios.get(`${CONTENTS_BASE_URL}`, {
-          params: { courseId },
-          headers: { Authorization: `Bearer ${user.token}` },
-        });
-        const contenusData = response.data.data || [];
-        setContenusState(
-          contenusData.map((contenu) => ({
-            ...contenu,
-            _id: contenu._id.toString(),
-            ordre: contenu.ordre || 1,
-            type: contenu.type || 'VIDEO',
-            url: contenu.url || '',
-          }))
-        );
-      } catch (err) {
-        console.error('Erreur lors du chargement des contenus:', err);
-        setFormError(err.response?.data?.message || 'Erreur lors du chargement des contenus');
-        if (err.response?.status === 401) {
-          setError('Session expirée. Veuillez vous reconnecter.');
-          navigate('/login');
-        } else if (err.response?.status === 404) {
-          setFormError('Aucun contenu trouvé pour ce cours.');
-        }
-      }
-    },
-    [user, navigate]
-  );
-
   // Récupération des cours avec pagination, recherche et filtres
   const fetchCourses = useCallback(async () => {
     if (!user?.token) return;
     setIsLoading(true);
     try {
       const apiPage = page + 1;
-      const response = await axios.get(`${API_BASE_URL}`, {
+      const response = await axios.get(`${COURSES_BASE_URL}`, {
         params: {
           page: apiPage,
           limit: rowsPerPage,
@@ -366,30 +414,23 @@ const Courses = () => {
       const coursesData = response.data.data || response.data || [];
       const normalizedCourses = coursesData.map((course) => ({
         ...course,
-        _id: course._id.toString(),
+        _id: course._id?.toString() || course.id?.toString(),
         titre: course.titre || 'Sans titre',
         niveau: course.niveau || 'N/A',
         createur: course.createur || null,
         estPublie: course.estPublie || false,
-        domaineId:
-          course.domaineId && course.domaineId._id
-            ? {
-                _id: course.domaineId._id.toString(),
-                nom: course.domaineId.nom || 'Domaine non défini',
-              }
-            : { _id: course.domaineId?.toString() || null, nom: 'Domaine non défini' },
-        instructeurId:
-          course.instructeurId && course.instructeurId._id
-            ? {
-                _id: course.instructeurId._id.toString(),
-                nom:
-                  course.instructeurId.username ||
-                  `${course.instructeurId.prenom || ''} ${course.instructeurId.nom || ''}`.trim() ||
-                  'Inconnu',
-              }
-            : null,
+        domaineId: course.domaineId ? {
+          _id: course.domaineId._id?.toString() || course.domaineId.toString(),
+          nom: course.domaineId.nom || 'Domaine non défini',
+        } : { _id: null, nom: 'Domaine non défini' },
+        instructeurId: course.instructeurId ? {
+          _id: course.instructeurId._id?.toString() || course.instructeurId.toString(),
+          nom: course.instructeurId.username ||
+               `${course.instructeurId.prenom || ''} ${course.instructeurId.nom || ''}`.trim() ||
+               'Inconnu',
+        } : null,
         duree: course.duree || 0,
-        contenu: course.contenu || [],
+        contenu: course.contenu || { sections: [] },
         statutApprobation: course.statutApprobation || 'PENDING',
         createdAt: course.createdAt,
       }));
@@ -426,23 +467,182 @@ const Courses = () => {
       setTabValue(0);
       setFormError('');
       if (modalMode === 'create') {
-        setCurrentContenus([]);
-        setAddContenuForm({ titre: '', url: '', ordre: 1, type: 'VIDEO' });
-        setEditingContenu(null);
-      } else if (editingCourse?._id) {
-        fetchContenus(editingCourse._id);
-        setAddContenuForm({ titre: '', url: '', ordre: nextOrdre, type: 'VIDEO' });
-        setEditingContenu(null);
+        setContenu({ sections: [] });
+        setCurrentSection({
+          titre: '',
+          description: '',
+          ordre: 1,
+          modules: [],
+        });
+        setCurrentModule({
+          titre: '',
+          type: 'VIDEO',
+          contenu: '',
+          duree: '',
+          ordre: 1,
+        });
+      } else if (editingCourse?._id && editingCourse.contenu) {
+        setContenu(editingCourse.contenu);
       }
     }
-  }, [modalOpen, modalMode, editingCourse?._id, nextOrdre, fetchContenus]);
+  }, [modalOpen, modalMode, editingCourse?._id]);
 
-  // Chargement des contenus pour les détails
-  useEffect(() => {
-    if (detailsModalOpen && selectedCourseDetails?._id) {
-      fetchContenus(selectedCourseDetails._id, setDetailsContenus);
+  // Handlers pour les sections et modules
+  const handleSectionChange = (e) => {
+    const { name, value } = e.target;
+    setCurrentSection((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleModuleChange = (e) => {
+    const { name, value } = e.target;
+    setCurrentModule((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const addModule = () => {
+    if (!currentModule.titre.trim()) {
+      setFormError('Le titre du module est requis');
+      return;
     }
-  }, [detailsModalOpen, selectedCourseDetails?._id, fetchContenus]);
+    if (!currentModule.contenu.trim()) {
+      setFormError('Le contenu du module est requis');
+      return;
+    }
+
+    const newModule = {
+      ...currentModule,
+      ordre: currentSection.modules.length + 1,
+    };
+
+    if (editingModuleIndex !== null) {
+      const updatedModules = [...currentSection.modules];
+      updatedModules[editingModuleIndex] = newModule;
+      setCurrentSection((prev) => ({
+        ...prev,
+        modules: updatedModules,
+      }));
+      setEditingModuleIndex(null);
+    } else {
+      setCurrentSection((prev) => ({
+        ...prev,
+        modules: [...prev.modules, newModule],
+      }));
+    }
+
+    setCurrentModule({
+      titre: '',
+      type: 'VIDEO',
+      contenu: '',
+      duree: '',
+      ordre: currentSection.modules.length + 2,
+    });
+    setFormError('');
+  };
+
+  const editModule = (index) => {
+    const module = currentSection.modules[index];
+    setCurrentModule(module);
+    setEditingModuleIndex(index);
+  };
+
+  const removeModule = (index) => {
+    setCurrentSection((prev) => ({
+      ...prev,
+      modules: prev.modules.filter((_, i) => i !== index),
+    }));
+    if (editingModuleIndex === index) {
+      setEditingModuleIndex(null);
+      setCurrentModule({
+        titre: '',
+        type: 'VIDEO',
+        contenu: '',
+        duree: '',
+        ordre: 1,
+      });
+    }
+  };
+
+  const cancelEditModule = () => {
+    setEditingModuleIndex(null);
+    setCurrentModule({
+      titre: '',
+      type: 'VIDEO',
+      contenu: '',
+      duree: '',
+      ordre: currentSection.modules.length + 1,
+    });
+  };
+
+  const addSection = () => {
+    if (!currentSection.titre.trim()) {
+      setFormError('Le titre de la section est requis');
+      return;
+    }
+
+    if (currentSection.modules.length === 0) {
+      setFormError('Ajoutez au moins un module à la section');
+      return;
+    }
+
+    const newSection = {
+      ...currentSection,
+      ordre: contenu.sections.length + 1,
+    };
+
+    if (editingSectionIndex !== null) {
+      const updatedSections = [...contenu.sections];
+      updatedSections[editingSectionIndex] = newSection;
+      setContenu({ sections: updatedSections });
+      setEditingSectionIndex(null);
+    } else {
+      setContenu((prev) => ({
+        sections: [...prev.sections, newSection],
+      }));
+    }
+
+    setCurrentSection({
+      titre: '',
+      description: '',
+      ordre: contenu.sections.length + 2,
+      modules: [],
+    });
+    setFormError('');
+  };
+
+  const editSection = (index) => {
+    const section = contenu.sections[index];
+    setCurrentSection(section);
+    setEditingSectionIndex(index);
+  };
+
+  const removeSection = (index) => {
+    setContenu((prev) => ({
+      sections: prev.sections.filter((_, i) => i !== index),
+    }));
+    if (editingSectionIndex === index) {
+      setEditingSectionIndex(null);
+      setCurrentSection({
+        titre: '',
+        description: '',
+        ordre: 1,
+        modules: [],
+      });
+    }
+  };
+
+  const cancelEditSection = () => {
+    setEditingSectionIndex(null);
+    setCurrentSection({
+      titre: '',
+      description: '',
+      ordre: contenu.sections.length + 1,
+      modules: [],
+    });
+  };
+
+  const previewSection = (section) => {
+    setSelectedPreviewSection(section);
+    setPreviewDialogOpen(true);
+  };
 
   // Ouvrir la modale pour création/édition
   const openModal = (mode, course = null) => {
@@ -452,25 +652,27 @@ const Courses = () => {
       setFormData({
         titre: course.titre || '',
         description: course.description || '',
-        domaine: course.domaineId?._id || '',
+        domaineId: course.domaineId?._id || '',
         niveau: course.niveau || '',
         duree: course.duree ? String(course.duree) : '',
         estPublie: !!course.estPublie,
         statutApprobation: course.statutApprobation || 'PENDING',
-        instructeur: course.instructeurId?._id || '',
+        instructeurId: course.instructeurId?._id || '',
       });
+      setContenu(course.contenu || { sections: [] });
     } else {
       setEditingCourse(null);
       setFormData({
         titre: '',
         description: '',
-        domaine: '',
+        domaineId: '',
         niveau: '',
         duree: '',
         estPublie: false,
         statutApprobation: 'PENDING',
-        instructeur: '',
+        instructeurId: '',
       });
+      setContenu({ sections: [] });
     }
     setModalOpen(true);
   };
@@ -479,24 +681,13 @@ const Courses = () => {
   const validateForm = () => {
     if (!formData.titre.trim()) return 'Le titre est requis';
     if (!formData.description.trim()) return 'La description est requise';
-    if (!formData.domaine) return 'Le domaine est requis';
+    if (!formData.domaineId) return 'Le domaine est requis';
     if (!formData.niveau) return 'Le niveau est requis';
     const dureeNum = parseFloat(formData.duree);
     if (!formData.duree || isNaN(dureeNum) || dureeNum <= 0)
       return 'La durée doit être un nombre positif';
     if (!['ALFA', 'BETA', 'GAMMA', 'DELTA'].includes(formData.niveau))
       return 'Le niveau doit être ALFA, BETA, GAMMA ou DELTA';
-    return '';
-  };
-
-  // Validation du formulaire de contenu
-  const validateContenuForm = () => {
-    if (!addContenuForm.titre.trim()) return 'Le titre du contenu est requis';
-    if (!addContenuForm.url.trim()) return "L'URL du contenu est requise";
-    if (!['VIDEO', 'DOCUMENT', 'QUIZ', 'EXERCICE'].includes(addContenuForm.type))
-      return 'Le type de contenu doit être VIDEO, DOCUMENT, QUIZ ou EXERCICE';
-    const ordreNum = parseInt(addContenuForm.ordre);
-    if (isNaN(ordreNum) || ordreNum < 1) return "L'ordre doit être un nombre positif";
     return '';
   };
 
@@ -515,21 +706,17 @@ const Courses = () => {
       const data = {
         ...formData,
         duree: parseFloat(formData.duree),
-        instructeurId: formData.instructeur || undefined,
+        contenu: contenu.sections.length > 0 ? contenu : null,
       };
+
       let response;
       if (modalMode === 'create') {
-        response = await axios.post(API_BASE_URL, data, {
+        response = await axios.post(COURSES_BASE_URL, data, {
           headers: { Authorization: `Bearer ${user.token}` },
         });
         setSuccess('Cours créé avec succès');
-        const newCourse = response.data.data || response.data;
-        setEditingCourse({ ...newCourse, _id: newCourse._id.toString() });
-        setModalMode('edit');
-        await fetchContenus(newCourse._id);
-        setTabValue(1);
       } else if (editingCourse?._id) {
-        response = await axios.put(`${API_BASE_URL}/${editingCourse._id}`, data, {
+        response = await axios.put(`${COURSES_BASE_URL}/${editingCourse._id}`, data, {
           headers: { Authorization: `Bearer ${user.token}` },
         });
         setSuccess('Cours mis à jour avec succès');
@@ -537,6 +724,7 @@ const Courses = () => {
         throw new Error('ID du cours manquant pour la mise à jour');
       }
       setSnackbarOpen(true);
+      setModalOpen(false);
       fetchCourses();
       fetchStats();
     } catch (err) {
@@ -555,160 +743,16 @@ const Courses = () => {
     }
   };
 
-  // Ajout contenu
-  const handleAddContenu = async () => {
-    const validationError = validateContenuForm();
-    if (validationError) {
-      setFormError(validationError);
-      return;
-    }
-    if (!editingCourse?._id || !/^[0-9a-fA-F]{24}$/.test(editingCourse._id)) {
-      setFormError('ID du cours invalide');
-      return;
-    }
-    try {
-      const data = {
-        titre: addContenuForm.titre.trim(),
-        url: addContenuForm.url.trim(),
-        ordre: parseInt(addContenuForm.ordre),
-        cours: editingCourse._id, // Changed from coursId to cours to match backend model
-        type: addContenuForm.type,
-      };
-      const response = await axios.post(CONTENTS_BASE_URL, data, {
-        headers: { Authorization: `Bearer ${user.token}` },
-      });
-      const newContenu = { ...response.data.data, _id: response.data.data._id.toString() };
-      const newContenusList = [...currentContenus, newContenu];
-      setCurrentContenus(newContenusList);
-      await axios.put(
-        `${API_BASE_URL}/${editingCourse._id}`,
-        {
-          contenu: newContenusList.map((m) => m._id),
-        },
-        {
-          headers: { Authorization: `Bearer ${user.token}` },
-        }
-      );
-      setAddContenuForm({ titre: '', url: '', ordre: nextOrdre, type: 'VIDEO' });
-      setFormError('');
-      setSuccess('Contenu ajouté avec succès');
-      setSnackbarOpen(true);
-      fetchCourses();
-    } catch (err) {
-      console.error("Erreur lors de l'ajout du contenu:", err);
-      const errorMessage = err.response?.data?.message || "Erreur lors de l'ajout du contenu";
-      const errorDetails = err.response?.data?.errors || [];
-      setFormError(
-        `${errorMessage} ${errorDetails.length ? `- Détails: ${JSON.stringify(errorDetails)}` : ''}`
-      );
-      setSnackbarOpen(true);
-    }
-  };
-
-  // Mise à jour contenu
-  const handleUpdateContenu = async () => {
-    const validationError = validateContenuForm();
-    if (validationError) {
-      setFormError(validationError);
-      return;
-    }
-    if (!editingCourse?._id || !/^[0-9a-fA-F]{24}$/.test(editingCourse._id)) {
-      setFormError('ID du cours invalide');
-      return;
-    }
-    if (!editingContenu?._id) {
-      setFormError('ID du contenu invalide');
-      return;
-    }
-    try {
-      const data = {
-        titre: addContenuForm.titre.trim(),
-        url: addContenuForm.url.trim(),
-        ordre: parseInt(addContenuForm.ordre),
-        type: addContenuForm.type,
-      };
-      const response = await axios.put(`${CONTENTS_BASE_URL}/${editingContenu._id}`, data, {
-        headers: { Authorization: `Bearer ${user.token}` },
-      });
-      const updatedContenusList = currentContenus.map((m) =>
-        m._id === editingContenu._id
-          ? { ...response.data.data, _id: response.data.data._id.toString() }
-          : m
-      );
-      setCurrentContenus(updatedContenusList);
-      await axios.put(
-        `${API_BASE_URL}/${editingCourse._id}`,
-        {
-          contenu: updatedContenusList.map((m) => m._id),
-        },
-        {
-          headers: { Authorization: `Bearer ${user.token}` },
-        }
-      );
-      setEditingContenu(null);
-      setAddContenuForm({ titre: '', url: '', ordre: nextOrdre, type: 'VIDEO' });
-      setFormError('');
-      setSuccess('Contenu mis à jour avec succès');
-      setSnackbarOpen(true);
-      fetchCourses();
-    } catch (err) {
-      console.error('Erreur lors de la mise à jour du contenu:', err);
-      const errorMessage =
-        err.response?.data?.message || 'Erreur lors de la mise à jour du contenu';
-      const errorDetails = err.response?.data?.errors || [];
-      setFormError(
-        `${errorMessage} ${errorDetails.length ? `- Détails: ${JSON.stringify(errorDetails)}` : ''}`
-      );
-      setSnackbarOpen(true);
-    }
-  };
-
-  // Suppression contenu
-  const handleDeleteContenu = async (contenuId) => {
-    if (!contenuId || !/^[0-9a-fA-F]{24}$/.test(contenuId)) {
-      setFormError('ID du contenu invalide');
-      return;
-    }
-    try {
-      await axios.delete(`${CONTENTS_BASE_URL}/${contenuId}`, {
-        headers: { Authorization: `Bearer ${user.token}` },
-      });
-      const updatedContenusList = currentContenus.filter((m) => m._id !== contenuId);
-      setCurrentContenus(updatedContenusList);
-      await axios.put(
-        `${API_BASE_URL}/${editingCourse._id}`,
-        {
-          contenu: updatedContenusList.map((m) => m._id),
-        },
-        {
-          headers: { Authorization: `Bearer ${user.token}` },
-        }
-      );
-      setSuccess('Contenu supprimé avec succès');
-      setSnackbarOpen(true);
-      fetchCourses();
-    } catch (err) {
-      console.error('Erreur lors de la suppression du contenu:', err);
-      const errorMessage =
-        err.response?.data?.message || 'Erreur lors de la suppression du contenu';
-      const errorDetails = err.response?.data?.errors || [];
-      setFormError(
-        `${errorMessage} ${errorDetails.length ? `- Détails: ${JSON.stringify(errorDetails)}` : ''}`
-      );
-      setSnackbarOpen(true);
-    }
-  };
-
   // Publication du cours
   const handlePublish = async (course) => {
-    if (!course?._id || !/^[0-9a-fA-F]{24}$/.test(course._id)) {
+    if (!course?._id) {
       setError('ID du cours invalide');
       setSnackbarOpen(true);
       return;
     }
     try {
       await axios.put(
-        `${API_BASE_URL}/${course._id}`,
+        `${COURSES_BASE_URL}/${course._id}`,
         {
           estPublie: true,
           statutApprobation: 'APPROVED',
@@ -734,7 +778,7 @@ const Courses = () => {
 
   // Gestion de la suppression
   const handleDeleteClick = (course) => {
-    if (!course?._id || !/^[0-9a-fA-F]{24}$/.test(course._id)) {
+    if (!course?._id) {
       setError('ID du cours invalide');
       setSnackbarOpen(true);
       return;
@@ -744,14 +788,14 @@ const Courses = () => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!selectedCourse?._id || !/^[0-9a-fA-F]{24}$/.test(selectedCourse._id)) {
+    if (!selectedCourse?._id) {
       setError('ID du cours invalide');
       setSnackbarOpen(true);
       setDeleteDialogOpen(false);
       return;
     }
     try {
-      await axios.delete(`${API_BASE_URL}/${selectedCourse._id}`, {
+      await axios.delete(`${COURSES_BASE_URL}/${selectedCourse._id}`, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
       setSuccess('Cours supprimé avec succès');
@@ -774,7 +818,7 @@ const Courses = () => {
 
   // Affichage des détails du cours
   const handleViewCourse = (course) => {
-    if (!course?._id || !/^[0-9a-fA-F]{24}$/.test(course._id)) {
+    if (!course?._id) {
       setError('ID du cours invalide');
       setSnackbarOpen(true);
       return;
@@ -813,7 +857,363 @@ const Courses = () => {
         })
       : 'N/A';
 
-  const getContenusCount = (contenus) => (Array.isArray(contenus) ? contenus.length : 0);
+  const getContenusCount = (contenu) => {
+    if (!contenu || !contenu.sections) return 0;
+    return contenu.sections.reduce((acc, section) => acc + (section.modules?.length || 0), 0);
+  };
+
+  // CORRECTION : Rendu du contenu des sections pour la modale avec AddIcon importé
+  const renderStructureContent = () => (
+    <Box sx={{ p: 2 }}>
+      <Typography
+        variant='h5'
+        gutterBottom
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          color: colors.fuchsia || '#f13544',
+          mb: 3,
+        }}
+      >
+        <ArticleIcon fontSize='large' />
+        Structure du Contenu du Cours
+      </Typography>
+
+      <Alert severity='info' sx={{ mb: 4, borderRadius: 2 }}>
+        <Typography variant='body2'>
+          Structurez votre cours en sections et modules. Chaque section peut contenir plusieurs
+          modules de différents types (vidéos, textes, quiz).
+        </Typography>
+      </Alert>
+
+      {/* Sections existantes */}
+      {contenu.sections.length > 0 && (
+        <Paper
+          elevation={3}
+          sx={{
+            p: 3,
+            mb: 4,
+            backgroundColor: `${colors.navy || '#010b40'}aa`,
+            borderRadius: 2,
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              mb: 3,
+            }}
+          >
+            <Typography variant='h6' sx={{ color: colors.lightFuchsia }}>
+              Sections du Cours ({contenu.sections.length})
+            </Typography>
+            <Chip
+              label={`${contenu.sections.reduce((acc, s) => acc + s.modules.length, 0)} modules au total`}
+              sx={{ bgcolor: colors.fuchsia, fontWeight: 'bold' }}
+            />
+          </Box>
+          <List>
+            {contenu.sections.map((section, index) => (
+              <Card
+                key={index}
+                sx={{
+                  mb: 2,
+                  backgroundColor: `${colors.navy}dd`,
+                  border: `1px solid ${colors.lightNavy}`,
+                  borderRadius: 2,
+                }}
+              >
+                <CardContent>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'start',
+                    }}
+                  >
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant='h6' sx={{ color: colors.white, mb: 1 }}>
+                        Section {section.ordre}: {section.titre}
+                      </Typography>
+                      {section.description && (
+                        <Typography
+                          variant='body2'
+                          sx={{ color: colors.white, opacity: 0.8, mb: 2 }}
+                        >
+                          {section.description}
+                        </Typography>
+                      )}
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        <Chip
+                          size='small'
+                          label={`${section.modules.length} module(s)`}
+                          sx={{ bgcolor: colors.lightNavy }}
+                        />
+                        {section.modules.map((mod, idx) => (
+                          <Chip
+                            key={idx}
+                            size='small'
+                            icon={typesModule.find((t) => t.value === mod.type)?.icon}
+                            label={mod.type}
+                            sx={{ bgcolor: colors.lightNavy }}
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Tooltip title='Prévisualiser'>
+                        <IconButton
+                          onClick={() => previewSection(section)}
+                          sx={{ color: colors.lightFuchsia }}
+                        >
+                          <PreviewIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title='Modifier'>
+                        <IconButton
+                          onClick={() => editSection(index)}
+                          sx={{ color: colors.fuchsia }}
+                        >
+                          <EditIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title='Supprimer'>
+                        <IconButton
+                          onClick={() => removeSection(index)}
+                          sx={{ color: colors.fuchsia }}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            ))}
+          </List>
+        </Paper>
+      )}
+
+      {/* Formulaire de création/édition de section */}
+      <Paper
+        elevation={3}
+        sx={{
+          p: 3,
+          backgroundColor: `${colors.navy || '#010b40'}aa`,
+          borderRadius: 2,
+        }}
+      >
+        <Typography variant='h6' gutterBottom sx={{ color: colors.lightFuchsia, mb: 3 }}>
+          {editingSectionIndex !== null ? 'Modifier la Section' : 'Créer une Nouvelle Section'}
+        </Typography>
+
+        <TextField
+          label='Titre de la Section *'
+          name='titre'
+          value={currentSection.titre}
+          onChange={handleSectionChange}
+          fullWidth
+          required
+          placeholder='Ex: Introduction aux Concepts de Base'
+          sx={{ mb: 3 }}
+        />
+
+        <TextField
+          label='Description de la Section'
+          name='description'
+          value={currentSection.description}
+          onChange={handleSectionChange}
+          fullWidth
+          multiline
+          rows={3}
+          placeholder='Décrivez brièvement ce qui sera couvert dans cette section'
+          sx={{ mb: 3 }}
+        />
+
+        <Divider sx={{ my: 3 }} />
+
+        {/* Modules de la section courante */}
+        {currentSection.modules.length > 0 && (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant='subtitle1' gutterBottom sx={{ color: colors.white, mb: 2 }}>
+              Modules de cette section ({currentSection.modules.length})
+            </Typography>
+            <List>
+              {currentSection.modules.map((module, index) => (
+                <ListItem
+                  key={index}
+                  sx={{
+                    border: `1px solid ${colors.lightNavy}`,
+                    borderRadius: 1,
+                    mb: 1,
+                    backgroundColor: `${colors.navy}cc`,
+                  }}
+                >
+                  <Box sx={{ mr: 2 }}>
+                    {typesModule.find((t) => t.value === module.type)?.icon}
+                  </Box>
+                  <ListItemText
+                    primary={
+                      <Typography variant='body1' sx={{ color: colors.white }}>
+                        {module.titre}
+                      </Typography>
+                    }
+                    secondary={
+                      <Typography variant='caption' sx={{ color: colors.white, opacity: 0.7 }}>
+                        Type: {module.type} | Durée: {module.duree || 'N/A'} min | Contenu:{' '}
+                        {module.contenu.substring(0, 50)}...
+                      </Typography>
+                    }
+                  />
+                  <ListItemSecondaryAction>
+                    <IconButton
+                      onClick={() => editModule(index)}
+                      sx={{ color: colors.fuchsia, mr: 1 }}
+                    >
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton
+                      onClick={() => removeModule(index)}
+                      sx={{ color: colors.fuchsia }}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </ListItemSecondaryAction>
+                </ListItem>
+              ))}
+            </List>
+          </Box>
+        )}
+
+        {/* Formulaire d'ajout/édition de module */}
+        <Paper
+          sx={{
+            p: 2,
+            backgroundColor: `${colors.navy}cc`,
+            border: `1px solid ${colors.lightNavy}`,
+            borderRadius: 2,
+          }}
+        >
+          <Typography variant='subtitle1' gutterBottom sx={{ color: colors.lightFuchsia, mb: 2 }}>
+            {editingModuleIndex !== null ? 'Modifier le Module' : 'Ajouter un Module'}
+          </Typography>
+
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={8}>
+              <TextField
+                label='Titre du Module *'
+                name='titre'
+                value={currentModule.titre}
+                onChange={handleModuleChange}
+                fullWidth
+                required
+                placeholder='Ex: Introduction aux Composants React'
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth>
+                <InputLabel>Type de Module *</InputLabel>
+                <Select
+                  name='type'
+                  value={currentModule.type}
+                  onChange={handleModuleChange}
+                  label='Type de Module *'
+                >
+                  {typesModule.map((type) => (
+                    <MenuItem key={type.value} value={type.value}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {type.icon}
+                        {type.label}
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label='Contenu/URL du Module *'
+                name='contenu'
+                value={currentModule.contenu}
+                onChange={handleModuleChange}
+                fullWidth
+                required
+                multiline
+                rows={3}
+                placeholder='URL vidéo YouTube/Vimeo, texte du cours, ou identifiant du quiz'
+                helperText={
+                  currentModule.type === 'VIDEO'
+                    ? 'Exemple: https://www.youtube.com/watch?v=...'
+                    : currentModule.type === 'TEXTE'
+                      ? "Saisissez le contenu textuel ou l'URL d'un document"
+                      : 'Identifiant du quiz associé'
+                }
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label='Durée (minutes)'
+                name='duree'
+                type='number'
+                value={currentModule.duree}
+                onChange={handleModuleChange}
+                fullWidth
+                placeholder='Ex: 15'
+                inputProps={{ min: 1, step: 1 }}
+                helperText='Durée estimée en minutes'
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Button
+                  variant='contained'
+                  startIcon={editingModuleIndex !== null ? <EditIcon /> : <AddIcon />}
+                  onClick={addModule}
+                  disabled={!currentModule.titre || !currentModule.contenu}
+                >
+                  {editingModuleIndex !== null ? 'Mettre à jour le Module' : 'Ajouter le Module'}
+                </Button>
+                {editingModuleIndex !== null && (
+                  <Button
+                    variant='outlined'
+                    onClick={cancelEditModule}
+                    sx={{ borderColor: colors.lightNavy, color: colors.white }}
+                  >
+                    Annuler
+                  </Button>
+                )}
+              </Box>
+            </Grid>
+          </Grid>
+        </Paper>
+
+        <Divider sx={{ my: 3 }} />
+
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant='contained'
+            startIcon={<AddIcon />}
+            onClick={addSection}
+            disabled={!currentSection.titre || currentSection.modules.length === 0}
+            fullWidth
+          >
+            {editingSectionIndex !== null ? 'Mettre à jour la Section' : 'Enregistrer cette Section'}
+          </Button>
+          {editingSectionIndex !== null && (
+            <Button
+              variant='outlined'
+              onClick={cancelEditSection}
+              sx={{ borderColor: colors.lightNavy, color: colors.white }}
+            >
+              Annuler
+            </Button>
+          )}
+        </Box>
+      </Paper>
+    </Box>
+  );
 
   // Écran de chargement
   if (authLoading || isLoading) {
@@ -849,7 +1249,7 @@ const Courses = () => {
             colors.fuchsia || '#f13544',
             0.1
           )} 0%, transparent 50%), radial-gradient(circle at 80% 80%, ${alpha(
-            colors.lightFuschia || '#ff6b74',
+            colors.lightFuchsia || '#ff6b74',
             0.1
           )} 0%, transparent 50%)`,
           pointerEvents: 'none',
@@ -889,7 +1289,7 @@ const Courses = () => {
                   Gérez tous les cours de la plateforme d'apprentissage
                 </Typography>
               </Box>
-              <PrimaryButton startIcon={<Add />} onClick={() => openModal('create')}>
+              <PrimaryButton startIcon={<AddIcon />} onClick={() => openModal('create')}>
                 Ajouter un Cours
               </PrimaryButton>
             </Box>
@@ -1155,7 +1555,7 @@ const Courses = () => {
                           <StyledTableCell>{getStatusChip(course)}</StyledTableCell>
                           <StyledTableCell>{getApprovalChip(course)}</StyledTableCell>
                           <StyledTableCell>
-                            {course.instructeurId?.prenom || 'Non assigné'}
+                            {course.instructeurId?.nom || 'Non assigné'}
                           </StyledTableCell>
                           <StyledTableCell sx={{ color: alpha(colors.white || '#ffffff', 0.9) }}>
                             {course.duree ? `${course.duree} h` : 'N/A'}
@@ -1282,17 +1682,19 @@ const Courses = () => {
             backdropFilter: 'blur(20px)',
             borderRadius: 3,
             border: `1px solid ${alpha(colors.fuchsia || '#f13544', 0.3)}`,
+            maxHeight: '90vh',
+            overflow: 'hidden',
           },
         }}
       >
         <DialogTitle sx={{ color: colors.white || '#ffffff', fontWeight: 700 }}>
           {modalMode === 'create' ? 'Ajouter un Cours' : 'Modifier le Cours'}
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ overflow: 'hidden' }}>
           <Box sx={{ width: '100%', mb: 2 }}>
             <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} centered>
-              <Tab label='Infos Cours' />
-              <Tab label={`${currentContenus.length} Contenus`} />
+              <Tab label='Informations Générales' />
+              <Tab label='Structure du Contenu' />
             </Tabs>
           </Box>
           {formError && (
@@ -1300,396 +1702,212 @@ const Courses = () => {
               {formError}
             </Alert>
           )}
-          {tabValue === 0 ? (
-            <form onSubmit={handleFormSubmit}>
-              <TextField
-                label='Titre du Cours'
-                value={formData.titre}
-                onChange={(e) => setFormData({ ...formData, titre: e.target.value })}
-                fullWidth
-                required
-                margin='normal'
-                sx={{
-                  '& .MuiInputLabel-root': { color: alpha(colors.white || '#ffffff', 0.7) },
-                  '& .MuiOutlinedInput-root': { color: colors.white || '#ffffff' },
-                  '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: alpha(colors.fuchsia || '#f13544', 0.3),
-                  },
-                  '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: colors.fuchsia || '#f13544',
-                  },
-                  '& .Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: colors.fuchsia || '#f13544',
-                  },
-                }}
-              />
-              <TextField
-                label='Description'
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                fullWidth
-                multiline
-                rows={4}
-                required
-                margin='normal'
-                sx={{
-                  '& .MuiInputLabel-root': { color: alpha(colors.white || '#ffffff', 0.7) },
-                  '& .MuiOutlinedInput-root': { color: colors.white || '#ffffff' },
-                  '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: alpha(colors.fuchsia || '#f13544', 0.3),
-                  },
-                  '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: colors.fuchsia || '#f13544',
-                  },
-                  '& .Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: colors.fuchsia || '#f13544',
-                  },
-                }}
-              />
-              <FormControl fullWidth margin='normal'>
-                <InputLabel sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}>
-                  Domaine
-                </InputLabel>
-                <Select
-                  value={formData.domaine}
-                  onChange={(e) => setFormData({ ...formData, domaine: e.target.value })}
+          <Box sx={{ height: '60vh', overflow: 'auto', pr: 1 }}>
+            {tabValue === 0 ? (
+              <form onSubmit={handleFormSubmit}>
+                <TextField
+                  label='Titre du Cours'
+                  value={formData.titre}
+                  onChange={(e) => setFormData({ ...formData, titre: e.target.value })}
+                  fullWidth
                   required
+                  margin='normal'
                   sx={{
-                    color: colors.white || '#ffffff',
+                    '& .MuiInputLabel-root': { color: alpha(colors.white || '#ffffff', 0.7) },
+                    '& .MuiOutlinedInput-root': { color: colors.white || '#ffffff' },
                     '& .MuiOutlinedInput-notchedOutline': {
                       borderColor: alpha(colors.fuchsia || '#f13544', 0.3),
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
                       borderColor: colors.fuchsia || '#f13544',
                     },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                    '& .Mui-focused .MuiOutlinedInput-notchedOutline': {
                       borderColor: colors.fuchsia || '#f13544',
                     },
                   }}
-                >
-                  <MenuItem value=''>
-                    <em>Sélectionner un domaine</em>
-                  </MenuItem>
-                  {domaines.map((domaine) => (
-                    <MenuItem key={domaine._id} value={domaine._id}>
-                      {domaine.nom || 'Domaine sans nom'}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl fullWidth margin='normal'>
-                <InputLabel sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}>
-                  Niveau
-                </InputLabel>
-                <Select
-                  value={formData.niveau}
-                  onChange={(e) => setFormData({ ...formData, niveau: e.target.value })}
-                  required
-                  sx={{
-                    color: colors.white || '#ffffff',
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: alpha(colors.fuchsia || '#f13544', 0.3),
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: colors.fuchsia || '#f13544',
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: colors.fuchsia || '#f13544',
-                    },
-                  }}
-                >
-                  <MenuItem value=''>
-                    <em>Sélectionner un niveau</em>
-                  </MenuItem>
-                  <MenuItem value='ALFA'>Alfa (Débutant)</MenuItem>
-                  <MenuItem value='BETA'>Beta (Intermédiaire)</MenuItem>
-                  <MenuItem value='GAMMA'>Gamma (Avancé)</MenuItem>
-                  <MenuItem value='DELTA'>Delta (Expert)</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControl fullWidth margin='normal'>
-                <InputLabel sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}>
-                  Instructeur
-                </InputLabel>
-                <Select
-                  value={formData.instructeur}
-                  onChange={(e) => setFormData({ ...formData, instructeur: e.target.value })}
-                  sx={{
-                    color: colors.white || '#ffffff',
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: alpha(colors.fuchsia || '#f13544', 0.3),
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: colors.fuchsia || '#f13544',
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: colors.fuchsia || '#f13544',
-                    },
-                  }}
-                >
-                  <MenuItem value=''>
-                    <em>Aucun instructeur</em>
-                  </MenuItem>
-                  {instructors.length > 0 ? (
-                    instructors.map((instructor) => (
-                      <MenuItem key={instructor._id} value={instructor._id}>
-                        {instructor.nom}
-                      </MenuItem>
-                    ))
-                  ) : (
-                    <MenuItem disabled>
-                      <em>Aucun instructeur disponible</em>
-                    </MenuItem>
-                  )}
-                </Select>
-                {!instructors.length && (
-                  <Alert severity='info' sx={{ mt: 2 }}>
-                    Aucun instructeur disponible. Veuillez vérifier la configuration des
-                    utilisateurs.
-                  </Alert>
-                )}
-              </FormControl>
-              <TextField
-                label='Durée (heures)'
-                value={formData.duree}
-                onChange={(e) => setFormData({ ...formData, duree: e.target.value })}
-                fullWidth
-                type='number'
-                inputProps={{ min: 0, step: 0.5 }}
-                required
-                margin='normal'
-                sx={{
-                  '& .MuiInputLabel-root': { color: alpha(colors.white || '#ffffff', 0.7) },
-                  '& .MuiOutlinedInput-root': { color: colors.white || '#ffffff' },
-                  '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: alpha(colors.fuchsia || '#f13544', 0.3),
-                  },
-                  '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: colors.fuchsia || '#f13544',
-                  },
-                  '& .Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: colors.fuchsia || '#f13544',
-                  },
-                }}
-              />
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                <Switch
-                  checked={formData.estPublie}
-                  onChange={(e) => setFormData({ ...formData, estPublie: e.target.checked })}
-                  color='primary'
                 />
-                <Typography sx={{ color: colors.white || '#ffffff', ml: 1 }}>Publié</Typography>
-              </Box>
-              <FormControl fullWidth margin='normal'>
-                <InputLabel sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}>
-                  Statut d'approbation
-                </InputLabel>
-                <Select
-                  value={formData.statutApprobation}
-                  onChange={(e) => setFormData({ ...formData, statutApprobation: e.target.value })}
+                <TextField
+                  label='Description'
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  fullWidth
+                  multiline
+                  rows={4}
                   required
+                  margin='normal'
                   sx={{
-                    color: colors.white || '#ffffff',
+                    '& .MuiInputLabel-root': { color: alpha(colors.white || '#ffffff', 0.7) },
+                    '& .MuiOutlinedInput-root': { color: colors.white || '#ffffff' },
                     '& .MuiOutlinedInput-notchedOutline': {
                       borderColor: alpha(colors.fuchsia || '#f13544', 0.3),
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
                       borderColor: colors.fuchsia || '#f13544',
                     },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                    '& .Mui-focused .MuiOutlinedInput-notchedOutline': {
                       borderColor: colors.fuchsia || '#f13544',
                     },
                   }}
-                >
-                  <MenuItem value='PENDING'>En attente</MenuItem>
-                  <MenuItem value='APPROVED'>Approuvé</MenuItem>
-                  <MenuItem value='REJECTED'>Rejeté</MenuItem>
-                </Select>
-              </FormControl>
-            </form>
-          ) : (
-            <>
-              {!editingCourse?._id ? (
-                <Alert severity='info'>
-                  Sauvegardez d'abord les informations du cours pour ajouter des contenus.
-                </Alert>
-              ) : (
-                <>
-                  <Typography variant='h6' sx={{ mb: 2, color: colors.white || '#ffffff' }}>
-                    Gestion des Contenus
-                  </Typography>
-                  <Box sx={{ mb: 2 }}>
-                    {currentContenus.map((contenu) => (
-                      <Box
-                        key={contenu._id}
-                        sx={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          p: 2,
-                          border: `1px solid ${alpha(colors.fuchsia || '#f13544', 0.3)}`,
-                          borderRadius: 2,
-                          mb: 1,
-                          backgroundColor: alpha(colors.white || '#ffffff', 0.05),
-                        }}
-                      >
-                        <Box>
-                          <Typography sx={{ color: colors.white || '#ffffff', fontWeight: 600 }}>
-                            {contenu.ordre}. {contenu.titre} ({contenu.type})
-                          </Typography>
-                          <Typography
-                            sx={{
-                              color: alpha(colors.white || '#ffffff', 0.7),
-                              fontSize: '0.8rem',
-                            }}
-                          >
-                            {contenu.url ? `${contenu.url.substring(0, 50)}...` : 'Aucun contenu'}
-                          </Typography>
-                        </Box>
-                        <Box>
-                          <IconButton
-                            size='small'
-                            onClick={() => {
-                              setEditingContenu(contenu);
-                              setAddContenuForm({
-                                titre: contenu.titre,
-                                url: contenu.url || '',
-                                ordre: contenu.ordre,
-                                type: contenu.type || 'VIDEO',
-                              });
-                            }}
-                            sx={{ color: '#f59e0b' }}
-                          >
-                            <Edit fontSize='small' />
-                          </IconButton>
-                          <IconButton
-                            size='small'
-                            onClick={() => handleDeleteContenu(contenu._id)}
-                            sx={{ color: '#ef4444' }}
-                          >
-                            <Delete fontSize='small' />
-                          </IconButton>
-                        </Box>
-                      </Box>
-                    ))}
-                  </Box>
-                  <Box
+                />
+                <FormControl fullWidth margin='normal'>
+                  <InputLabel sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}>
+                    Domaine
+                  </InputLabel>
+                  <Select
+                    value={formData.domaineId}
+                    onChange={(e) => setFormData({ ...formData, domaineId: e.target.value })}
+                    required
                     sx={{
-                      p: 2,
-                      border: `1px solid ${alpha(colors.fuchsia || '#f13544', 0.3)}`,
-                      borderRadius: 2,
-                      backgroundColor: alpha(colors.white || '#ffffff', 0.05),
+                      color: colors.white || '#ffffff',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: alpha(colors.fuchsia || '#f13544', 0.3),
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: colors.fuchsia || '#f13544',
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: colors.fuchsia || '#f13544',
+                      },
                     }}
                   >
-                    <TextField
-                      label='Titre du Contenu'
-                      value={addContenuForm.titre}
-                      onChange={(e) =>
-                        setAddContenuForm({ ...addContenuForm, titre: e.target.value })
-                      }
-                      fullWidth
-                      margin='normal'
-                      required
-                      sx={{
-                        '& .MuiInputLabel-root': { color: alpha(colors.white || '#ffffff', 0.7) },
-                        '& .MuiOutlinedInput-root': { color: colors.white || '#ffffff' },
-                      }}
-                    />
-                    <TextField
-                      label='URL du Contenu'
-                      value={addContenuForm.url}
-                      onChange={(e) =>
-                        setAddContenuForm({ ...addContenuForm, url: e.target.value })
-                      }
-                      fullWidth
-                      margin='normal'
-                      required
-                      sx={{
-                        '& .MuiInputLabel-root': { color: alpha(colors.white || '#ffffff', 0.7) },
-                        '& .MuiOutlinedInput-root': { color: colors.white || '#ffffff' },
-                      }}
-                    />
-                    <FormControl fullWidth margin='normal'>
-                      <InputLabel sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}>
-                        Type de Contenu
-                      </InputLabel>
-                      <Select
-                        value={addContenuForm.type}
-                        onChange={(e) =>
-                          setAddContenuForm({ ...addContenuForm, type: e.target.value })
-                        }
-                        required
-                        sx={{
-                          color: colors.white || '#ffffff',
-                          '& .MuiOutlinedInput-notchedOutline': {
-                            borderColor: alpha(colors.fuchsia || '#f13544', 0.3),
-                          },
-                          '&:hover .MuiOutlinedInput-notchedOutline': {
-                            borderColor: colors.fuchsia || '#f13544',
-                          },
-                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                            borderColor: colors.fuchsia || '#f13544',
-                          },
-                        }}
-                      >
-                        <MenuItem value='VIDEO'>Vidéo</MenuItem>
-                        <MenuItem value='DOCUMENT'>Document</MenuItem>
-                        <MenuItem value='QUIZ'>Quiz</MenuItem>
-                        <MenuItem value='EXERCICE'>Exercice</MenuItem>
-                      </Select>
-                    </FormControl>
-                    <TextField
-                      label='Ordre'
-                      type='number'
-                      value={addContenuForm.ordre}
-                      onChange={(e) =>
-                        setAddContenuForm({
-                          ...addContenuForm,
-                          ordre: parseInt(e.target.value) || 1,
-                        })
-                      }
-                      fullWidth
-                      margin='normal'
-                      inputProps={{ min: 1 }}
-                      required
-                      sx={{
-                        '& .MuiInputLabel-root': { color: alpha(colors.white || '#ffffff', 0.7) },
-                        '& .MuiOutlinedInput-root': { color: colors.white || '#ffffff' },
-                      }}
-                    />
-                    <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-                      <Button
-                        variant='contained'
-                        onClick={editingContenu ? handleUpdateContenu : handleAddContenu}
-                        sx={{
-                          background: `linear-gradient(135deg, ${colors.fuchsia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`,
-                          color: colors.white || '#ffffff',
-                        }}
-                      >
-                        {editingContenu ? 'Mettre à jour' : 'Ajouter Contenu'}
-                      </Button>
-                      {editingContenu && (
-                        <Button
-                          onClick={() => {
-                            setEditingContenu(null);
-                            setAddContenuForm({
-                              titre: '',
-                              url: '',
-                              ordre: nextOrdre,
-                              type: 'VIDEO',
-                            });
-                          }}
-                          sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}
-                        >
-                          Annuler
-                        </Button>
-                      )}
-                    </Box>
-                  </Box>
-                </>
-              )}
-            </>
-          )}
+                    <MenuItem value=''>
+                      <em>Sélectionner un domaine</em>
+                    </MenuItem>
+                    {domaines.map((domaine) => (
+                      <MenuItem key={domaine._id} value={domaine._id}>
+                        {domaine.nom || 'Domaine sans nom'}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl fullWidth margin='normal'>
+                  <InputLabel sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}>
+                    Niveau
+                  </InputLabel>
+                  <Select
+                    value={formData.niveau}
+                    onChange={(e) => setFormData({ ...formData, niveau: e.target.value })}
+                    required
+                    sx={{
+                      color: colors.white || '#ffffff',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: alpha(colors.fuchsia || '#f13544', 0.3),
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: colors.fuchsia || '#f13544',
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: colors.fuchsia || '#f13544',
+                      },
+                    }}
+                  >
+                    <MenuItem value=''>
+                      <em>Sélectionner un niveau</em>
+                    </MenuItem>
+                    <MenuItem value='ALFA'>Alfa (Débutant)</MenuItem>
+                    <MenuItem value='BETA'>Beta (Intermédiaire)</MenuItem>
+                    <MenuItem value='GAMMA'>Gamma (Avancé)</MenuItem>
+                    <MenuItem value='DELTA'>Delta (Expert)</MenuItem>
+                  </Select>
+                </FormControl>
+                <FormControl fullWidth margin='normal'>
+                  <InputLabel sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}>
+                    Instructeur
+                  </InputLabel>
+                  <Select
+                    value={formData.instructeurId}
+                    onChange={(e) => setFormData({ ...formData, instructeurId: e.target.value })}
+                    sx={{
+                      color: colors.white || '#ffffff',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: alpha(colors.fuchsia || '#f13544', 0.3),
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: colors.fuchsia || '#f13544',
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: colors.fuchsia || '#f13544',
+                      },
+                    }}
+                  >
+                    <MenuItem value=''>
+                      <em>Aucun instructeur</em>
+                    </MenuItem>
+                    {instructors.length > 0 ? (
+                      instructors.map((instructor) => (
+                        <MenuItem key={instructor._id} value={instructor._id}>
+                          {instructor.nom}
+                        </MenuItem>
+                      ))
+                    ) : (
+                      <MenuItem disabled>
+                        <em>Aucun instructeur disponible</em>
+                      </MenuItem>
+                    )}
+                  </Select>
+                </FormControl>
+                <TextField
+                  label='Durée (heures)'
+                  value={formData.duree}
+                  onChange={(e) => setFormData({ ...formData, duree: e.target.value })}
+                  fullWidth
+                  type='number'
+                  inputProps={{ min: 0, step: 0.5 }}
+                  required
+                  margin='normal'
+                  sx={{
+                    '& .MuiInputLabel-root': { color: alpha(colors.white || '#ffffff', 0.7) },
+                    '& .MuiOutlinedInput-root': { color: colors.white || '#ffffff' },
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: alpha(colors.fuchsia || '#f13544', 0.3),
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: colors.fuchsia || '#f13544',
+                    },
+                    '& .Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      borderColor: colors.fuchsia || '#f13544',
+                    },
+                  }}
+                />
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, mt: 2 }}>
+                  <Switch
+                    checked={formData.estPublie}
+                    onChange={(e) => setFormData({ ...formData, estPublie: e.target.checked })}
+                    color='primary'
+                  />
+                  <Typography sx={{ color: colors.white || '#ffffff', ml: 1 }}>Publié</Typography>
+                </Box>
+                <FormControl fullWidth margin='normal'>
+                  <InputLabel sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}>
+                    Statut d'approbation
+                  </InputLabel>
+                  <Select
+                    value={formData.statutApprobation}
+                    onChange={(e) => setFormData({ ...formData, statutApprobation: e.target.value })}
+                    required
+                    sx={{
+                      color: colors.white || '#ffffff',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: alpha(colors.fuchsia || '#f13544', 0.3),
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: colors.fuchsia || '#f13544',
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: colors.fuchsia || '#f13544',
+                      },
+                    }}
+                  >
+                    <MenuItem value='PENDING'>En attente</MenuItem>
+                    <MenuItem value='APPROVED'>Approuvé</MenuItem>
+                    <MenuItem value='REJECTED'>Rejeté</MenuItem>
+                  </Select>
+                </FormControl>
+              </form>
+            ) : (
+              renderStructureContent()
+            )}
+          </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2, justifyContent: 'flex-end', gap: 1 }}>
           <Button
@@ -1702,12 +1920,12 @@ const Courses = () => {
             type='submit'
             onClick={handleFormSubmit}
             variant='contained'
-            disabled={formLoading || tabValue === 1}
+            disabled={formLoading}
             sx={{
-              background: `linear-gradient(135deg, ${colors.fuchsia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`,
+              background: `linear-gradient(135deg, ${colors.fuchsia || '#f13544'}, ${colors.lightFuchsia || '#ff6b74'})`,
               color: colors.white || '#ffffff',
               '&:hover': {
-                background: `linear-gradient(135deg, ${colors.fuchsia || '#f13544'}dd, ${colors.lightFuschia || '#ff6b74'}dd)`,
+                background: `linear-gradient(135deg, ${colors.fuchsia || '#f13544'}dd, ${colors.lightFuchsia || '#ff6b74'}dd)`,
               },
             }}
           >
@@ -1895,7 +2113,7 @@ const Courses = () => {
                     Nombre de contenus :
                   </Typography>
                   <Chip
-                    label={`${detailsContenus.length} contenu(s)`}
+                    label={`${getContenusCount(selectedCourseDetails.contenu)} contenu(s)`}
                     size='small'
                     sx={{
                       bgcolor: alpha('#10b981', 0.2),
@@ -1919,24 +2137,62 @@ const Courses = () => {
                     {formatDate(selectedCourseDetails.createdAt)}
                   </Typography>
                 </Grid>
-                {detailsContenus.length > 0 && (
+                {selectedCourseDetails.contenu?.sections?.length > 0 && (
                   <Grid item xs={12}>
                     <Typography
                       variant='subtitle1'
                       sx={{ fontWeight: 500, color: alpha(colors.white || '#ffffff', 0.9), mt: 2 }}
                     >
-                      Contenus :
+                      Structure du Contenu :
                     </Typography>
-                    <Box sx={{ mt: 1, pl: 2 }}>
-                      {detailsContenus.map((contenu, index) => (
-                        <Typography
-                          key={contenu._id}
-                          variant='body2'
-                          sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}
-                        >
-                          - {contenu.titre || `Contenu ${index + 1}`} ({contenu.type}):{' '}
-                          {contenu.url?.substring(0, 50) || 'Aucun contenu'}
-                        </Typography>
+                    <Box sx={{ mt: 1 }}>
+                      {selectedCourseDetails.contenu.sections.map((section, sectionIndex) => (
+                        <Card key={sectionIndex} sx={{ mb: 2, backgroundColor: `${colors.navy}cc` }}>
+                          <CardContent>
+                            <Typography variant='h6' sx={{ color: colors.white, mb: 1 }}>
+                              Section {section.ordre}: {section.titre}
+                            </Typography>
+                            {section.description && (
+                              <Typography
+                                variant='body2'
+                                sx={{ color: colors.white, opacity: 0.8, mb: 2 }}
+                              >
+                                {section.description}
+                              </Typography>
+                            )}
+                            <Box sx={{ pl: 2 }}>
+                              {section.modules.map((module, moduleIndex) => (
+                                <Box
+                                  key={moduleIndex}
+                                  sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 1,
+                                    mb: 1,
+                                    p: 1,
+                                    backgroundColor: `${colors.navy}aa`,
+                                    borderRadius: 1,
+                                  }}
+                                >
+                                  <Box sx={{ color: colors.fuchsia }}>
+                                    {typesModule.find((t) => t.value === module.type)?.icon}
+                                  </Box>
+                                  <Box sx={{ flex: 1 }}>
+                                    <Typography variant='body2' sx={{ color: colors.white }}>
+                                      {module.titre}
+                                    </Typography>
+                                    <Typography
+                                      variant='caption'
+                                      sx={{ color: colors.white, opacity: 0.7 }}
+                                    >
+                                      Type: {module.type} | Durée: {module.duree || 'N/A'} min
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                              ))}
+                            </Box>
+                          </CardContent>
+                        </Card>
                       ))}
                     </Box>
                   </Grid>
@@ -1962,14 +2218,105 @@ const Courses = () => {
               navigate(`/course/${selectedCourseDetails?._id}`);
             }}
             sx={{
-              background: `linear-gradient(135deg, ${colors.fuchsia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`,
+              background: `linear-gradient(135deg, ${colors.fuchsia || '#f13544'}, ${colors.lightFuchsia || '#ff6b74'})`,
               color: colors.white || '#ffffff',
               '&:hover': {
-                background: `linear-gradient(135deg, ${colors.fuchsia || '#f13544'}dd, ${colors.lightFuschia || '#ff6b74'}dd)`,
+                background: `linear-gradient(135deg, ${colors.fuchsia || '#f13544'}dd, ${colors.lightFuchsia || '#ff6b74'}dd)`,
               },
             }}
           >
             Voir la page complète
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog de prévisualisation des sections */}
+      <Dialog
+        open={previewDialogOpen}
+        onClose={() => setPreviewDialogOpen(false)}
+        maxWidth='md'
+        fullWidth
+        PaperProps={{
+          sx: {
+            background: `linear-gradient(135deg, ${alpha(
+              colors.navy || '#010b40',
+              0.98
+            )}, ${alpha(colors.lightNavy || '#1a237e', 0.98)})`,
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: `1px solid ${alpha(colors.fuchsia || '#f13544', 0.3)}`,
+          },
+        }}
+      >
+        <DialogTitle sx={{ color: colors.fuchsia || '#f13544', fontWeight: 700 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <PreviewIcon />
+            Prévisualisation de la Section
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {selectedPreviewSection && (
+            <Box>
+              <Typography variant='h5' sx={{ color: colors.white, mb: 2 }}>
+                {selectedPreviewSection.titre}
+              </Typography>
+              {selectedPreviewSection.description && (
+                <Typography variant='body1' sx={{ color: colors.white, opacity: 0.8, mb: 3 }}>
+                  {selectedPreviewSection.description}
+                </Typography>
+              )}
+              <Divider sx={{ my: 2, borderColor: colors.lightNavy }} />
+              <Typography variant='h6' sx={{ color: colors.lightFuchsia, mb: 2 }}>
+                Modules ({selectedPreviewSection.modules.length})
+              </Typography>
+              <List>
+                {selectedPreviewSection.modules.map((module, idx) => (
+                  <Card key={idx} sx={{ mb: 2, backgroundColor: `${colors.navy}cc` }}>
+                    <CardContent>
+                      <Box sx={{ display: 'flex', alignItems: 'start', gap: 2 }}>
+                        <Box sx={{ color: colors.fuchsia, mt: 0.5 }}>
+                          {typesModule.find((t) => t.value === module.type)?.icon}
+                        </Box>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant='h6' sx={{ color: colors.white, mb: 1 }}>
+                            {module.titre}
+                          </Typography>
+                          <Typography
+                            variant='body2'
+                            sx={{ color: colors.white, opacity: 0.7, mb: 1 }}
+                          >
+                            {module.contenu}
+                          </Typography>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Chip
+                              size='small'
+                              label={module.type}
+                              sx={{ bgcolor: colors.lightNavy }}
+                            />
+                            {module.duree && (
+                              <Chip
+                                size='small'
+                                icon={<TimerIcon fontSize='small' />}
+                                label={`${module.duree} min`}
+                                sx={{ bgcolor: colors.lightNavy }}
+                              />
+                            )}
+                          </Box>
+                        </Box>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                ))}
+              </List>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button
+            onClick={() => setPreviewDialogOpen(false)}
+            sx={{ color: colors.white || '#ffffff' }}
+          >
+            Fermer
           </Button>
         </DialogActions>
       </Dialog>

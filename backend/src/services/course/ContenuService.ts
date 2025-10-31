@@ -1,5 +1,4 @@
-// Corrected ContenuService.ts - Made completion user-specific with completedBy array, added userId to methods, fixed population, professional error handling.
-
+// src/services/course/ContenuService.ts
 import createError from 'http-errors';
 import mongoose from 'mongoose';
 import Contenu from '../../models/course/Contenu';
@@ -13,14 +12,15 @@ interface LeanContenuDocument {
   titre: string;
   description?: string;
   type: 'VIDEO' | 'DOCUMENT' | 'QUIZ' | 'EXERCICE';
-  url?: string;
-  cours: mongoose.Types.ObjectId | { _id: mongoose.Types.ObjectId; titre: string; description?: string };
+  url: string;
+  duree?: number;
   ordre: number;
+  cours: mongoose.Types.ObjectId | { _id: mongoose.Types.ObjectId; titre: string; description?: string };
   createdAt: Date;
   updatedAt: Date;
   __v?: number;
-  isCompleted?: boolean; // Added for user-specific
-  completedBy?: mongoose.Types.ObjectId[]; // Added
+  isCompleted?: boolean;
+  completedBy?: mongoose.Types.ObjectId[];
 }
 
 export class ContenuService {
@@ -36,8 +36,7 @@ export class ContenuService {
       const contenu = new Contenu(data);
       await contenu.save();
 
-      await Cours.findByIdAndUpdate(data.cours, { $push: { contenu: contenu._id } });
-
+      // CORRIGÉ : Plus de $push sur Cours.contenu (champ imbriqué, pas tableau)
       logger.info(`Contenu créé: ${contenu._id} (${contenu.type})`);
       return contenu.toObject() as LeanContenuDocument;
     } catch (err) {
@@ -85,7 +84,7 @@ export class ContenuService {
   }
 
   /**
-   * Tous les contenus d'un cours (with user-specific isCompleted)
+   * Tous les contenus d'un cours (avec isCompleted utilisateur)
    */
   static async getByCourseId(courseId: string, userId: string): Promise<LeanContenuDocument[]> {
     try {
@@ -104,7 +103,7 @@ export class ContenuService {
         .sort({ ordre: 1 })
         .lean() as LeanContenuDocument[];
 
-      // Add user-specific isCompleted
+      // Ajout du statut isCompleted par utilisateur
       contenus = contenus.map(contenu => ({
         ...contenu,
         isCompleted: contenu.completedBy?.some(id => id.toString() === userId) || false,
@@ -157,8 +156,7 @@ export class ContenuService {
       const contenu = await Contenu.findByIdAndDelete(id).lean();
       if (!contenu) throw createError(404, 'Contenu non trouvé');
 
-      await Cours.findByIdAndUpdate(contenu.cours, { $pull: { contenu: contenu._id } });
-
+      // CORRIGÉ : Plus de $pull sur Cours.contenu
       logger.info(`Contenu supprimé: ${id}`);
       return contenu as LeanContenuDocument;
     } catch (err) {
@@ -204,11 +202,11 @@ export class ContenuService {
       if (!contenu) throw createError(404, 'Contenu non trouvé');
       if (contenu.type !== 'QUIZ') throw createError(400, 'Ce contenu n\'est pas un quiz');
 
-      // Logique de validation des réponses (exemple simple - extend as needed)
-      const success = answers.length > 0; // Placeholder - implement real quiz scoring
+      // Logique de validation (exemple simple - à étendre)
+      const success = answers.length > 0;
 
       if (success) {
-        await this.complete(id, userId); // Mark as completed if success
+        await this.complete(id, userId);
       }
 
       logger.info(`Quiz soumis pour contenu ${id} par user ${userId}`);

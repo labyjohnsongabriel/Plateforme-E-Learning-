@@ -1,9 +1,27 @@
+// src/context/NotificationContext.jsx
 import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import { Snackbar, Alert, Backdrop, CircularProgress, Typography } from '@mui/material';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { jwtDecode } from 'jwt-decode';
+
+// Palette de couleurs professionnelle
+const colors = {
+  navy: '#010b40',
+  lightNavy: '#1a237e',
+  darkNavy: '#00072d',
+  red: '#f13544',
+  pink: '#ff6b74',
+  purple: '#8b5cf6',
+  success: '#10b981',
+  warning: '#f59e0b',
+  info: '#3b82f6',
+  glass: 'rgba(255, 255, 255, 0.08)',
+  glassDark: 'rgba(1, 11, 64, 0.6)',
+  border: 'rgba(241, 53, 68, 0.2)',
+  white: '#ffffff',
+};
 
 // Role constants
 const RoleUtilisateur = {
@@ -35,17 +53,14 @@ export const useNotifications = () => {
 const isTokenExpired = (token) => {
   try {
     if (!token || typeof token !== 'string') {
-      console.error('Invalid token format', { token });
       return true;
     }
     const decoded = jwtDecode(token);
     if (!decoded.exp) {
-      console.error('Token missing expiration claim', { decoded });
       return true;
     }
     return decoded.exp * 1000 < Date.now();
   } catch (error) {
-    console.error('Token decoding error:', { error: error.message });
     return true;
   }
 };
@@ -62,7 +77,6 @@ const retryRequest = async (fn, maxRetries = 3, baseDelay = 1000) => {
         throw err;
       }
       const delay = baseDelay * 2 ** (attempt - 1);
-      console.warn(`Retrying request (attempt ${attempt}/${maxRetries}) after ${delay}ms`);
       await sleep(delay);
     }
   }
@@ -76,9 +90,35 @@ export const NotificationProvider = ({ children }) => {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
   const navigate = useNavigate();
 
+  // Récupérer les notifications depuis le localStorage au chargement initial
+  useEffect(() => {
+    const savedNotifications = localStorage.getItem('notifications');
+    if (savedNotifications) {
+      try {
+        const parsed = JSON.parse(savedNotifications);
+        if (Array.isArray(parsed)) {
+          setNotifications(parsed);
+        }
+      } catch (err) {
+        console.warn('Erreur lors du parsing des notifications sauvegardées');
+        localStorage.removeItem('notifications');
+      }
+    }
+  }, []);
+
   const fetchNotifications = useCallback(async () => {
+    // Vérifier si l'utilisateur a accès aux notifications backend
+    const userRole = typeof user?.role === 'string' ? user.role.toUpperCase() : 'UNKNOWN';
+    const hasBackendAccess = [RoleUtilisateur.ADMIN, RoleUtilisateur.ENSEIGNANT].includes(userRole);
+
+    if (!hasBackendAccess) {
+      // Pour les étudiants, utiliser uniquement les notifications locales
+      console.log('Utilisateur sans accès backend aux notifications - mode local uniquement');
+      setIsLoading(false);
+      return;
+    }
+
     if (!user?.token || isTokenExpired(user.token)) {
-      console.error('Invalid or missing token', { user });
       setError("Token d'authentification manquant, invalide ou expiré");
       logout();
       navigate('/login');
@@ -90,13 +130,8 @@ export const NotificationProvider = ({ children }) => {
 
     setIsLoading(true);
     setError(null);
+    
     try {
-      console.log('Fetching notifications', {
-        url: `${API_BASE_URL}/api/notifications`,
-        token: user.token.substring(0, 10) + '...',
-        role: typeof user?.role === 'string' ? user.role.toUpperCase() : 'UNKNOWN',
-      });
-
       const response = await retryRequest(() =>
         axios.get(`${API_BASE_URL}/api/notifications`, {
           headers: {
@@ -107,62 +142,26 @@ export const NotificationProvider = ({ children }) => {
         })
       );
 
-      console.log('Notifications response:', {
-        data: response.data,
-        status: response.status,
-        headers: response.headers,
-      });
-
-      if (
-        response.status === 200 &&
-        response.headers['content-type']?.includes('application/json')
-      ) {
+      if (response.status === 200 && response.headers['content-type']?.includes('application/json')) {
         const fetchedNotifications = Array.isArray(response.data) ? response.data : [];
         setNotifications(fetchedNotifications);
         localStorage.setItem('notifications', JSON.stringify(fetchedNotifications));
       } else if (response.status === 403) {
-        console.log('User does not have notification access permissions');
-        setNotifications([]);
-        localStorage.setItem('notifications', JSON.stringify([]));
+        console.log('Accès aux notifications backend refusé - utilisation du mode local');
+        // Ne pas afficher d'erreur pour les 403, simplement utiliser les notifications locales
       } else {
         throw new Error('Réponse serveur non-JSON ou statut invalide');
       }
     } catch (err) {
-      console.error('Fetch notifications error:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-      });
-
-      let errorMessage;
-      if (err.response) {
-        switch (err.response.status) {
-          case 401:
-            errorMessage = 'Session expirée, veuillez vous reconnecter';
-            logout();
-            navigate('/login');
-            break;
-          case 403:
-            console.log('Notification access forbidden - user role may not have notification permissions');
-            setNotifications([]);
-            localStorage.setItem('notifications', JSON.stringify([]));
-            setIsLoading(false);
-            return;
-          case 404:
-            errorMessage = 'Service de notifications non disponible';
-            break;
-          default:
-            errorMessage =
-              err.response.data?.message || 'Erreur lors du chargement des notifications';
-        }
-      } else {
-        errorMessage = 'Impossible de se connecter au serveur';
-      }
-
-      if (err.response?.status !== 403) {
-        setError(errorMessage);
-        setNotifications([]);
-        localStorage.setItem('notifications', JSON.stringify([]));
+      if (err.response?.status === 403) {
+        // Accès refusé - mode local uniquement
+        console.log('Accès aux notifications backend refusé - mode local activé');
+      } else if (err.response?.status === 401) {
+        setError('Session expirée, veuillez vous reconnecter');
+        logout();
+        navigate('/login');
+      } else if (err.response?.status !== 403) {
+        setError(err.response?.data?.message || 'Erreur lors du chargement des notifications');
       }
     } finally {
       setIsLoading(false);
@@ -172,6 +171,8 @@ export const NotificationProvider = ({ children }) => {
   useEffect(() => {
     if (user?.token && !isTokenExpired(user.token)) {
       fetchNotifications();
+      
+      // Mettre à jour les notifications uniquement pour les administrateurs
       if (typeof user?.role === 'string' && user.role.toUpperCase() === RoleUtilisateur.ADMIN) {
         const interval = setInterval(() => {
           if (document.visibilityState === 'visible') {
@@ -203,54 +204,57 @@ export const NotificationProvider = ({ children }) => {
       };
 
       try {
-        console.log('Adding local notification', { newNotification });
         setNotifications((prev) => {
-          const updatedNotifications = [newNotification, ...prev].slice(0, 10);
+          const updatedNotifications = [newNotification, ...prev].slice(0, 20); // Limiter à 20 notifications
           localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
           return updatedNotifications;
         });
 
-        console.log('Notification added locally - skipping backend save to avoid 403 error');
-      } catch (err) {
-        console.error('Add notification error:', {
-          message: err.message,
-          response: err.response?.data,
-          status: err.response?.status,
-        });
-
-        let errorMessage;
-        if (err.response) {
-          switch (err.response.status) {
-            case 401:
-              errorMessage = 'Session expirée, veuillez vous reconnecter';
-              logout();
-              navigate('/login');
-              break;
-            case 403:
-              console.log('Backend notification access forbidden - using local notifications only');
-              break;
-            default:
-              errorMessage =
-                err.response.data?.message || "Erreur lors de l'ajout de la notification";
+        // Pour les rôles avec accès backend, tenter de sauvegarder sur le serveur
+        const userRole = typeof user?.role === 'string' ? user.role.toUpperCase() : 'UNKNOWN';
+        const hasBackendAccess = [RoleUtilisateur.ADMIN, RoleUtilisateur.ENSEIGNANT].includes(userRole);
+        
+        if (hasBackendAccess && user?.token && !isTokenExpired(user.token)) {
+          try {
+            await axios.post(
+              `${API_BASE_URL}/api/notifications`,
+              {
+                message,
+                severity,
+                type: 'SYSTEM',
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${user.token}`,
+                  'Content-Type': 'application/json',
+                },
+              }
+            );
+          } catch (backendErr) {
+            // Ignorer les erreurs backend pour les notifications
+            if (backendErr.response?.status !== 403) {
+              console.warn('Erreur sauvegarde notification backend:', backendErr.message);
+            }
           }
-        } else {
-          errorMessage = 'Impossible de se connecter au serveur';
         }
-
-        if (err.response?.status !== 403) {
-          setError(errorMessage);
+      } catch (err) {
+        if (err.response?.status === 401) {
+          setError('Session expirée, veuillez vous reconnecter');
+          logout();
+          navigate('/login');
+        } else if (err.response?.status !== 403) {
+          setError(err.response?.data?.message || "Erreur lors de l'ajout de la notification");
         }
       } finally {
         setIsLoading(false);
       }
     },
-    [user, logout, navigate]
+    [user, logout, navigate, API_BASE_URL]
   );
 
   const markAsRead = useCallback(
     async (id) => {
       if (!user?.token || isTokenExpired(user.token)) {
-        console.error('Invalid or missing token', { user });
         setError('Session invalide');
         logout();
         navigate('/login');
@@ -259,8 +263,8 @@ export const NotificationProvider = ({ children }) => {
 
       setIsLoading(true);
       setError(null);
+      
       try {
-        console.log('Marking notification as read locally', { id });
         setNotifications((prev) => {
           const updatedNotifications = prev.map((n) =>
             n._id === id || n.id === id ? { ...n, lu: true } : n
@@ -269,46 +273,46 @@ export const NotificationProvider = ({ children }) => {
           return updatedNotifications;
         });
 
-        console.log('Notification marked as read locally - skipping backend update');
-      } catch (err) {
-        console.error('Mark as read error:', {
-          message: err.message,
-          response: err.response?.data,
-          status: err.response?.status,
-        });
-
-        let errorMessage;
-        if (err.response) {
-          switch (err.response.status) {
-            case 401:
-              errorMessage = 'Session expirée, veuillez vous reconnecter';
-              logout();
-              navigate('/login');
-              break;
-            case 403:
-              console.log('Backend notification update forbidden - using local state only');
-              break;
-            default:
-              errorMessage =
-                err.response.data?.message || 'Erreur lors de la mise à jour de la notification';
+        // Tenter de marquer comme lu sur le backend pour les rôles avec accès
+        const userRole = typeof user?.role === 'string' ? user.role.toUpperCase() : 'UNKNOWN';
+        const hasBackendAccess = [RoleUtilisateur.ADMIN, RoleUtilisateur.ENSEIGNANT].includes(userRole);
+        
+        if (hasBackendAccess) {
+          try {
+            await axios.patch(
+              `${API_BASE_URL}/api/notifications/${id}/read`,
+              {},
+              {
+                headers: {
+                  Authorization: `Bearer ${user.token}`,
+                  'Content-Type': 'application/json',
+                },
+              }
+            );
+          } catch (backendErr) {
+            // Ignorer les erreurs 403 du backend
+            if (backendErr.response?.status !== 403) {
+              console.warn('Erreur marquage lu backend:', backendErr.message);
+            }
           }
-        } else {
-          errorMessage = 'Impossible de se connecter au serveur';
         }
-
-        if (err.response?.status !== 403) {
-          setError(errorMessage);
+      } catch (err) {
+        if (err.response?.status === 401) {
+          setError('Session expirée, veuillez vous reconnecter');
+          logout();
+          navigate('/login');
+        } else if (err.response?.status !== 403) {
+          setError(err.response?.data?.message || 'Erreur lors de la mise à jour de la notification');
         }
       } finally {
         setIsLoading(false);
       }
     },
-    [user, logout, navigate]
+    [user, logout, navigate, API_BASE_URL]
   );
 
   const markAllAsRead = useCallback(async () => {
     if (!user?.token || isTokenExpired(user.token)) {
-      console.error('Invalid or missing token', { user });
       setError('Session invalide');
       logout();
       navigate('/login');
@@ -317,52 +321,52 @@ export const NotificationProvider = ({ children }) => {
 
     setIsLoading(true);
     setError(null);
+    
     try {
-      console.log('Marking all notifications as read locally');
       setNotifications((prev) => {
         const updatedNotifications = prev.map((n) => ({ ...n, lu: true }));
         localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
         return updatedNotifications;
       });
 
-      console.log('All notifications marked as read locally - skipping backend update');
-    } catch (err) {
-      console.error('Mark all as read error:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-      });
-
-      let errorMessage;
-      if (err.response) {
-        switch (err.response.status) {
-          case 401:
-            errorMessage = 'Session expirée, veuillez vous reconnecter';
-            logout();
-            navigate('/login');
-            break;
-          case 403:
-            console.log('Backend notification update forbidden - using local state only');
-            break;
-          default:
-            errorMessage =
-              err.response.data?.message || 'Erreur lors de la mise à jour des notifications';
+      // Tenter de marquer tout comme lu sur le backend pour les rôles avec accès
+      const userRole = typeof user?.role === 'string' ? user.role.toUpperCase() : 'UNKNOWN';
+      const hasBackendAccess = [RoleUtilisateur.ADMIN, RoleUtilisateur.ENSEIGNANT].includes(userRole);
+      
+      if (hasBackendAccess) {
+        try {
+          await axios.patch(
+            `${API_BASE_URL}/api/notifications/read-all`,
+            {},
+            {
+              headers: {
+                Authorization: `Bearer ${user.token}`,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+        } catch (backendErr) {
+          // Ignorer les erreurs 403 du backend
+          if (backendErr.response?.status !== 403) {
+            console.warn('Erreur marquage tout lu backend:', backendErr.message);
+          }
         }
-      } else {
-        errorMessage = 'Impossible de se connecter au serveur';
       }
-
-      if (err.response?.status !== 403) {
-        setError(errorMessage);
+    } catch (err) {
+      if (err.response?.status === 401) {
+        setError('Session expirée, veuillez vous reconnecter');
+        logout();
+        navigate('/login');
+      } else if (err.response?.status !== 403) {
+        setError(err.response?.data?.message || 'Erreur lors de la mise à jour des notifications');
       }
     } finally {
       setIsLoading(false);
     }
-  }, [user, logout, navigate]);
+  }, [user, logout, navigate, API_BASE_URL]);
 
   const clearNotifications = useCallback(async () => {
     if (!user?.token || isTokenExpired(user.token)) {
-      console.error('Invalid or missing token', { user });
       setError('Session invalide');
       logout();
       navigate('/login');
@@ -371,42 +375,40 @@ export const NotificationProvider = ({ children }) => {
 
     setIsLoading(true);
     setError(null);
+    
     try {
-      console.log('Clearing notifications locally');
       setNotifications([]);
       localStorage.removeItem('notifications');
 
-      console.log('Notifications cleared locally - skipping backend deletion');
-    } catch (err) {
-      console.error('Clear notifications error:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-      });
-
-      let errorMessage;
-      if (err.response) {
-        switch (err.response.status) {
-          case 401:
-            errorMessage = 'Session expirée, veuillez vous reconnecter';
-            logout();
-            navigate('/login');
-            break;
-          case 403:
-            console.log('Backend notification deletion forbidden - using local state only');
-            break;
-          default:
-            errorMessage =
-              err.response.data?.message || 'Erreur lors de la suppression des notifications';
+      // Tenter de supprimer sur le backend pour les rôles avec accès
+      const userRole = typeof user?.role === 'string' ? user.role.toUpperCase() : 'UNKNOWN';
+      const hasBackendAccess = [RoleUtilisateur.ADMIN, RoleUtilisateur.ENSEIGNANT].includes(userRole);
+      
+      if (hasBackendAccess) {
+        try {
+          await axios.delete(`${API_BASE_URL}/api/notifications`, {
+            headers: {
+              Authorization: `Bearer ${user.token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+        } catch (backendErr) {
+          // Ignorer les erreurs 403 du backend
+          if (backendErr.response?.status !== 403) {
+            console.warn('Erreur suppression notifications backend:', backendErr.message);
+          }
         }
-      } else {
-        errorMessage = 'Impossible de se connecter au serveur';
+      }
+    } catch (err) {
+      if (err.response?.status === 401) {
+        setError('Session expirée, veuillez vous reconnecter');
+        logout();
+        navigate('/login');
+      } else if (err.response?.status !== 403) {
+        setError(err.response?.data?.message || 'Erreur lors de la suppression des notifications');
       }
 
-      if (err.response?.status !== 403) {
-        setError(errorMessage);
-      }
-
+      // Restaurer les notifications en cas d'erreur
       const localNotifications = localStorage.getItem('notifications');
       if (localNotifications) {
         setNotifications(JSON.parse(localNotifications));
@@ -414,7 +416,7 @@ export const NotificationProvider = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [user, logout, navigate]);
+  }, [user, logout, navigate, API_BASE_URL]);
 
   const contextValue = {
     notifications,
@@ -438,6 +440,8 @@ export const NotificationProvider = ({ children }) => {
   return (
     <NotificationContext.Provider value={contextValue}>
       {children}
+      
+      {/* Notifications toast */}
       {visibleNotifications.map((notification) => (
         <Snackbar
           key={notification.id || notification._id}
@@ -457,12 +461,17 @@ export const NotificationProvider = ({ children }) => {
             sx={{
               width: '100%',
               maxWidth: '400px',
-              background: `linear-gradient(135deg, ${colors.navy}b3, ${colors.lightNavy}b3)`,
+              background: `linear-gradient(135deg, ${colors.glass}, ${colors.glassDark})`,
               backdropFilter: 'blur(20px)',
-              color: '#ffffff',
-              border: `1px solid ${colors.red}33`,
+              color: colors.white,
+              border: `1px solid ${colors.border}`,
+              borderRadius: '12px',
+              fontWeight: 500,
               '& .MuiAlert-icon': {
-                color: '#ffffff',
+                color: colors.white,
+              },
+              '& .MuiAlert-message': {
+                padding: '8px 0',
               },
             }}
           >
@@ -470,15 +479,17 @@ export const NotificationProvider = ({ children }) => {
           </Alert>
         </Snackbar>
       ))}
+      
+      {/* Backdrop de chargement */}
       <Backdrop
         open={isLoading}
         sx={{
           zIndex: 9999,
-          color: '#fff',
+          color: colors.white,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          background: 'linear-gradient(135deg, #010b40 0%, #1a237e 100%)',
+          background: `linear-gradient(135deg, ${colors.navy}, ${colors.lightNavy})`,
         }}
       >
         <CircularProgress
@@ -491,10 +502,23 @@ export const NotificationProvider = ({ children }) => {
             },
           }}
         />
-        <Typography variant='h6' sx={{ mt: 2, fontFamily: 'Ubuntu, sans-serif', fontWeight: 500 }}>
+        <Typography 
+          variant='h6' 
+          sx={{ 
+            mt: 2, 
+            fontFamily: '"Inter", "SF Pro Display", sans-serif',
+            fontWeight: 500,
+            background: 'linear-gradient(135deg, #ffffff, #ff6b74)',
+            backgroundClip: 'text',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}
+        >
           Chargement...
         </Typography>
       </Backdrop>
+      
+      {/* Snackbar d'erreur */}
       <Snackbar
         open={!!error}
         autoHideDuration={6000}
@@ -504,19 +528,22 @@ export const NotificationProvider = ({ children }) => {
         <Alert
           onClose={() => setError(null)}
           severity='error'
-          sx={{ width: '100%', maxWidth: '600px' }}
+          sx={{ 
+            width: '100%', 
+            maxWidth: '600px',
+            background: `linear-gradient(135deg, ${colors.glass}, ${colors.glassDark})`,
+            backdropFilter: 'blur(20px)',
+            color: colors.white,
+            border: `1px solid ${colors.border}`,
+            borderRadius: '12px',
+            '& .MuiAlert-icon': {
+              color: colors.red,
+            },
+          }}
         >
           {error}
         </Alert>
       </Snackbar>
     </NotificationContext.Provider>
   );
-};
-
-const colors = {
-  navy: '#010b40',
-  lightNavy: '#1a237e',
-  red: '#f13544',
-  pink: '#ff6b74',
-  white: '#ffffff',
 };

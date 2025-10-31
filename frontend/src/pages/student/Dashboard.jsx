@@ -13,6 +13,10 @@ import {
   Chip,
   Tooltip,
   IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import { styled, keyframes } from '@mui/material/styles';
 import {
@@ -24,8 +28,11 @@ import {
   Clock,
   BarChart3,
   RefreshCw,
+  Play,
+  X,
 } from 'lucide-react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 // === ANIMATIONS PROFESSIONNELLES ===
 const fadeInUp = keyframes`
@@ -75,7 +82,6 @@ const colors = {
   border: 'rgba(241, 53, 68, 0.2)',
 };
 
-// === COMPOSANTS STYLISÉS PROFESSIONNELS ===
 const DashboardCard = styled(Card)(({ theme }) => ({
   background: `linear-gradient(135deg, ${colors.glass}, ${colors.glassDark})`,
   backdropFilter: 'blur(20px)',
@@ -121,7 +127,6 @@ const ActionButton = styled(Button)(({ theme }) => ({
   fontWeight: 600,
   fontSize: '0.9rem',
   transition: 'all 0.3s ease',
-  animation: `${pulseGlow} 2s infinite`,
   '&:hover': {
     transform: 'translateY(-2px)',
     boxShadow: `0 10px 25px ${colors.red}4d`,
@@ -129,7 +134,23 @@ const ActionButton = styled(Button)(({ theme }) => ({
   '&:disabled': {
     background: 'rgba(255, 255, 255, 0.1)',
     color: 'rgba(255, 255, 255, 0.3)',
-    animation: 'none',
+  },
+}));
+
+const SecondaryButton = styled(Button)(({ theme }) => ({
+  background: 'transparent',
+  color: '#ffffff',
+  textTransform: 'none',
+  borderRadius: '12px',
+  padding: '10px 20px',
+  fontWeight: 600,
+  fontSize: '0.9rem',
+  border: `1px solid ${colors.border}`,
+  transition: 'all 0.3s ease',
+  '&:hover': {
+    background: `${colors.red}1a`,
+    borderColor: colors.red,
+    transform: 'translateY(-2px)',
   },
 }));
 
@@ -158,6 +179,7 @@ const Dashboard = () => {
       totalCertificates: 0,
       totalStudyTime: 0,
       averageProgress: 0,
+      completionRate: 0,
     },
   });
   const [loading, setLoading] = useState(true);
@@ -165,8 +187,11 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
   const [invalidEnrollments, setInvalidEnrollments] = useState(0);
+  const [courseDialogOpen, setCourseDialogOpen] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState(null);
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+  const navigate = useNavigate();
 
   // === FONCTIONS D'AUTHENTIFICATION ===
   const getAuthToken = useCallback(() => {
@@ -180,7 +205,7 @@ const Dashboard = () => {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         }
-      : null;
+      : {};
   }, [getAuthToken]);
 
   // === VALIDATION DES ID ===
@@ -189,14 +214,16 @@ const Dashboard = () => {
   }, []);
 
   // === CALCUL DES STATISTIQUES AUTOMATIQUES ===
-  const calculateStats = useCallback((courses, certificates, userProgress) => {
+  const calculateStats = useCallback((courses, certificates) => {
     const totalCourses = courses.length;
     const completedCourses = courses.filter((course) => course.progress === 100).length;
     const totalCertificates = certificates.length;
 
-    // Calcul du temps d'étude total (exemple)
+    // Calcul du temps d'étude total (estimation basée sur la durée des cours et la progression)
     const totalStudyTime = courses.reduce((total, course) => {
-      return total + (course.duree || 0); // Supposons que course.duree est en minutes
+      const courseDuration = course.duree || 60; // Durée par défaut de 60 minutes
+      const progressFactor = (course.progress || 0) / 100;
+      return total + (courseDuration * progressFactor);
     }, 0);
 
     // Calcul de la progression moyenne
@@ -207,13 +234,16 @@ const Dashboard = () => {
           )
         : 0;
 
+    // Taux de complétion
+    const completionRate = totalCourses > 0 ? Math.round((completedCourses / totalCourses) * 100) : 0;
+
     return {
       totalCourses,
       completedCourses,
       totalCertificates,
-      totalStudyTime,
+      totalStudyTime: Math.round(totalStudyTime),
       averageProgress,
-      completionRate: totalCourses > 0 ? Math.round((completedCourses / totalCourses) * 100) : 0,
+      completionRate,
     };
   }, []);
 
@@ -238,32 +268,51 @@ const Dashboard = () => {
 
         // Récupération parallèle des données pour de meilleures performances
         const [userResponse, enrollmentsResponse, certificatesResponse] = await Promise.all([
-          axios.get(`${API_BASE_URL}/auth/me`, { headers }),
-          axios.get(`${API_BASE_URL}/learning/enrollments`, { headers }),
-          axios.get(`${API_BASE_URL}/learning/certificates`, { headers }),
+          axios.get(`${API_BASE_URL}/auth/me`, { headers }).catch(err => {
+            console.warn('Erreur récupération utilisateur:', err.message);
+            return { data: { prenom: 'Étudiant', nom: '' } };
+          }),
+          axios.get(`${API_BASE_URL}/learning/enrollments`, { headers }).catch(err => {
+            console.warn('Erreur récupération inscriptions:', err.message);
+            return { data: [] };
+          }),
+          axios.get(`${API_BASE_URL}/learning/certificates`, { headers }).catch(err => {
+            console.warn('Erreur récupération certificats:', err.message);
+            return { data: { data: [] } };
+          }),
         ]);
 
         const userData = userResponse.data;
-        const enrolledCourses = Array.isArray(enrollmentsResponse.data)
-          ? enrollmentsResponse.data
-          : [];
+        const enrolledCourses = Array.isArray(enrollmentsResponse.data?.data) 
+          ? enrollmentsResponse.data.data 
+          : Array.isArray(enrollmentsResponse.data) 
+            ? enrollmentsResponse.data 
+            : [];
+        
         const certificatesData = Array.isArray(certificatesResponse.data?.data)
           ? certificatesResponse.data.data
           : Array.isArray(certificatesResponse.data)
             ? certificatesResponse.data
             : [];
 
+        console.log('📊 Données récupérées:', {
+          user: userData,
+          inscriptions: enrolledCourses.length,
+          certificats: certificatesData.length
+        });
+
         // Filtrage des inscriptions valides
         const validEnrollments = enrolledCourses.filter((enrollment) => {
           const coursId = enrollment.cours?._id || enrollment.cours;
           if (!isValidObjectId(coursId)) {
+            console.warn('Inscription invalide ignorée:', enrollment);
             setInvalidEnrollments((prev) => prev + 1);
             return false;
           }
           return true;
         });
 
-        // Récupération des progressions en parallèle
+        // Récupération des progressions en parallèle avec gestion d'erreur individuelle
         const progressPromises = validEnrollments.map(async (enrollment) => {
           const coursId = enrollment.cours?._id || enrollment.cours;
           try {
@@ -271,21 +320,31 @@ const Dashboard = () => {
               `${API_BASE_URL}/learning/progress/${coursId}`,
               { headers }
             );
+            
+            const progressData = progressResponse.data.data || progressResponse.data;
+            const progression = progressData?.pourcentage || progressData?.progress || 0;
+            
             return {
               ...enrollment,
-              progress: progressResponse.data.data?.pourcentage || 0,
-              title: enrollment.cours?.title || 'Cours sans titre',
-              duree: enrollment.cours?.duree || 0,
+              progress: progression,
+              title: enrollment.cours?.titre || enrollment.cours?.title || 'Cours sans titre',
+              description: enrollment.cours?.description || 'Description non disponible',
+              duree: enrollment.cours?.duree || 60,
+              niveau: enrollment.cours?.niveau || 'Débutant',
               _id: enrollment._id,
+              coursId: coursId
             };
           } catch (err) {
             console.warn(`Erreur progression cours ${coursId}:`, err.message);
             return {
               ...enrollment,
               progress: 0,
-              title: enrollment.cours?.title || 'Cours sans titre',
-              duree: enrollment.cours?.duree || 0,
+              title: enrollment.cours?.titre || enrollment.cours?.title || 'Cours sans titre',
+              description: enrollment.cours?.description || 'Description non disponible',
+              duree: enrollment.cours?.duree || 60,
+              niveau: enrollment.cours?.niveau || 'Débutant',
               _id: enrollment._id,
+              coursId: coursId
             };
           }
         });
@@ -304,12 +363,12 @@ const Dashboard = () => {
           stats: calculatedStats,
         });
 
-        // Logs de développement
-        if (process.env.NODE_ENV === 'development') {
-          console.log('📊 Statistiques calculées:', calculatedStats);
-          console.log('📚 Cours chargés:', coursesWithProgress.length);
-          console.log('🏆 Certificats:', certificatesData.length);
-        }
+        console.log('✅ Dashboard chargé:', {
+          stats: calculatedStats,
+          cours: coursesWithProgress.length,
+          certificats: certificatesData.length
+        });
+
       } catch (err) {
         console.error('❌ Erreur chargement dashboard:', err);
         const errorMessage =
@@ -336,10 +395,6 @@ const Dashboard = () => {
       setDownloadingId(certId);
       const headers = getAuthHeaders();
 
-      if (!headers) {
-        throw new Error("Token d'authentification manquant");
-      }
-
       const response = await axios.get(`${API_BASE_URL}/learning/certificate/${certId}/download`, {
         headers,
         responseType: 'blob',
@@ -348,7 +403,11 @@ const Dashboard = () => {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `Certificat_${coursTitle || 'Certificat'}.pdf`);
+      
+      // Nettoyage du titre pour le nom de fichier
+      const cleanTitle = (coursTitle || 'Certificat').replace(/[^a-zA-Z0-9]/g, '_');
+      link.setAttribute('download', `Certificat_${cleanTitle}.pdf`);
+      
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -361,9 +420,29 @@ const Dashboard = () => {
     }
   };
 
+  // === LANCEMENT D'UN COURS ===
+  const handleLaunchCourse = (course) => {
+    if (course.coursId) {
+      navigate(`/student/course/${course.coursId}`);
+    } else {
+      setError('Impossible de lancer le cours: ID manquant');
+    }
+  };
+
+  // === OUVERTURE DE LA DIALOGUE DE DÉTAILS DU COURS ===
+  const handleOpenCourseDetails = (course) => {
+    setSelectedCourse(course);
+    setCourseDialogOpen(true);
+  };
+
   // === ACTUALISATION DES DONNÉES ===
   const handleRefresh = () => {
     fetchDashboardData(true);
+  };
+
+  // === REDIRECTION VERS LE CATALOGUE ===
+  const handleBrowseCourses = () => {
+    navigate('/catalog');
   };
 
   // === AFFICHAGE DU CHARGEMENT ===
@@ -448,7 +527,7 @@ const Dashboard = () => {
                 WebkitTextFillColor: 'transparent',
               }}
             >
-              Bienvenue, {dashboardData.user?.prenom || 'Étudiant'} 👋
+              Bienvenue, {dashboardData.user?.prenom || 'Étudiant'} 
             </Typography>
             <Typography
               sx={{
@@ -461,11 +540,19 @@ const Dashboard = () => {
             </Typography>
           </Box>
 
-          <Tooltip title='Actualiser les données'>
-            <RefreshButton onClick={handleRefresh} disabled={refreshing} size='large'>
-              <RefreshCw size={20} />
-            </RefreshButton>
-          </Tooltip>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+            <SecondaryButton 
+              onClick={handleBrowseCourses}
+              startIcon={<BookOpen size={18} />}
+            >
+              Parcourir les cours
+            </SecondaryButton>
+            <Tooltip title='Actualiser les données'>
+              <RefreshButton onClick={handleRefresh} disabled={refreshing} size='large'>
+                <RefreshCw size={20} />
+              </RefreshButton>
+            </Tooltip>
+          </Box>
         </Box>
       </Fade>
 
@@ -498,7 +585,11 @@ const Dashboard = () => {
             border: `1px solid ${colors.red}33`,
             '& .MuiAlert-icon': { color: colors.red },
           }}
-          onClose={() => setError(null)}
+          action={
+            <Button color="inherit" size="small" onClick={() => setError(null)}>
+              Fermer
+            </Button>
+          }
         >
           {error}
         </Alert>
@@ -661,6 +752,32 @@ const Dashboard = () => {
             </Typography>
           </StatCard>
         </Grid>
+
+        {/* Apprenants Actifs (statique pour l'instant) */}
+        <Grid item xs={6} sm={4} md={3}>
+          <StatCard color={colors.success}>
+            <Users size={36} color={colors.success} style={{ marginBottom: '16px' }} />
+            <Typography
+              sx={{
+                color: colors.success,
+                fontWeight: 800,
+                fontSize: { xs: '1.8rem', sm: '2.2rem' },
+                mb: 0.5,
+              }}
+            >
+              {dashboardData.stats.totalCourses * 25}+
+            </Typography>
+            <Typography
+              sx={{
+                color: 'rgba(255, 255, 255, 0.8)',
+                fontSize: { xs: '0.85rem', sm: '0.9rem' },
+                fontWeight: 600,
+              }}
+            >
+              Apprenants Actifs
+            </Typography>
+          </StatCard>
+        </Grid>
       </Grid>
 
       {/* CONTENU PRINCIPAL */}
@@ -723,6 +840,34 @@ const Dashboard = () => {
                 {dashboardData.stats.averageProgress}%
               </Typography>
             </Box>
+
+            {/* Indicateurs de performance */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4, gap: 2 }}>
+              <Box sx={{ textAlign: 'center', flex: 1 }}>
+                <Typography sx={{ color: colors.success, fontSize: '1.2rem', fontWeight: 800 }}>
+                  {dashboardData.stats.completedCourses}
+                </Typography>
+                <Typography sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.8rem' }}>
+                  Terminés
+                </Typography>
+              </Box>
+              <Box sx={{ textAlign: 'center', flex: 1 }}>
+                <Typography sx={{ color: colors.warning, fontSize: '1.2rem', fontWeight: 800 }}>
+                  {dashboardData.stats.totalCourses - dashboardData.stats.completedCourses}
+                </Typography>
+                <Typography sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.8rem' }}>
+                  En cours
+                </Typography>
+              </Box>
+              <Box sx={{ textAlign: 'center', flex: 1 }}>
+                <Typography sx={{ color: colors.info, fontSize: '1.2rem', fontWeight: 800 }}>
+                  {dashboardData.stats.completionRate}%
+                </Typography>
+                <Typography sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.8rem' }}>
+                  Taux réussite
+                </Typography>
+              </Box>
+            </Box>
           </DashboardCard>
         </Grid>
 
@@ -747,7 +892,7 @@ const Dashboard = () => {
 
             <Stack spacing={2}>
               {dashboardData.certificates.length > 0 ? (
-                dashboardData.certificates.map((cert) => (
+                dashboardData.certificates.slice(0, 3).map((cert) => (
                   <Box
                     key={cert._id}
                     sx={{
@@ -775,7 +920,7 @@ const Dashboard = () => {
                           mb: 0.5,
                         }}
                       >
-                        {cert.cours?.title || cert.title || 'Certificat de formation'}
+                        {cert.cours?.titre || cert.cours?.title || cert.title || 'Certificat de formation'}
                       </Typography>
                       <Typography
                         sx={{
@@ -784,7 +929,7 @@ const Dashboard = () => {
                         }}
                       >
                         Émis le{' '}
-                        {new Date(cert.dateEmission).toLocaleDateString('fr-FR', {
+                        {new Date(cert.dateEmission || cert.createdAt).toLocaleDateString('fr-FR', {
                           year: 'numeric',
                           month: 'long',
                           day: 'numeric',
@@ -796,7 +941,10 @@ const Dashboard = () => {
                       size='small'
                       disabled={downloadingId === cert._id}
                       onClick={() =>
-                        handleDownloadCertificate(cert._id, cert.cours?.title || cert.title)
+                        handleDownloadCertificate(
+                          cert._id, 
+                          cert.cours?.titre || cert.cours?.title || cert.title
+                        )
                       }
                       startIcon={
                         downloadingId === cert._id ? (
@@ -816,8 +964,19 @@ const Dashboard = () => {
                   <Typography sx={{ fontSize: '1rem', fontWeight: 600, mb: 1 }}>
                     Aucun certificat pour le moment
                   </Typography>
-                  <Typography sx={{ fontSize: '0.9rem' }}>
+                  <Typography sx={{ fontSize: '0.9rem', mb: 2 }}>
                     Complétez vos cours pour obtenir des certificats
+                  </Typography>
+                  <SecondaryButton onClick={handleBrowseCourses}>
+                    Explorer les cours
+                  </SecondaryButton>
+                </Box>
+              )}
+              
+              {dashboardData.certificates.length > 3 && (
+                <Box sx={{ textAlign: 'center', pt: 2 }}>
+                  <Typography sx={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.9rem' }}>
+                    + {dashboardData.certificates.length - 3} autres certificats
                   </Typography>
                 </Box>
               )}
@@ -828,21 +987,34 @@ const Dashboard = () => {
         {/* COURS INSCRITS */}
         <Grid item xs={12}>
           <DashboardCard elevation={0}>
-            <Typography
-              variant='h5'
-              sx={{
-                color: '#ffffff',
-                fontWeight: 700,
-                mb: 3,
-                fontSize: { xs: '1.3rem', sm: '1.6rem' },
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.5,
-              }}
-            >
-              <BookOpen size={28} color={colors.purple} />
-              Mes Cours ({dashboardData.stats.totalCourses})
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Typography
+                variant='h5'
+                sx={{
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  fontSize: { xs: '1.3rem', sm: '1.6rem' },
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.5,
+                }}
+              >
+                <BookOpen size={28} color={colors.purple} />
+                Mes Cours ({dashboardData.stats.totalCourses})
+              </Typography>
+              
+              {dashboardData.stats.totalCourses > 0 && (
+                <Chip
+                  label={`${dashboardData.stats.completionRate}% de réussite`}
+                  sx={{
+                    backgroundColor: `${colors.success}33`,
+                    color: colors.success,
+                    fontWeight: 700,
+                    fontSize: '0.8rem',
+                  }}
+                />
+              )}
+            </Box>
 
             <Stack spacing={2.5}>
               {dashboardData.courses.length > 0 ? (
@@ -868,33 +1040,72 @@ const Dashboard = () => {
                       sx={{
                         display: 'flex',
                         justifyContent: 'space-between',
-                        alignItems: 'center',
+                        alignItems: 'flex-start',
                         mb: 2.5,
+                        gap: 2,
                       }}
                     >
-                      <Typography
-                        sx={{
-                          color: '#ffffff',
-                          fontSize: { xs: '1rem', sm: '1.1rem' },
-                          fontWeight: 700,
-                          flex: 1,
-                          mr: 2,
-                        }}
-                      >
-                        {course.title}
-                      </Typography>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography
+                          sx={{
+                            color: '#ffffff',
+                            fontSize: { xs: '1rem', sm: '1.1rem' },
+                            fontWeight: 700,
+                            mb: 1,
+                            cursor: 'pointer',
+                            '&:hover': {
+                              color: colors.red,
+                            },
+                          }}
+                          onClick={() => handleOpenCourseDetails(course)}
+                        >
+                          {course.title}
+                        </Typography>
+                        
+                        <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                          <Chip
+                            label={course.niveau}
+                            size="small"
+                            sx={{
+                              backgroundColor: `${colors.purple}33`,
+                              color: colors.purple,
+                              fontWeight: 600,
+                              fontSize: '0.7rem',
+                            }}
+                          />
+                          <Chip
+                            label={`${course.duree} min`}
+                            size="small"
+                            sx={{
+                              backgroundColor: `${colors.info}33`,
+                              color: colors.info,
+                              fontWeight: 600,
+                              fontSize: '0.7rem',
+                            }}
+                          />
+                        </Box>
+                      </Box>
 
-                      <Chip
-                        label={`${course.progress || 0}%`}
-                        sx={{
-                          backgroundColor:
-                            course.progress === 100 ? `${colors.success}33` : `${colors.red}33`,
-                          color: course.progress === 100 ? colors.success : colors.red,
-                          fontWeight: 800,
-                          fontSize: '0.8rem',
-                          minWidth: '70px',
-                        }}
-                      />
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Chip
+                          label={`${course.progress || 0}%`}
+                          sx={{
+                            backgroundColor:
+                              course.progress === 100 ? `${colors.success}33` : `${colors.red}33`,
+                            color: course.progress === 100 ? colors.success : colors.red,
+                            fontWeight: 800,
+                            fontSize: '0.8rem',
+                            minWidth: '70px',
+                          }}
+                        />
+                        <ActionButton
+                          size="small"
+                          onClick={() => handleLaunchCourse(course)}
+                          startIcon={<Play size={16} />}
+                        >
+                          Continuer
+                        </ActionButton>
+                      </Box>
                     </Box>
 
                     <LinearProgress
@@ -921,7 +1132,9 @@ const Dashboard = () => {
                       >
                         {course.progress === 100
                           ? '🎉 Formation terminée !'
-                          : '📚 En progression...'}
+                          : course.progress > 0
+                          ? '📚 En progression...'
+                          : '⏳ Pas encore commencé'}
                       </Typography>
 
                       <Typography
@@ -931,7 +1144,7 @@ const Dashboard = () => {
                           fontWeight: 500,
                         }}
                       >
-                        Durée: {course.duree || 0} min
+                        {Math.round((course.duree * (course.progress || 0)) / 100)}min / {course.duree}min
                       </Typography>
                     </Box>
                   </Box>
@@ -942,15 +1155,130 @@ const Dashboard = () => {
                   <Typography sx={{ fontSize: '1.1rem', fontWeight: 600, mb: 1 }}>
                     Aucun cours inscrit pour le moment
                   </Typography>
-                  <Typography sx={{ fontSize: '0.95rem' }}>
+                  <Typography sx={{ fontSize: '0.95rem', mb: 3 }}>
                     Explorez notre catalogue pour commencer votre apprentissage
                   </Typography>
+                  <ActionButton 
+                    onClick={handleBrowseCourses}
+                    startIcon={<BookOpen size={18} />}
+                  >
+                    Découvrir les cours
+                  </ActionButton>
                 </Box>
               )}
             </Stack>
           </DashboardCard>
         </Grid>
       </Grid>
+
+      {/* DIALOGUE DE DÉTAILS DU COURS */}
+      <Dialog
+        open={courseDialogOpen}
+        onClose={() => setCourseDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            background: `linear-gradient(135deg, ${colors.navy}, ${colors.darkNavy})`,
+            borderRadius: '20px',
+            border: `1px solid ${colors.border}`,
+            backdropFilter: 'blur(20px)',
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            color: '#ffffff',
+            fontWeight: 700,
+            borderBottom: `1px solid ${colors.border}`,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          Détails du cours
+          <IconButton
+            onClick={() => setCourseDialogOpen(false)}
+            sx={{ color: '#ffffff' }}
+          >
+            <X size={20} />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent sx={{ py: 4 }}>
+          {selectedCourse && (
+            <Stack spacing={3}>
+              <Typography variant="h5" sx={{ color: '#ffffff', fontWeight: 700 }}>
+                {selectedCourse.title}
+              </Typography>
+              
+              <Typography sx={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+                {selectedCourse.description}
+              </Typography>
+
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                <Chip
+                  label={`Niveau: ${selectedCourse.niveau}`}
+                  sx={{
+                    backgroundColor: `${colors.purple}33`,
+                    color: colors.purple,
+                    fontWeight: 600,
+                  }}
+                />
+                <Chip
+                  label={`Durée: ${selectedCourse.duree} minutes`}
+                  sx={{
+                    backgroundColor: `${colors.info}33`,
+                    color: colors.info,
+                    fontWeight: 600,
+                  }}
+                />
+                <Chip
+                  label={`Progression: ${selectedCourse.progress}%`}
+                  sx={{
+                    backgroundColor: `${colors.success}33`,
+                    color: colors.success,
+                    fontWeight: 600,
+                  }}
+                />
+              </Box>
+
+              <LinearProgress
+                variant="determinate"
+                value={selectedCourse.progress || 0}
+                sx={{
+                  height: 12,
+                  borderRadius: 6,
+                  backgroundColor: `${colors.red}33`,
+                  '& .MuiLinearProgress-bar': {
+                    background: `linear-gradient(90deg, ${colors.red}, ${colors.pink})`,
+                    borderRadius: 6,
+                  },
+                }}
+              />
+
+              <Typography sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.9rem' }}>
+                Temps passé: {Math.round((selectedCourse.duree * (selectedCourse.progress || 0)) / 100)} minutes
+              </Typography>
+            </Stack>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 3, gap: 2 }}>
+          <SecondaryButton onClick={() => setCourseDialogOpen(false)}>
+            Fermer
+          </SecondaryButton>
+          <ActionButton 
+            onClick={() => {
+              setCourseDialogOpen(false);
+              handleLaunchCourse(selectedCourse);
+            }}
+            startIcon={<Play size={18} />}
+          >
+            {selectedCourse?.progress > 0 ? 'Continuer le cours' : 'Commencer le cours'}
+          </ActionButton>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

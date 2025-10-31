@@ -1,10 +1,26 @@
 import { Router } from 'express';
-import { getCourses, createCourse, updateCourse, submitForApproval, getCoursesInProgress, getProfile } from '../controllers/user/InstructeurController';
+import { 
+  getDomaines, // Import ajouté
+  getCourses, 
+  createCourse, 
+  updateCourse, 
+  submitForApproval, 
+  getCoursesInProgress, 
+  getProfile 
+} from '../controllers/user/InstructeurController';
 import authMiddleware from '../middleware/auth';
 import authorize from '../middleware/authorization';
 import { RoleUtilisateur } from '../types';
 
 const router = Router();
+
+// NOUVELLE ROUTE : Récupérer tous les domaines
+router.get(
+  '/domaines',
+  authMiddleware,
+  authorize([RoleUtilisateur.ENSEIGNANT, RoleUtilisateur.ADMIN]),
+  getDomaines
+);
 
 router.get(
   '/:id/courses',

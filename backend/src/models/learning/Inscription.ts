@@ -24,8 +24,10 @@ const inscriptionSchema = new Schema<IInscription>(
       ref: 'Cours',
       required: [true, 'Le cours est requis'],
       validate: {
-        validator: async function (value: Types.ObjectId | null): Promise<boolean> {
-          if (value == null) return false;
+        validator: async function (value: Types.ObjectId): Promise<boolean> {
+          if (!value || !Types.ObjectId.isValid(value)) {
+            return false;
+          }
           try {
             const cours = await Cours.findById(value).lean();
             return !!cours;
@@ -49,40 +51,40 @@ const inscriptionSchema = new Schema<IInscription>(
   { timestamps: true }
 );
 
-// Index unique (ignore les null pour éviter conflits)
+// ✅ INDEX UNIQUE CORRIGÉ - Plus de filtre partiel
 inscriptionSchema.index(
   { apprenant: 1, cours: 1 },
-  {
-    unique: true,
-    partialFilterExpression: { cours: { $ne: null } },
-  }
+  { unique: true }
 );
 
-// Pre-save : validation stricte (bloque null)
+// ✅ PRE-SAVE CORRIGÉ - Validation stricte
 inscriptionSchema.pre('save', async function (next: (err?: CallbackError) => void) {
   try {
-    if (this.isNew || this.isModified('cours')) {
-      if (this.cours == null) {
-        return next(new Error('Le champ cours est requis et ne peut pas être null.'));
-      }
-      const cours = await Cours.findById(this.cours).lean();
-      if (!cours) {
-        return next(new Error('Le cours référencé n\'existe pas.'));
-      }
+    // Validation du cours
+    if (!this.cours || !Types.ObjectId.isValid(this.cours.toString())) {
+      return next(new Error('Le champ cours est requis et doit être un ObjectId valide.'));
     }
+
+    const cours = await Cours.findById(this.cours).lean();
+    if (!cours) {
+      return next(new Error('Le cours référencé n\'existe pas.'));
+    }
+
     next();
   } catch (err) {
     next(err instanceof Error ? err : new Error('Erreur de validation du cours'));
   }
 });
 
-// Pre-findOneAndUpdate : bloque null sur update
+// ✅ PRE-FINDONEANDUPDATE CORRIGÉ
 inscriptionSchema.pre('findOneAndUpdate', async function (next) {
   const update = this.getUpdate() as any;
-  if (update.cours !== undefined) {
-    if (update.cours == null) {
-      return next(new Error('Le champ cours ne peut pas être null ou vide.'));
+  
+  if (update?.cours !== undefined) {
+    if (!update.cours || !Types.ObjectId.isValid(update.cours.toString())) {
+      return next(new Error('Le champ cours ne peut pas être null et doit être un ObjectId valide.'));
     }
+    
     try {
       const cours = await Cours.findById(update.cours).lean();
       if (!cours) {
@@ -95,13 +97,16 @@ inscriptionSchema.pre('findOneAndUpdate', async function (next) {
   next();
 });
 
+// ✅ CORRECTION DE LA MÉTHODE ESTACTIVE
 inscriptionSchema.methods.estActive = function (): boolean {
   return this.statut === StatutInscription.EN_COURS;
 };
 
-// Static method : utilise populate 'titre description'
+// ✅ CORRECTION DE LA MÉTHODE STATIC
 inscriptionSchema.statics.findByApprenant = function (apprenantId: Types.ObjectId) {
-  return this.find({ apprenant: apprenantId }).populate('cours', 'titre description');
+  return this.find({ apprenant: apprenantId })
+    .populate('cours', 'titre description')
+    .where('cours').ne(null); // ✅ Exclut les inscriptions avec cours null
 };
 
 const Inscription: Model<IInscription> = model<IInscription>('Inscription', inscriptionSchema);

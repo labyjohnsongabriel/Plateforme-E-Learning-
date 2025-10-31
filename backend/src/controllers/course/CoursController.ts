@@ -1,4 +1,4 @@
-// CoursController (unchanged)
+// src/controllers/course/CoursController.ts
 import { Request, Response, NextFunction } from 'express';
 import createError from 'http-errors';
 import mongoose from 'mongoose';
@@ -13,12 +13,7 @@ import Progression from '../../models/learning/Progression';
 class CoursService {
   static async create(data: CourseData, createurId: string): Promise<CourseDocument> {
     try {
-      const domaineId = data.domaine || data.domaineId;
-      if (domaineId) {
-        data.domaineId = domaineId;
-        delete data.domaine;
-      }
-
+      // Plus de 'domaine' → uniquement domaineId
       if (!data.titre || !data.description || !data.domaineId || !data.niveau || !data.duree) {
         throw createError(400, 'Champs requis manquants: titre, description, domaineId, niveau, duree');
       }
@@ -34,7 +29,7 @@ class CoursService {
 
       const validLevels = ['ALFA', 'BETA', 'GAMMA', 'DELTA'];
       if (!validLevels.includes(data.niveau)) {
-        throw createError(400, `Niveau de formation invalide. Doit être l'un des suivants: ${validLevels.join(', ')}`);
+        throw createError(400, `Niveau invalide: ${validLevels.join(', ')}`);
       }
 
       const cours = new Cours({
@@ -50,13 +45,13 @@ class CoursService {
           $push: { cours: cours._id },
         });
       } catch (linkErr) {
-        logger.warn(`⚠️ Impossible de lier le cours au domaine ${data.domaineId}: ${(linkErr as Error).message}`);
+        logger.warn(`Lien domaine échoué: ${(linkErr as Error).message}`);
       }
 
-      logger.info(`✅ Nouveau cours créé: ${cours._id}`);
+      logger.info(`Cours créé: ${cours._id}`);
       return await this.getById(cours._id.toString());
     } catch (err) {
-      logger.error(`❌ Erreur lors de la création du cours: ${(err as Error).message}`);
+      logger.error(`Création échouée: ${(err as Error).message}`);
       throw err;
     }
   }
@@ -78,12 +73,7 @@ class CoursService {
             as: 'domaineId',
           },
         },
-        {
-          $unwind: {
-            path: '$domaineId',
-            preserveNullAndEmptyArrays: true,
-          },
-        },
+        { $unwind: { path: '$domaineId', preserveNullAndEmptyArrays: true } },
         {
           $lookup: {
             from: 'users',
@@ -92,12 +82,7 @@ class CoursService {
             as: 'createur',
           },
         },
-        {
-          $unwind: {
-            path: '$createur',
-            preserveNullAndEmptyArrays: true,
-          },
-        },
+        { $unwind: { path: '$createur', preserveNullAndEmptyArrays: true } },
       ];
 
       const match: any = {};
@@ -122,14 +107,12 @@ class CoursService {
         pipeline.push({ $match: match });
       }
 
-      const countPipeline = [...pipeline];
-      countPipeline.push({ $count: 'total' });
+      const countPipeline = [...pipeline, { $count: 'total' }];
       const countResult = await Cours.aggregate(countPipeline);
-      const total = countResult.length > 0 ? countResult[0].total : 0;
+      const total = countResult[0]?.total || 0;
 
       pipeline.push({ $skip: (page - 1) * limit });
       pipeline.push({ $limit: limit });
-
       pipeline.push({ $sort: { createdAt: -1 } });
 
       const courses = await Cours.aggregate(pipeline);
@@ -141,8 +124,8 @@ class CoursService {
         currentPage: page,
       };
     } catch (err) {
-      logger.error(`❌ Erreur lors de la récupération des cours: ${(err as Error).message}`);
-      throw createError(500, `Erreur serveur: ${(err as Error).message}`);
+      logger.error(`Récupération échouée: ${(err as Error).message}`);
+      throw createError(500, 'Erreur serveur');
     }
   }
 
@@ -169,12 +152,7 @@ class CoursService {
             as: 'domaineId',
           },
         },
-        {
-          $unwind: {
-            path: '$domaineId',
-            preserveNullAndEmptyArrays: true,
-          },
-        },
+        { $unwind: { path: '$domaineId', preserveNullAndEmptyArrays: true } },
       ];
 
       if (search) {
@@ -202,7 +180,7 @@ class CoursService {
 
       const countPipeline = [...pipeline, { $count: 'total' }];
       const countResult = await Cours.aggregate(countPipeline);
-      const total = countResult.length > 0 ? countResult[0].total : 0;
+      const total = countResult[0]?.total || 0;
 
       pipeline.push({ $skip: (page - 1) * limit });
       pipeline.push({ $limit: limit });
@@ -217,8 +195,8 @@ class CoursService {
         currentPage: page,
       };
     } catch (err) {
-      logger.error(`❌ Erreur lors de la récupération des cours publics: ${(err as Error).message}`);
-      throw createError(500, `Erreur serveur: ${(err as Error).message}`);
+      logger.error(`Cours publics échoués: ${(err as Error).message}`);
+      throw createError(500, 'Erreur serveur');
     }
   }
 
@@ -232,36 +210,21 @@ class CoursService {
       const rejected = await Cours.countDocuments({ statutApprobation: 'REJECTED' });
       return { total, published, draft, pending, approved, rejected };
     } catch (err) {
-      logger.error(`❌ Erreur lors de la récupération des stats: ${(err as Error).message}`);
-      throw createError(500, `Erreur serveur: ${(err as Error).message}`);
+      logger.error(`Stats échouées: ${(err as Error).message}`);
+      throw createError(500, 'Erreur serveur');
     }
   }
 
   static async getMyCourses(userId: string, page: number = 1, limit: number = 10): Promise<CourseResponse> {
     try {
       if (!mongoose.Types.ObjectId.isValid(userId)) {
-        logger.warn(`⚠️ ID utilisateur invalide: ${userId}`);
         throw createError(400, 'ID utilisateur invalide');
       }
 
-      logger.info(`📘 Récupération des cours pour l'utilisateur ${userId}`);
-
-      let courses = await Cours.find({ etudiants: userId })
-        .populate({
-          path: 'domaineId',
-          select: 'nom',
-          options: { strictPopulate: false },
-        })
-        .populate({
-          path: 'instructeurId',
-          select: 'prenom nom',
-          options: { strictPopulate: false },
-        })
-        .populate({
-          path: 'createur',
-          select: 'prenom nom',
-          options: { strictPopulate: false },
-        })
+      const courses = await Cours.find({ etudiants: userId })
+        .populate('domaineId', 'nom')
+        .populate('instructeurId', 'prenom nom')
+        .populate('createur', 'prenom nom')
         .limit(limit)
         .skip((page - 1) * limit)
         .sort({ createdAt: -1 })
@@ -269,9 +232,9 @@ class CoursService {
 
       const total = await Cours.countDocuments({ etudiants: userId });
 
-      for (let course of courses) {
+      for (const course of courses) {
         const progression = await Progression.findOne({ user: userId, cours: course._id });
-        course.progression = progression ? progression.pourcentage : 0;
+        (course as any).progression = progression ? progression.pourcentage : 0;
       }
 
       return {
@@ -281,15 +244,14 @@ class CoursService {
         currentPage: page,
       };
     } catch (err) {
-      logger.error(`❌ Erreur lors de la récupération des cours de l'utilisateur ${userId}: ${(err as Error).message}`);
-      throw createError((err as any).status || 500, (err as Error).message || 'Erreur serveur');
+      logger.error(`Mes cours échoués: ${(err as Error).message}`);
+      throw createError(500, 'Erreur serveur');
     }
   }
 
   static async getById(id: string): Promise<CourseDocument> {
     try {
       if (!mongoose.Types.ObjectId.isValid(id)) {
-        logger.warn(`⚠️ ID de cours invalide reçu: ${id}`);
         throw createError(400, 'ID de cours invalide');
       }
 
@@ -299,14 +261,11 @@ class CoursService {
         .populate('createur')
         .lean();
 
-      if (!cours) {
-        throw createError(404, 'Cours non trouvé');
-      }
+      if (!cours) throw createError(404, 'Cours non trouvé');
 
-      logger.info(`✅ Cours trouvé: ${cours._id}`);
       return cours as unknown as CourseDocument;
     } catch (err) {
-      logger.error(`❌ Erreur lors de la récupération du cours: ${(err as Error).message}`);
+      logger.error(`Récupération échouée: ${(err as Error).message}`);
       throw err;
     }
   }
@@ -314,65 +273,46 @@ class CoursService {
   static async update(id: string, data: Partial<CourseData>): Promise<CourseDocument> {
     try {
       const currentCourse = await Cours.findById(id);
-      if (!currentCourse) {
-        throw createError(404, 'Cours non trouvé');
-      }
+      if (!currentCourse) throw createError(404, 'Cours non trouvé');
 
-      if (data.domaine) {
-        data.domaineId = data.domaine;
-        delete data.domaine;
-      }
-
+      // Plus de 'domaine' → uniquement domaineId
       if (data.domaineId) {
         if (!mongoose.Types.ObjectId.isValid(data.domaineId)) {
           throw createError(400, 'Domaine ID invalide');
         }
 
         const domaineExists = await Domaine.findById(data.domaineId);
-        if (!domaineExists) {
-          throw createError(400, 'Domaine non trouvé');
-        }
+        if (!domaineExists) throw createError(400, 'Domaine non trouvé');
       }
 
       if (data.niveau) {
         const validLevels = ['ALFA', 'BETA', 'GAMMA', 'DELTA'];
         if (!validLevels.includes(data.niveau)) {
-          throw createError(400, `Niveau de formation invalide. Doit être l'un des suivants: ${validLevels.join(', ')}`);
+          throw createError(400, `Niveau invalide: ${validLevels.join(', ')}`);
         }
       }
 
-      let oldDomaineId;
+      let oldDomaineId: mongoose.Types.ObjectId | undefined;
       if (data.domaineId && data.domaineId.toString() !== currentCourse.domaineId.toString()) {
         oldDomaineId = currentCourse.domaineId;
       }
 
-      const cours = await Cours.findByIdAndUpdate(
+      const updated = await Cours.findByIdAndUpdate(
         id,
         data,
         { new: true, runValidators: true }
       ).lean();
 
-      if (!cours) {
-        throw createError(404, 'Cours non trouvé');
-      }
+      if (!updated) throw createError(404, 'Cours non trouvé après mise à jour');
 
       if (oldDomaineId) {
-        try {
-          await Domaine.findByIdAndUpdate(oldDomaineId, {
-            $pull: { cours: id },
-          });
-          await Domaine.findByIdAndUpdate(data.domaineId, {
-            $push: { cours: id },
-          });
-        } catch (linkErr) {
-          logger.warn(`⚠️ Erreur lors de la mise à jour des liens domaine: ${(linkErr as Error).message}`);
-        }
+        await Domaine.findByIdAndUpdate(oldDomaineId, { $pull: { cours: id } });
+        await Domaine.findByIdAndUpdate(data.domaineId, { $push: { cours: id } });
       }
 
-      logger.info(`✏️ Cours mis à jour: ${cours._id}`);
       return await this.getById(id);
     } catch (err) {
-      logger.error(`❌ Erreur lors de la mise à jour du cours: ${(err as Error).message}`);
+      logger.error(`Mise à jour échouée: ${(err as Error).message}`);
       throw err;
     }
   }
@@ -380,23 +320,17 @@ class CoursService {
   static async delete(id: string): Promise<CourseDocument> {
     try {
       const cours = await Cours.findByIdAndDelete(id).lean();
-
-      if (!cours) {
-        throw createError(404, 'Cours non trouvé');
-      }
+      if (!cours) throw createError(404, 'Cours non trouvé');
 
       await Contenu.deleteMany({ cours: id });
       await Quiz.deleteMany({ cours: id });
       await Progression.deleteMany({ cours: id });
 
-      await Domaine.findByIdAndUpdate(cours.domaineId, {
-        $pull: { cours: id }
-      });
+      await Domaine.findByIdAndUpdate(cours.domaineId, { $pull: { cours: id } });
 
-      logger.info(`🗑️ Cours supprimé: ${cours._id}`);
       return cours as unknown as CourseDocument;
     } catch (err) {
-      logger.error(`❌ Erreur lors de la suppression du cours: ${(err as Error).message}`);
+      logger.error(`Suppression échouée: ${(err as Error).message}`);
       throw err;
     }
   }
@@ -405,9 +339,7 @@ class CoursService {
 class CoursController {
   static async create(req: Request<{}, {}, CourseData>, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (!req.user || !req.user.id) {
-        throw createError(401, 'Utilisateur non authentifié');
-      }
+      if (!req.user?.id) throw createError(401, 'Non authentifié');
       const cours = await CoursService.create(req.body, req.user.id);
       res.status(201).json(cours);
     } catch (err) {
@@ -426,8 +358,8 @@ class CoursController {
       const search = req.query.search || '';
       const statusFilter = req.query.statusFilter || 'ALL';
       const approvalFilter = req.query.approvalFilter || 'ALL';
-      const cours = await CoursService.getAll(page, limit, search, statusFilter, approvalFilter);
-      res.json(cours);
+      const result = await CoursService.getAll(page, limit, search, statusFilter, approvalFilter);
+      res.json(result);
     } catch (err) {
       next(err);
     }
@@ -444,8 +376,8 @@ class CoursController {
       const search = req.query.search || '';
       const level = req.query.level || 'all';
       const domain = req.query.domain || 'all';
-      const cours = await CoursService.getPublicCourses(page, limit, search, level, domain);
-      res.json(cours);
+      const result = await CoursService.getPublicCourses(page, limit, search, level, domain);
+      res.json(result);
     } catch (err) {
       next(err);
     }
@@ -481,7 +413,7 @@ class CoursController {
   static async delete(req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> {
     try {
       const cours = await CoursService.delete(req.params.id);
-      res.json({ message: 'Cours supprimé avec succès', cours });
+      res.json({ message: 'Cours supprimé', cours });
     } catch (err) {
       next(err);
     }
@@ -493,13 +425,11 @@ class CoursController {
     next: NextFunction
   ): Promise<void> {
     try {
-      if (!req.user || !req.user.id) {
-        throw createError(401, 'Utilisateur non authentifié');
-      }
+      if (!req.user?.id) throw createError(401, 'Non authentifié');
       const page = parseInt(req.query.page || '1', 10);
       const limit = parseInt(req.query.limit || '10', 10);
-      const courses = await CoursService.getMyCourses(req.user.id, page, limit);
-      res.json(courses);
+      const result = await CoursService.getMyCourses(req.user.id, page, limit);
+      res.json(result);
     } catch (err) {
       next(err);
     }

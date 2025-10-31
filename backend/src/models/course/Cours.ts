@@ -1,31 +1,84 @@
-// Cours Model (unchanged)
+// src/models/course/Cours.ts
 import { Schema, model, Document, Types, Model } from 'mongoose';
+
+export interface IModule {
+  titre: string;
+  type: 'VIDEO' | 'TEXTE' | 'QUIZ';
+  contenu: string; // URL ou ID du quiz
+  duree: number; // en minutes
+  ordre: number;
+}
+
+export interface ISection {
+  titre: string;
+  description?: string;
+  ordre: number;
+  modules: IModule[];
+}
+
+export interface IContenu {
+  sections: ISection[];
+}
 
 export interface ICours extends Document {
   _id: Types.ObjectId;
   titre: string;
-  description: string;
+  description: string; // Requis dans le schéma, donc non optionnel ici
   duree: number;
   domaineId: Types.ObjectId;
-  niveau: string;
+  niveau: 'ALFA' | 'BETA' | 'GAMMA' | 'DELTA';
   createur: Types.ObjectId;
+  instructeurId?: Types.ObjectId;
   etudiants: Types.ObjectId[];
-  contenu: Types.ObjectId[];
+  contenu?: IContenu | null; // AUTORISE NULL
   quizzes: Types.ObjectId[];
   datePublication?: Date;
   estPublie: boolean;
   statutApprobation: 'PENDING' | 'APPROVED' | 'REJECTED';
   progression?: number;
-  instructeurId?: Types.ObjectId;
-  dateCreation?: Date;
+  dateCreation?: Date; // Virtual
   updatedAt: Date;
   createdAt: Date;
+
+  // Méthodes
   ajouterContenu(contenuId: Types.ObjectId): Promise<ICours>;
   publier(): Promise<ICours>;
   calculerCompletionMoyenne(): Promise<number>;
   ajouterEtudiant(etudiantId: Types.ObjectId): Promise<ICours>;
 }
 
+// ──────────────────────────────────────────────────
+// SCHÉMAS EMBARQUÉS
+// ──────────────────────────────────────────────────
+const moduleSchema = new Schema<IModule>({
+  titre: { type: String, required: true, trim: true },
+  type: {
+    type: String,
+    enum: ['VIDEO', 'TEXTE', 'QUIZ'],
+    required: true,
+  },
+  contenu: { type: String, required: true },
+  duree: { type: Number, required: true, min: 1 },
+  ordre: { type: Number, required: true },
+});
+
+const sectionSchema = new Schema<ISection>({
+  titre: { type: String, required: true, trim: true },
+  description: { type: String, trim: true },
+  ordre: { type: Number, required: true },
+  modules: [moduleSchema],
+});
+
+const contenuSchema = new Schema<IContenu>({
+  sections: {
+    type: [sectionSchema],
+    default: [], // Tableau vide par défaut
+  },
+});
+
+// ──────────────────────────────────────────────────
+// SCHÉMA PRINCIPAL
+// ──────────────────────────────────────────────────
 const coursSchema = new Schema<ICours>(
   {
     titre: {
@@ -53,7 +106,7 @@ const coursSchema = new Schema<ICours>(
       type: String,
       enum: {
         values: ['ALFA', 'BETA', 'GAMMA', 'DELTA'],
-        message: 'Niveau de formation invalide. Doit être ALFA, BETA, GAMMA ou DELTA',
+        message: 'Niveau invalide. Doit être ALFA, BETA, GAMMA ou DELTA',
       },
       required: [true, 'Le niveau est requis'],
     },
@@ -67,27 +120,20 @@ const coursSchema = new Schema<ICours>(
       ref: 'User',
       default: null,
     },
-    etudiants: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: 'User',
-        default: [],
-      },
-    ],
-    contenu: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: 'Contenu',
-        default: [],
-      },
-    ],
-    quizzes: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: 'Quiz',
-        default: [],
-      },
-    ],
+    etudiants: {
+      type: [Schema.Types.ObjectId],
+      ref: 'User',
+      default: [],
+    },
+    contenu: {
+      type: contenuSchema,
+      default: { sections: [] }, // Compatible avec null via update
+    },
+    quizzes: {
+      type: [Schema.Types.ObjectId],
+      ref: 'Quiz',
+      default: [],
+    },
     progression: {
       type: Number,
       default: 0,
@@ -112,24 +158,29 @@ const coursSchema = new Schema<ICours>(
   }
 );
 
+// ──────────────────────────────────────────────────
+// INDEX
+// ──────────────────────────────────────────────────
 coursSchema.index({ domaineId: 1 });
 coursSchema.index({ createur: 1 });
 coursSchema.index({ etudiants: 1 });
 coursSchema.index({ estPublie: 1, statutApprobation: 1 });
 
+// ──────────────────────────────────────────────────
+// VIRTUALS
+// ──────────────────────────────────────────────────
 coursSchema.virtual('dateCreation').get(function (this: ICours) {
   return this.createdAt;
 });
 
+// ──────────────────────────────────────────────────
+// MÉTHODES D'INSTANCE
+// ──────────────────────────────────────────────────
 coursSchema.methods.ajouterContenu = async function (
   this: ICours,
   contenuId: Types.ObjectId
 ): Promise<ICours> {
-  console.log(`Adding contenu ${contenuId} to course ${this._id}`);
-  if (!this.contenu.includes(contenuId)) {
-    this.contenu.push(contenuId);
-    await this.save();
-  }
+  console.warn('Méthode obsolète: utiliser contenu.sections directement');
   return this;
 };
 
@@ -137,7 +188,6 @@ coursSchema.methods.ajouterEtudiant = async function (
   this: ICours,
   etudiantId: Types.ObjectId
 ): Promise<ICours> {
-  console.log(`Adding etudiant ${etudiantId} to course ${this._id}`);
   if (!this.etudiants.includes(etudiantId)) {
     this.etudiants.push(etudiantId);
     await this.save();
@@ -146,7 +196,6 @@ coursSchema.methods.ajouterEtudiant = async function (
 };
 
 coursSchema.methods.publier = async function (this: ICours): Promise<ICours> {
-  console.log(`Publishing course ${this._id}`);
   this.estPublie = true;
   this.datePublication = new Date();
   this.statutApprobation = 'APPROVED';
@@ -166,24 +215,23 @@ coursSchema.methods.publier = async function (this: ICours): Promise<ICours> {
   return this;
 };
 
-coursSchema.methods.calculerCompletionMoyenne = async function (
-  this: ICours
-): Promise<number> {
+coursSchema.methods.calculerCompletionMoyenne = async function (): Promise<number> {
   try {
     const Progression = model('Progression');
     const result = await Progression.aggregate([
       { $match: { cours: this._id } },
       { $group: { _id: null, moyenne: { $avg: '$pourcentage' } } },
     ]);
-    const moyenne = result.length > 0 ? Math.round(result[0].moyenne || 0) : 0;
-    console.log(`Calculated completion moyenne for course ${this._id}: ${moyenne}%`);
-    return moyenne;
+    return result.length > 0 ? Math.round(result[0].moyenne || 0) : 0;
   } catch (err) {
     console.error('Erreur calcul completion moyenne:', err);
     return 0;
   }
 };
 
+// ──────────────────────────────────────────────────
+// HOOKS
+// ──────────────────────────────────────────────────
 coursSchema.pre('save', function (next) {
   if (!this.instructeurId) {
     this.instructeurId = this.createur;
@@ -191,13 +239,19 @@ coursSchema.pre('save', function (next) {
   next();
 });
 
+// ──────────────────────────────────────────────────
+// STATICS
+// ──────────────────────────────────────────────────
 coursSchema.statics.findByEtudiant = function (etudiantId: Types.ObjectId) {
   return this.find({ etudiants: etudiantId })
-    .populate('domaineId')
+    .populate('domaineId', 'nom')
     .populate('instructeurId', 'prenom nom email')
     .populate('createur', 'prenom nom');
 };
 
+// ──────────────────────────────────────────────────
+// MODÈLE
+// ──────────────────────────────────────────────────
 const Cours: Model<ICours> = model<ICours>('Cours', coursSchema);
 
 export default Cours;

@@ -1,258 +1,278 @@
-// src/services/course/CoursService.ts
-import { Types, model } from 'mongoose';
+// src/services/learning/CoursService.ts
+import { Types, FlattenMaps } from 'mongoose';
 import createError from 'http-errors';
-import { CourseDocument, CourseCreateData, CourseUpdateData } from '../../types';
-import Cours from '../../models/course/Cours';
+import Cours, { ICours, IContenu } from '../../models/course/Cours';
 import { NiveauFormation } from '../learning/CertificationService';
-import Progression from '../../models/learning/Progression'; // Ajout pour completion rate
+import Progression from '../../models/learning/Progression';
 
+// ──────────────────────────────────────────────────
+// TYPES
+// ──────────────────────────────────────────────────
+export interface CourseCreateData {
+  titre: string;
+  description?: string;
+  duree: number;
+  domaineId: string | Types.ObjectId;
+  niveau: string;
+  contenu?: IContenu | null;
+  quizzes?: (string | Types.ObjectId)[];
+  estPublie?: boolean;
+  statutApprobation?: 'PENDING' | 'APPROVED' | 'REJECTED';
+}
+
+export interface CourseUpdateData {
+  titre?: string;
+  description?: string;
+  duree?: number;
+  domaineId?: string | Types.ObjectId;
+  niveau?: string;
+  contenu?: IContenu | null;
+  quizzes?: (string | Types.ObjectId)[];
+  estPublie?: boolean;
+  statutApprobation?: 'PENDING' | 'APPROVED' | 'REJECTED';
+}
+
+// Document retourné après lean()
+export type CourseDocument = FlattenMaps<ICours & { _id: Types.ObjectId }> & {
+  __v?: number;
+};
+
+// ──────────────────────────────────────────────────
+// SERVICE
+// ──────────────────────────────────────────────────
 export class CoursService {
-  /**
-   * Crée un nouveau cours.
-   * @param data - Données du cours à créer
-   * @param createurId - ID de l'utilisateur créateur
-   */
+  private static validateContenu(contenu: any): contenu is IContenu {
+    return (
+      contenu &&
+      Array.isArray(contenu.sections) &&
+      contenu.sections.every((s: any) =>
+        typeof s.titre === 'string' &&
+        typeof s.ordre === 'number' &&
+        Array.isArray(s.modules) &&
+        s.modules.every((m: any) =>
+          typeof m.titre === 'string' &&
+          ['VIDEO', 'TEXTE', 'QUIZ'].includes(m.type) &&
+          typeof m.contenu === 'string' &&
+          typeof m.duree === 'number' &&
+          typeof m.ordre === 'number'
+        )
+      )
+    );
+  }
+
   static async createCourse(data: CourseCreateData, createurId: string): Promise<CourseDocument> {
     try {
       if (!data.titre || !data.duree || !data.domaineId || !data.niveau) {
-        throw createError(400, 'Les champs titre, duree, domaineId et niveau sont requis');
+        throw createError(400, 'Champs requis manquants');
       }
 
-      // Validation du niveau
       if (!Object.values(NiveauFormation).includes(data.niveau as NiveauFormation)) {
-        throw createError(400, `Niveau invalide. Valeurs acceptées: ${Object.values(NiveauFormation).join(', ')}`);
+        throw createError(400, `Niveau invalide`);
       }
 
-      // Validation des ObjectId
-      if (!Types.ObjectId.isValid(data.domaineId)) {
-        throw createError(400, 'domaineId invalide');
-      }
-      if (!Types.ObjectId.isValid(createurId)) {
-        throw createError(400, 'createurId invalide');
+      if (!Types.ObjectId.isValid(data.domaineId) || !Types.ObjectId.isValid(createurId)) {
+        throw createError(400, 'ID invalide');
       }
 
-      // Convert string IDs to ObjectId
-      const domaineId = typeof data.domaineId === 'string' ? new Types.ObjectId(data.domaineId) : data.domaineId;
-      const quizzes = data.quizzes?.map(id => (typeof id === 'string' ? new Types.ObjectId(id) : id)) ?? [];
+      let parsedContenu: IContenu | null = { sections: [] };
+      if (data.contenu !== undefined) {
+        if (data.contenu === null) {
+          parsedContenu = null;
+        } else if (this.validateContenu(data.contenu)) {
+          parsedContenu = { sections: data.contenu.sections };
+        } else {
+          throw createError(400, 'Structure contenu invalide');
+        }
+      }
 
       const course = new Cours({
-        titre: data.titre,
-        description: data.description ?? '',
+        titre: data.titre.trim(),
+        description: data.description?.trim() ?? '',
         duree: data.duree,
-        domaineId,
+        domaineId: new Types.ObjectId(data.domaineId),
         niveau: data.niveau as NiveauFormation,
         createur: new Types.ObjectId(createurId),
-        contenu: data.contenu ?? [],
-        quizzes,
+        contenu: parsedContenu,
+        quizzes: data.quizzes?.map(id => typeof id === 'string' ? new Types.ObjectId(id) : id) ?? [],
         estPublie: data.estPublie ?? false,
         statutApprobation: data.statutApprobation ?? 'PENDING',
-        createdAt: new Date(),
       });
 
-      const savedCourse = await course.save();
-      const populatedCourse = await savedCourse.populate([
-        { path: 'domaineId', select: 'nom' },
-        { path: 'createur', select: 'id role' },
-        { path: 'contenu' },
-        { path: 'quizzes' },
-      ]);
-      return populatedCourse as unknown as CourseDocument;
+      const saved = await course.save();
+
+      const populated = await Cours.findById(saved._id)
+        .populate([
+          { path: 'domaineId', select: 'nom' },
+          { path: 'createur', select: 'id prenom nom email role' },
+          { path: 'quizzes' },
+        ])
+        .lean();
+
+      if (!populated) throw createError(500, 'Erreur post-création');
+
+      return populated as unknown as CourseDocument;
     } catch (err) {
-      throw createError(500, `Erreur lors de la création du cours: ${(err as Error).message}`);
+      if (err instanceof createError.HttpError) throw err;
+      throw createError(500, `Création échouée: ${(err as Error).message}`);
     }
   }
 
-  /**
-   * Récupère un cours par son ID.
-   * @param coursId - ID du cours
-   */
   static async getCourseById(coursId: string): Promise<CourseDocument> {
     try {
-      if (!Types.ObjectId.isValid(coursId)) {
-        throw createError(400, 'ID de cours invalide');
-      }
-      const course = await Cours.findById(coursId).populate([
-        { path: 'createur', select: 'id role' },
-        { path: 'domaineId', select: 'nom' },
-        { path: 'contenu' },
-        { path: 'quizzes' },
-      ]);
-      if (!course) {
-        throw createError(404, 'Cours non trouvé');
-      }
+      if (!Types.ObjectId.isValid(coursId)) throw createError(400, 'ID invalide');
+
+      const course = await Cours.findById(coursId)
+        .populate([
+          { path: 'createur', select: 'id prenom nom email role' },
+          { path: 'domaineId', select: 'nom' },
+          { path: 'quizzes' },
+        ])
+        .lean();
+
+      if (!course) throw createError(404, 'Cours non trouvé');
+
       return course as unknown as CourseDocument;
     } catch (err) {
-      throw createError(500, `Erreur lors de la récupération du cours: ${(err as Error).message}`);
+      if (err instanceof createError.HttpError) throw err;
+      throw createError(500, `Récupération échouée: ${(err as Error).message}`);
     }
   }
 
-  /**
-   * Récupère tous les cours.
-   */
   static async getAllCourses(): Promise<CourseDocument[]> {
     try {
-      const courses = await Cours.find({}).populate([
-        { path: 'createur', select: 'id role' },
-        { path: 'domaineId', select: 'nom' },
-        { path: 'contenu' },
-        { path: 'quizzes' },
-      ]);
+      const courses = await Cours.find({})
+        .populate([
+          { path: 'createur', select: 'id prenom nom email role' },
+          { path: 'domaineId', select: 'nom' },
+          { path: 'quizzes' },
+        ])
+        .lean();
+
       return courses as unknown as CourseDocument[];
     } catch (err) {
-      throw createError(500, `Erreur lors de la récupération des cours: ${(err as Error).message}`);
+      throw createError(500, `Liste échouée: ${(err as Error).message}`);
     }
   }
 
-  /**
-   * Met à jour un cours existant.
-   * @param coursId - ID du cours à mettre à jour
-   * @param data - Données à mettre à jour
-   * @param createurId - ID de l'utilisateur (optionnel, pour vérifier l'autorisation)
-   */
   static async updateCourse(coursId: string, data: CourseUpdateData, createurId?: string): Promise<CourseDocument> {
     try {
-      if (!Types.ObjectId.isValid(coursId)) {
-        throw createError(400, 'ID de cours invalide');
-      }
+      if (!Types.ObjectId.isValid(coursId)) throw createError(400, 'ID invalide');
+
       const course = await Cours.findById(coursId);
       if (!course) throw createError(404, 'Cours non trouvé');
       if (createurId && course.createur.toString() !== createurId) {
-        throw createError(403, 'Non autorisé à modifier ce cours');
+        throw createError(403, 'Accès refusé');
       }
 
-      if (data.titre !== undefined) course.titre = data.titre;
-      if (data.description !== undefined) course.description = data.description;
+      if (data.titre !== undefined) course.titre = data.titre.trim();
+      if (data.description !== undefined) course.description = data.description.trim();
       if (data.duree !== undefined) course.duree = data.duree;
+
       if (data.domaineId !== undefined) {
-        if (!Types.ObjectId.isValid(data.domaineId)) {
-          throw createError(400, 'domaineId invalide');
-        }
-        course.domaineId = typeof data.domaineId === 'string' ? new Types.ObjectId(data.domaineId) : data.domaineId;
+        if (!Types.ObjectId.isValid(data.domaineId)) throw createError(400, 'domaineId invalide');
+        course.domaineId = new Types.ObjectId(data.domaineId);
       }
+
       if (data.niveau !== undefined) {
         if (!Object.values(NiveauFormation).includes(data.niveau as NiveauFormation)) {
-          throw createError(400, `Niveau invalide. Valeurs acceptées: ${Object.values(NiveauFormation).join(', ')}`);
+          throw createError(400, 'Niveau invalide');
         }
         course.niveau = data.niveau as NiveauFormation;
       }
-      if (data.contenu !== undefined) course.contenu = data.contenu;
-      if (data.quizzes !== undefined) {
-        const quizzes = data.quizzes?.map(id => (typeof id === 'string' ? new Types.ObjectId(id) : id)) ?? [];
-        course.quizzes = quizzes;
+
+      // ICI : null autorisé
+      if (data.contenu !== undefined) {
+        if (data.contenu === null) {
+          course.contenu = null;
+        } else if (this.validateContenu(data.contenu)) {
+          course.contenu = { sections: data.contenu.sections };
+        } else {
+          throw createError(400, 'Contenu invalide');
+        }
       }
+
+      if (data.quizzes !== undefined) {
+        course.quizzes = data.quizzes.map(id => typeof id === 'string' ? new Types.ObjectId(id) : id);
+      }
+
       if (data.estPublie !== undefined) course.estPublie = data.estPublie;
       if (data.statutApprobation !== undefined) course.statutApprobation = data.statutApprobation;
 
-      const updatedCourse = await course.save();
-      const populatedCourse = await updatedCourse.populate([
-        { path: 'domaineId', select: 'nom' },
-        { path: 'createur', select: 'id role' },
-        { path: 'contenu' },
-        { path: 'quizzes' },
-      ]);
-      return populatedCourse as unknown as CourseDocument;
+      const updated = await course.save();
+
+      const populated = await Cours.findById(updated._id)
+        .populate([
+          { path: 'domaineId', select: 'nom' },
+          { path: 'createur', select: 'id prenom nom email role' },
+          { path: 'quizzes' },
+        ])
+        .lean();
+
+      if (!populated) throw createError(500, 'Erreur post-update');
+
+      return populated as unknown as CourseDocument;
     } catch (err) {
-      throw createError(500, `Erreur lors de la mise à jour du cours: ${(err as Error).message}`);
+      if (err instanceof createError.HttpError) throw err;
+      throw createError(500, `Mise à jour échouée: ${(err as Error).message}`);
     }
   }
 
-  /**
-   * Supprime un cours.
-   * @param coursId - ID du cours
-   */
   static async deleteCourse(coursId: string): Promise<void> {
     try {
-      if (!Types.ObjectId.isValid(coursId)) {
-        throw createError(400, 'ID de cours invalide');
-      }
+      if (!Types.ObjectId.isValid(coursId)) throw createError(400, 'ID invalide');
       const course = await Cours.findByIdAndDelete(coursId);
       if (!course) throw createError(404, 'Cours non trouvé');
     } catch (err) {
-      throw createError(500, `Erreur lors de la suppression du cours: ${(err as Error).message}`);
+      if (err instanceof createError.HttpError) throw err;
+      throw createError(500, `Suppression échouée: ${(err as Error).message}`);
     }
   }
 
-  /**
-   * Ajoute un contenu à un cours.
-   * @param coursId - ID du cours
-   * @param contenuId - ID du contenu
-   * @param createurId - ID de l'utilisateur
-   */
-  static async addContenu(coursId: string, contenuId: Types.ObjectId, createurId: string): Promise<CourseDocument> {
-    try {
-      if (!Types.ObjectId.isValid(coursId) || !Types.ObjectId.isValid(contenuId) || !Types.ObjectId.isValid(createurId)) {
-        throw createError(400, 'ID invalide');
-      }
-      const course = await Cours.findById(coursId);
-      if (!course) throw createError(404, 'Cours non trouvé');
-      if (course.createur.toString() !== createurId) throw createError(403, 'Non autorisé à modifier ce cours');
-
-      course.contenu = course.contenu ?? [];
-      if (!course.contenu.includes(contenuId)) {
-        course.contenu.push(contenuId);
-      }
-      const updatedCourse = await course.save();
-      const populatedCourse = await updatedCourse.populate([
-        { path: 'domaineId', select: 'nom' },
-        { path: 'createur', select: 'id role' },
-        { path: 'contenu' },
-        { path: 'quizzes' },
-      ]);
-      return populatedCourse as unknown as CourseDocument;
-    } catch (err) {
-      throw createError(500, `Erreur lors de l'ajout du contenu: ${(err as Error).message}`);
-    }
-  }
-
-  /**
-   * Publie un cours.
-   * @param coursId - ID du cours
-   * @param createurId - ID de l'utilisateur
-   */
   static async publishCourse(coursId: string, createurId: string): Promise<CourseDocument> {
     try {
       if (!Types.ObjectId.isValid(coursId) || !Types.ObjectId.isValid(createurId)) {
         throw createError(400, 'ID invalide');
       }
+
       const course = await Cours.findById(coursId);
       if (!course) throw createError(404, 'Cours non trouvé');
-      if (course.createur.toString() !== createurId) throw createError(403, 'Non autorisé à publier ce cours');
+      if (course.createur.toString() !== createurId) throw createError(403, 'Accès refusé');
 
       course.estPublie = true;
       course.datePublication = new Date();
-      const updatedCourse = await course.save();
-      const populatedCourse = await updatedCourse.populate([
-        { path: 'domaineId', select: 'nom' },
-        { path: 'createur', select: 'id role' },
-        { path: 'contenu' },
-        { path: 'quizzes' },
-      ]);
-      return populatedCourse as unknown as CourseDocument;
+      course.statutApprobation = 'APPROVED';
+
+      const updated = await course.save();
+
+      const populated = await Cours.findById(updated._id)
+        .populate([
+          { path: 'domaineId', select: 'nom' },
+          { path: 'createur', select: 'id prenom nom email role' },
+          { path: 'quizzes' },
+        ])
+        .lean();
+
+      if (!populated) throw createError(500, 'Erreur publication');
+
+      return populated as unknown as CourseDocument;
     } catch (err) {
-      throw createError(500, `Erreur lors de la publication du cours: ${(err as Error).message}`);
+      if (err instanceof createError.HttpError) throw err;
+      throw createError(500, `Publication échouée: ${(err as Error).message}`);
     }
   }
 
-  /**
-   * Calcule la complétion moyenne d'un cours.
-   * @param coursId - ID du cours
-   */
   static async getCompletionRate(coursId: string): Promise<number> {
     try {
-      if (!Types.ObjectId.isValid(coursId)) {
-        throw createError(400, 'ID de cours invalide');
-      }
-      const course = await Cours.findById(coursId);
-      if (!course) throw createError(404, 'Cours non trouvé');
+      if (!Types.ObjectId.isValid(coursId)) throw createError(400, 'ID invalide');
 
-      // Utilisation de l'aggregation pour calculer la moyenne
       const result = await Progression.aggregate([
         { $match: { cours: new Types.ObjectId(coursId) } },
         { $group: { _id: null, moyenne: { $avg: '$pourcentage' } } },
       ]);
-      return result.length > 0 ? result[0].moyenne || 0 : 0;
+
+      return result[0]?.moyenne ? Math.round(result[0].moyenne) : 0;
     } catch (err) {
-      throw createError(500, `Erreur lors du calcul de la complétion: ${(err as Error).message}`);
+      throw createError(500, `Calcul complétion échoué: ${(err as Error).message}`);
     }
   }
 }

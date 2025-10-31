@@ -1,6 +1,6 @@
+// src/models/course/Contenu.ts
 import { Schema, model, Document, Types, Model } from 'mongoose';
 
-// Interface pour le document Contenu
 export interface IContenu extends Document {
   _id: Types.ObjectId;
   titre: string;
@@ -10,25 +10,18 @@ export interface IContenu extends Document {
   ordre: number;
   cours: Types.ObjectId;
   type: 'VIDEO' | 'DOCUMENT' | 'QUIZ' | 'EXERCICE';
+  completedBy: Types.ObjectId[]; // AJOUTÉ
   createdAt: Date;
   updatedAt: Date;
   visualiser(utilisateurId: Types.ObjectId): Promise<{ message: string }>;
 }
 
-// Interface pour le document Vidéo
+// Interfaces discriminées
 interface IVideo extends IContenu {}
+interface IDocument extends IContenu { format?: 'pdf' | 'doc' | 'other'; }
+interface IExercice extends IContenu { instructions?: string; }
 
-// Interface pour le document Document
-interface IDocument extends IContenu {
-  format?: 'pdf' | 'doc' | 'other';
-}
-
-// Interface pour le document Exercice
-interface IExercice extends IContenu {
-  instructions?: string;
-}
-
-// Schéma de base pour Contenu
+// Schéma principal
 const contenuSchema = new Schema<IContenu>(
   {
     titre: { type: String, required: true },
@@ -42,11 +35,16 @@ const contenuSchema = new Schema<IContenu>(
       enum: ['VIDEO', 'DOCUMENT', 'QUIZ', 'EXERCICE'],
       required: true,
     },
+    completedBy: {
+      type: [Schema.Types.ObjectId],
+      ref: 'User',
+      default: [],
+    },
   },
   { discriminatorKey: 'type', timestamps: true }
 );
 
-// Méthode pour visualiser le contenu
+// Méthode visualiser
 contenuSchema.methods.visualiser = async function (
   this: IContenu,
   utilisateurId: Types.ObjectId
@@ -60,25 +58,12 @@ contenuSchema.methods.visualiser = async function (
   return { message: `Contenu "${this.titre}" visualisé.` };
 };
 
-// Modèle de base Contenu
+// Modèle
 const Contenu: Model<IContenu> = model<IContenu>('Contenu', contenuSchema);
 
-// Schéma pour Vidéo
-const videoSchema = new Schema<IVideo>({});
-
-// Schéma pour Document
-const documentSchema = new Schema<IDocument>({
-  format: { type: String, enum: ['pdf', 'doc', 'other'] },
-});
-
-// Schéma pour Exercice
-const exerciceSchema = new Schema<IExercice>({
-  instructions: { type: String },
-});
-
 // Discriminateurs
-Contenu.discriminator('VIDEO', videoSchema);
-Contenu.discriminator('DOCUMENT', documentSchema);
-Contenu.discriminator('EXERCICE', exerciceSchema);
+Contenu.discriminator('VIDEO', new Schema<IVideo>({}));
+Contenu.discriminator('DOCUMENT', new Schema<IDocument>({ format: { type: String, enum: ['pdf', 'doc', 'other'] } }));
+Contenu.discriminator('EXERCICE', new Schema<IExercice>({ instructions: { type: String } }));
 
 export default Contenu;

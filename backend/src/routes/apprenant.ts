@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import AdministrateurController from '../controllers/user/AdministrateurController';
 import authMiddleware from '../middleware/auth';
 import authorize from '../middleware/authorization';
-import { RoleUtilisateur } from '../types'; // Updated to match AdministrateurController
+import { RoleUtilisateur } from '../types';
 
 const router: Router = Router();
 

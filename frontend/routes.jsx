@@ -1,53 +1,49 @@
-// CoursePlayer.jsx - Composant complet de lecteur de cours
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import VideoPlayer from './VideoPlayer';
-import DocumentViewer from './DocumentViewer';
-import QuizComponent from './QuizComponent';
+// CourseView.jsx - Version Professionnelle Corrigée
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
-  Container,
   Typography,
   Button,
+  Card,
+  Fade,
+  Grid,
   Stack,
   CircularProgress,
-  Fade,
-  LinearProgress,
-  List,
-  ListItem,
-  ListItemText,
-  Divider,
-  Snackbar,
   Alert,
-  IconButton,
-  Tooltip,
+  Divider,
   Chip,
-  Card,
-  CardContent,
+  LinearProgress,
+  Tooltip,
+  IconButton,
+  Container,
 } from '@mui/material';
 import { styled, keyframes } from '@mui/material/styles';
 import {
-  ArrowLeft,
-  ArrowRight,
-  CheckCircle,
-  AlertCircle,
-  RotateCw,
-  Play,
-  FileText,
-  HelpCircle,
-  Home,
   BookOpen,
+  Clock,
+  User,
+  ArrowRight,
+  ArrowLeft,
+  AlertCircle,
+  RotateCcw,
+  Play,
+  Award,
+  BarChart3,
+  FileText,
+  Video,
+  HelpCircle,
+  CheckCircle,
 } from 'lucide-react';
 import axios from 'axios';
+import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 
-// === CONFIGURATION ===
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
-
-// === ANIMATIONS ===
+// === ANIMATIONS PROFESSIONNELLES ===
 const fadeInUp = keyframes`
   from { 
     opacity: 0; 
-    transform: translateY(30px); 
+    transform: translateY(40px); 
   }
   to { 
     opacity: 1; 
@@ -56,13 +52,13 @@ const fadeInUp = keyframes`
 `;
 
 const slideInRight = keyframes`
-  from {
-    opacity: 0;
-    transform: translateX(30px);
+  from { 
+    opacity: 0; 
+    transform: translateX(40px); 
   }
-  to {
-    opacity: 1;
-    transform: translateX(0);
+  to { 
+    opacity: 1; 
+    transform: translateX(0); 
   }
 `;
 
@@ -80,508 +76,499 @@ const glow = keyframes`
     box-shadow: 0 0 20px rgba(241, 53, 68, 0.3);
   }
   50% {
-    box-shadow: 0 0 30px rgba(241, 53, 68, 0.6);
+    boxShadow: 0 0 30px rgba(241, 53, 68, 0.6);
   }
 `;
 
-// === COULEURS PREMIUM ===
+// === PALETTE DE COULEURS PROFESSIONNELLE ===
 const colors = {
   navy: '#010b40',
-  darkNavy: '#00072d',
   lightNavy: '#1a237e',
   red: '#f13544',
   pink: '#ff6b74',
   purple: '#8b5cf6',
+  darkBg: '#0a0e27',
   success: '#10b981',
   warning: '#f59e0b',
+  info: '#3b82f6',
   glass: 'rgba(255, 255, 255, 0.08)',
   glassDark: 'rgba(1, 11, 64, 0.6)',
   border: 'rgba(241, 53, 68, 0.2)',
-  borderLight: 'rgba(255, 255, 255, 0.1)',
 };
 
-// === STYLED COMPONENTS ===
-const GlassCard = styled(Box)(({ theme }) => ({
+// === COMPOSANTS STYLISÉS PROFESSIONNELS ===
+const CourseCard = styled(Card)(({ theme }) => ({
   background: `linear-gradient(135deg, ${colors.glass}, ${colors.glassDark})`,
   backdropFilter: 'blur(20px)',
-  WebkitBackdropFilter: 'blur(20px)',
-  border: `1px solid ${colors.border}`,
   borderRadius: '24px',
-  padding: '32px',
-  maxWidth: '1000px',
-  margin: 'auto',
+  border: `1px solid ${colors.border}`,
+  padding: theme.spacing(4),
   transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-  animation: `${fadeInUp} 0.7s ease-out forwards`,
+  animation: `${fadeInUp} 0.8s ease-out forwards`,
+  '&:hover': {
+    transform: 'translateY(-12px)',
+    boxShadow: `0 25px 50px ${colors.navy}80`,
+    borderColor: `${colors.red}66`,
+  },
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(3),
+  },
+}));
+
+const ContenuCard = styled(Card)(({ theme, completed }) => ({
+  background: completed
+    ? `linear-gradient(135deg, ${colors.success}22, ${colors.success}11)`
+    : `linear-gradient(135deg, ${colors.glass}, ${colors.glassDark})`,
+  backdropFilter: 'blur(20px)',
+  borderRadius: '20px',
+  border: completed ? `2px solid ${colors.success}66` : `1px solid ${colors.border}`,
+  padding: theme.spacing(3),
+  transition: 'all 0.3s ease',
+  animation: `${slideInRight} 0.6s ease-out forwards`,
+  cursor: 'pointer',
+  position: 'relative',
+  overflow: 'hidden',
   '&:hover': {
     transform: 'translateY(-8px)',
-    boxShadow: `0 25px 60px ${colors.navy}80`,
-    borderColor: colors.red,
+    boxShadow: completed ? `0 15px 35px ${colors.success}33` : `0 15px 35px ${colors.purple}33`,
+    borderColor: completed ? colors.success : colors.purple,
+  },
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(2.5),
   },
 }));
 
-const SidebarCard = styled(Card)(({ theme }) => ({
-  background: `linear-gradient(135deg, ${colors.glass}, ${colors.glassDark})`,
-  backdropFilter: 'blur(15px)',
-  border: `1px solid ${colors.borderLight}`,
-  borderRadius: '20px',
-  animation: `${slideInRight} 0.6s ease-out forwards`,
-  '& .MuiCardContent-root': {
-    padding: '20px',
-  },
-}));
-
-const NavButton = styled(Button)(({ theme }) => ({
+const ActionButton = styled(Button)(({ theme }) => ({
+  background: `linear-gradient(135deg, ${colors.red}, ${colors.pink})`,
   color: '#ffffff',
   textTransform: 'none',
   borderRadius: '14px',
-  padding: '12px 24px',
-  fontWeight: 600,
-  fontSize: '0.95rem',
-  border: `1px solid ${colors.border}`,
-  background: `linear-gradient(135deg, ${colors.glass}, ${colors.glassDark})`,
-  transition: 'all 0.3s ease',
-  '&:hover': {
-    backgroundColor: `${colors.red}1a`,
-    borderColor: colors.red,
-    transform: 'translateY(-2px)',
-    boxShadow: `0 8px 25px ${colors.red}33`,
-  },
-  '&:disabled': {
-    borderColor: `${colors.border}40`,
-    color: 'rgba(255, 255, 255, 0.3)',
-    background: 'rgba(255, 255, 255, 0.05)',
-  },
-}));
-
-const CompleteButton = styled(Button)(({ theme, completed }) => ({
-  background: completed
-    ? `linear-gradient(135deg, ${colors.success}, #34d399)`
-    : `linear-gradient(135deg, ${colors.red}, ${colors.pink})`,
-  color: '#ffffff',
-  borderRadius: '14px',
-  padding: '14px 36px',
+  padding: '14px 28px',
   fontWeight: 700,
   fontSize: '1rem',
-  textTransform: 'none',
-  boxShadow: completed ? `0 8px 25px ${colors.success}4d` : `0 8px 25px ${colors.red}4d`,
   transition: 'all 0.3s ease',
-  animation: completed ? 'none' : `${pulse} 2s infinite`,
+  boxShadow: `0 6px 20px ${colors.red}44`,
+  animation: `${glow} 2s infinite`,
   '&:hover': {
     transform: 'translateY(-3px)',
-    boxShadow: completed ? `0 15px 35px ${colors.success}66` : `0 15px 35px ${colors.red}66`,
-    background: completed
-      ? `linear-gradient(135deg, #34d399, ${colors.success})`
-      : `linear-gradient(135deg, ${colors.pink}, ${colors.red})`,
+    boxShadow: `0 12px 30px ${colors.red}66`,
+    background: `linear-gradient(135deg, ${colors.pink}, ${colors.red})`,
   },
   '&:disabled': {
-    animation: 'none',
     background: 'rgba(255, 255, 255, 0.1)',
     color: 'rgba(255, 255, 255, 0.3)',
+    animation: 'none',
     boxShadow: 'none',
   },
 }));
 
-const ProgressIndicator = styled(Box)(({ theme, progress }) => ({
+const BackButton = styled(Button)({
+  color: '#ffffff',
+  textTransform: 'none',
+  borderRadius: '12px',
+  padding: '10px 20px',
+  fontWeight: 600,
+  fontSize: '0.95rem',
+  transition: 'all 0.3s ease',
+  border: `1px solid ${colors.border}`,
+  background: `linear-gradient(135deg, ${colors.glass}, ${colors.glassDark})`,
+  '&:hover': {
+    backgroundColor: `${colors.red}1a`,
+    borderColor: `${colors.red}66`,
+    transform: 'translateY(-2px)',
+  },
+});
+
+const StatBox = styled(Box)(({ theme, progress = 0 }) => ({
+  background: `linear-gradient(135deg, ${colors.purple}22, ${colors.pink}22)`,
+  borderRadius: '20px',
+  padding: theme.spacing(3),
+  border: `1px solid ${colors.purple}33`,
+  textAlign: 'center',
   position: 'relative',
-  width: '60px',
-  height: '60px',
-  '& .MuiCircularProgress-root': {
+  overflow: 'hidden',
+  '&::before': {
+    content: '""',
     position: 'absolute',
     top: 0,
     left: 0,
-  },
-  '& .progress-text': {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    color: '#ffffff',
-    fontWeight: 700,
-    fontSize: '0.8rem',
+    right: 0,
+    bottom: 0,
+    background: `linear-gradient(135deg, transparent, ${colors.navy}66)`,
+    pointerEvents: 'none',
   },
 }));
 
-// === CONFETTI FALLBACK AMÉLIORÉ ===
-const triggerConfetti = () => {
-  if (typeof window === 'undefined') return;
+const ProgressBar = styled(LinearProgress)({
+  height: 12,
+  borderRadius: 8,
+  backgroundColor: `${colors.red}22`,
+  '& .MuiLinearProgress-bar': {
+    background: `linear-gradient(90deg, ${colors.red}, ${colors.pink})`,
+    borderRadius: 8,
+    transition: 'width 0.8s ease-in-out',
+  },
+});
 
-  try {
-    // Essayer d'utiliser canvas-confetti si disponible
-    const confetti = require('canvas-confetti');
-    const count = 200;
-    const defaults = {
-      origin: { y: 0.7 },
-      zIndex: 9999,
-    };
+// === FONCTIONS UTILITAIRES ===
+const getContenuId = (contenu) => {
+  return contenu?._id || contenu?.id;
+};
 
-    function fire(particleRatio, opts) {
-      confetti({
-        ...defaults,
-        ...opts,
-        particleCount: Math.floor(count * particleRatio),
-      });
-    }
+const getContenuIcon = (type) => {
+  const icons = {
+    video: Video,
+    document: FileText,
+    quiz: HelpCircle,
+    text: FileText,
+  };
+  return icons[type] || BookOpen;
+};
 
-    fire(0.25, {
-      spread: 26,
-      startVelocity: 55,
-    });
+const getContenuColor = (type) => {
+  const colorsMap = {
+    video: colors.red,
+    document: colors.purple,
+    quiz: colors.warning,
+    text: colors.info,
+  };
+  return colorsMap[type] || colors.pink;
+};
 
-    fire(0.2, {
-      spread: 60,
-    });
-
-    fire(0.35, {
-      spread: 100,
-      decay: 0.91,
-      scalar: 0.8,
-    });
-
-    fire(0.1, {
-      spread: 120,
-      startVelocity: 25,
-      decay: 0.92,
-      scalar: 1.2,
-    });
-
-    fire(0.1, {
-      spread: 120,
-      startVelocity: 45,
-    });
-  } catch (error) {
-    // Fallback personnalisé
-    const fallbackConfetti = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      canvas.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-        z-index: 9999;
-      `;
-      document.body.appendChild(canvas);
-
-      const particles = [];
-      const colors = [colors.red, colors.pink, colors.purple, colors.success, '#fbbf24'];
-
-      for (let i = 0; i < 150; i++) {
-        particles.push({
-          x: Math.random() * canvas.width,
-          y: -Math.random() * canvas.height,
-          size: Math.random() * 8 + 4,
-          speed: Math.random() * 3 + 2,
-          color: colors[Math.floor(Math.random() * colors.length)],
-          sway: Math.random() * 2 - 1,
-        });
-      }
-
-      let animationId;
-      const animate = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        let activeParticles = 0;
-        particles.forEach((particle) => {
-          particle.y += particle.speed;
-          particle.x += particle.sway;
-
-          if (particle.y < canvas.height) {
-            activeParticles++;
-            ctx.fillStyle = particle.color;
-            ctx.beginPath();
-            ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        });
-
-        if (activeParticles > 0) {
-          animationId = requestAnimationFrame(animate);
-        } else {
-          cancelAnimationFrame(animationId);
-          if (document.body.contains(canvas)) {
-            document.body.removeChild(canvas);
-          }
-        }
-      };
-
-      animate();
-    };
-
-    fallbackConfetti();
-  }
+const formatDuration = (duration) => {
+  if (!duration) return 'Durée non spécifiée';
+  if (typeof duration === 'number') return `${duration}h`;
+  return duration;
 };
 
 // === COMPOSANT PRINCIPAL ===
-const CoursePlayer = () => {
-  const { courseId, contenuId } = useParams();
+const CourseView = () => {
+  const { id, courseId } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
+  const { user, logout } = useAuth() || { user: null, logout: () => {} };
+  const { addNotification } = useNotifications();
+
+  // Utiliser soit id soit courseId, en priorisant id
+  const courseIdentifier = id || courseId;
+
+  // États du composant
   const [course, setCourse] = useState(null);
-  const [contenu, setContenu] = useState(null);
   const [contenus, setContenus] = useState([]);
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isCompleted, setIsCompleted] = useState(false);
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'info',
-  });
-  const [completing, setCompleting] = useState(false);
-  const [videoProgress, setVideoProgress] = useState(0);
+  const [retrying, setRetrying] = useState(false);
 
-  const headers = useMemo(() => {
-    const token = localStorage.getItem('token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  }, []);
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
-  // === CHARGEMENT DES DONNÉES ===
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!courseId) {
-        setError('ID de cours manquant');
+  /**
+   * Récupération des données du cours avec gestion d'erreur professionnelle
+   */
+  const fetchCourseData = useCallback(async () => {
+    try {
+      if (!user?.token) {
+        setError('🔐 Authentification requise - Veuillez vous reconnecter');
+        setTimeout(() => {
+          logout();
+          navigate('/login', {
+            state: {
+              returnUrl: `/student/course/${courseIdentifier}`,
+              message: 'Session expirée - Reconnexion requise',
+            },
+          });
+        }, 2000);
         setLoading(false);
         return;
       }
 
-      if (!headers.Authorization) {
-        navigate('/login', {
-          state: { from: location.pathname },
-          replace: true,
-        });
+      if (!courseIdentifier) {
+        setError('❌ Identifiant du cours manquant');
+        setLoading(false);
+        return;
+      }
+
+      // Validation robuste de l'ObjectId
+      if (!/^[0-9a-fA-F]{24}$/.test(courseIdentifier)) {
+        setError("❌ Format d'identifiant de cours invalide");
+        setLoading(false);
         return;
       }
 
       setLoading(true);
       setError(null);
 
-      try {
-        // Charger les données du cours et des contenus en parallèle
-        const [courseRes, contenusRes] = await Promise.all([
-          axios.get(`${API_BASE_URL}/courses/${courseId}`, { headers }),
-          axios.get(`${API_BASE_URL}/courses/contenu`, {
-            params: { courseId },
-            headers,
-          }),
-        ]);
+      console.log('📚 Début de la récupération du cours:', courseIdentifier);
 
-        const courseData = courseRes.data?.data || courseRes.data;
-        const contenusData = contenusRes.data?.data || contenusRes.data || [];
+      const headers = {
+        Authorization: `Bearer ${user.token}`,
+        'Content-Type': 'application/json',
+      };
 
-        if (!courseData) {
-          throw new Error('Cours non trouvé');
-        }
+      // Récupération parallèle des données pour de meilleures performances
+      const [courseResponse, contenusResponse, progressResponse] = await Promise.allSettled([
+        // Données du cours
+        axios.get(`${API_BASE_URL}/courses/${courseIdentifier}`, {
+          headers,
+          timeout: 15000,
+        }),
+        // Contenus du cours
+        axios.get(`${API_BASE_URL}/courses/contenu`, {
+          params: { courseId: courseIdentifier },
+          headers,
+          timeout: 15000,
+        }),
+        // Progression de l'utilisateur
+        axios.get(`${API_BASE_URL}/learning/progress/${courseIdentifier}`, {
+          headers,
+          timeout: 10000,
+        }),
+      ]);
 
-        if (!Array.isArray(contenusData)) {
-          throw new Error('Format de données des contenus invalide');
-        }
-
-        setCourse(courseData);
-        setContenus(contenusData);
-
-        // Gérer le contenu actuel
-        let currentContenu = null;
-        if (contenuId) {
-          currentContenu = contenusData.find((c) => c._id === contenuId);
-        }
-
-        if (!currentContenu && contenusData.length > 0) {
-          // Rediriger vers le premier contenu si le contenu actuel n'est pas trouvé
-          navigate(`/student/learn/${courseId}/contenu/${contenusData[0]._id}`, {
-            replace: true,
-          });
-          return;
-        }
-
-        if (currentContenu) {
-          setContenu(currentContenu);
-          setIsCompleted(currentContenu.isCompleted || false);
-        }
-
-        // Charger la progression
-        try {
-          const progressRes = await axios.get(`${API_BASE_URL}/learning/progress/${courseId}`, {
-            headers,
-          });
-          const progressData = progressRes.data?.data || progressRes.data;
-          setProgress(progressData?.pourcentage || 0);
-        } catch (progressError) {
-          console.warn('Erreur lors du chargement de la progression:', progressError);
-          // Calculer la progression localement en fallback
-          const completedCount = contenusData.filter((c) => c.isCompleted).length;
-          const localProgress =
-            contenusData.length > 0 ? Math.round((completedCount / contenusData.length) * 100) : 0;
-          setProgress(localProgress);
-        }
-      } catch (err) {
-        console.error('Erreur de chargement:', err);
-        const errorMessage =
-          err.response?.data?.message || err.message || 'Erreur lors du chargement du cours';
-        setError(errorMessage);
-        setSnackbar({
-          open: true,
-          message: errorMessage,
-          severity: 'error',
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [courseId, contenuId, navigate, headers, location.pathname]);
-
-  // === MARQUER COMME TERMINÉ ===
-  const handleComplete = useCallback(async () => {
-    if (!headers.Authorization || completing || isCompleted) return;
-
-    setCompleting(true);
-
-    try {
-      // Marquer le contenu comme terminé
-      await axios.put(`${API_BASE_URL}/courses/contenu/${contenuId}/complete`, {}, { headers });
-
-      // Mettre à jour l'état local
-      setIsCompleted(true);
-
-      // Mettre à jour la liste des contenus
-      setContenus((prev) =>
-        prev.map((c) => (c._id === contenuId ? { ...c, isCompleted: true } : c))
-      );
-
-      // Calculer la nouvelle progression
-      const completedCount = contenus.filter((c) =>
-        c._id === contenuId ? true : c.isCompleted
-      ).length;
-      const newProgress =
-        contenus.length > 0 ? Math.round((completedCount / contenus.length) * 100) : 0;
-
-      // Mettre à jour la progression sur le serveur
-      try {
-        await axios.put(
-          `${API_BASE_URL}/learning/progress/${courseId}`,
-          { pourcentage: newProgress },
-          { headers }
-        );
-      } catch (progressError) {
-        console.warn('Erreur de mise à jour de la progression:', progressError);
+      // Traitement de la réponse du cours
+      if (courseResponse.status === 'rejected') {
+        throw new Error(`Erreur cours: ${courseResponse.reason.message}`);
       }
 
-      setProgress(newProgress);
+      const courseData = courseResponse.value.data?.data || courseResponse.value.data;
+      if (!courseData) {
+        throw new Error('❌ Données du cours non trouvées');
+      }
 
-      // Effet de confetti
-      triggerConfetti();
+      setCourse({
+        ...courseData,
+        _id: courseData._id || courseIdentifier,
+        titre: courseData.titre || courseData.title || 'Cours sans titre',
+        description:
+          courseData.description ||
+          'Aucune description disponible pour le moment. Revenez plus tard pour découvrir le contenu de ce cours.',
+        duree: courseData.duree || courseData.duration,
+        niveau: courseData.niveau || courseData.level || 'Débutant',
+        domaine:
+          courseData.domaineId?.nom || courseData.domaine || courseData.category || 'Général',
+        createur: courseData.createur || courseData.instructor || courseData.auteur,
+      });
 
-      // Navigation automatique ou message de félicitations
-      const currentIndex = contenus.findIndex((c) => c._id === contenuId);
-      if (currentIndex < contenus.length - 1) {
-        // Naviguer vers le contenu suivant après un délai
-        setTimeout(() => {
-          navigate(`/student/learn/${courseId}/contenu/${contenus[currentIndex + 1]._id}`);
-        }, 1500);
+      // Traitement des contenus
+      let contenusList = [];
+      if (contenusResponse.status === 'fulfilled') {
+        const contenusData = contenusResponse.value.data?.data || contenusResponse.value.data || [];
+
+        contenusList = Array.isArray(contenusData)
+          ? contenusData
+              .filter((contenu) => contenu && getContenuId(contenu))
+              .map((contenu, index) => ({
+                ...contenu,
+                _id: getContenuId(contenu),
+                ordre: contenu.ordre || index + 1,
+                titre: contenu.titre || contenu.title || `Contenu ${index + 1}`,
+                description: contenu.description || 'Description non disponible pour le moment.',
+                type: contenu.type || 'document',
+                duree: contenu.duree || contenu.duration,
+                isCompleted: contenu.isCompleted || false,
+              }))
+          : [];
+
+        console.log(`📖 ${contenusList.length} contenus chargés avec succès`);
       } else {
-        // Cours terminé
-        setSnackbar({
-          open: true,
-          message: '🎉 Félicitations ! Vous avez terminé ce cours !',
-          severity: 'success',
+        console.warn('⚠️ Erreur récupération contenus:', contenusResponse.reason.message);
+      }
+
+      setContenus(contenusList);
+
+      // Traitement de la progression
+      if (progressResponse.status === 'fulfilled') {
+        const progressData = progressResponse.value.data?.data || progressResponse.value.data;
+        setProgress({
+          pourcentage: Math.min(100, Math.max(0, progressData?.pourcentage || 0)),
+          dateDebut: progressData?.dateDebut || progressData?.startDate,
+          dateFin: progressData?.dateFin || progressData?.endDate,
+          cours: courseIdentifier,
+          apprenant: user?._id || user?.id,
+        });
+      } else {
+        console.warn('⚠️ Erreur récupération progression:', progressResponse.reason.message);
+        setProgress({
+          pourcentage: 0,
+          dateDebut: null,
+          dateFin: null,
+          cours: courseIdentifier,
+          apprenant: user?._id || user?.id,
         });
       }
     } catch (err) {
-      console.error('Erreur de complétion:', err);
-      setSnackbar({
-        open: true,
-        message: 'Erreur lors du marquage comme terminé',
-        severity: 'error',
+      console.error('❌ Erreur critique lors du chargement du cours:', {
+        message: err.message,
+        status: err.response?.status,
+        code: err.code,
+        data: err.response?.data,
       });
-    } finally {
-      setCompleting(false);
-    }
-  }, [contenuId, contenus, courseId, navigate, headers, completing, isCompleted]);
 
-  // === SOUMISSION DE QUIZ ===
-  const handleQuizSubmit = useCallback(
-    async (answers) => {
-      try {
-        const res = await axios.post(
-          `${API_BASE_URL}/courses/contenu/${contenuId}/soumettre`,
-          { answers },
-          { headers }
-        );
+      let errorMessage = '🚨 Erreur lors du chargement du cours';
+      let shouldLogout = false;
 
-        if (res.data.success) {
-          handleComplete();
-        } else {
-          setSnackbar({
-            open: true,
-            message: 'Quiz soumis avec succès !',
-            severity: 'success',
-          });
-          handleComplete();
+      if (err.response) {
+        switch (err.response.status) {
+          case 400:
+            errorMessage = '❌ Identifiant de cours invalide ou mal formaté';
+            break;
+          case 401:
+            errorMessage = '🔐 Session expirée - Redirection en cours...';
+            shouldLogout = true;
+            break;
+          case 403:
+            errorMessage = "⛔ Accès refusé - Vous n'avez pas l'autorisation pour ce cours";
+            break;
+          case 404:
+            errorMessage =
+              "🔍 Cours non trouvé - Vérifiez l'identifiant ou contactez l'administrateur";
+            break;
+          case 500:
+            errorMessage = '⚡ Erreur serveur - Veuillez réessayer dans quelques instants';
+            break;
+          default:
+            errorMessage = err.response.data?.message || `Erreur ${err.response.status}`;
         }
-      } catch (err) {
-        console.error('Erreur de soumission du quiz:', err);
-        setSnackbar({
-          open: true,
-          message: 'Erreur lors de la soumission du quiz',
-          severity: 'error',
-        });
-      }
-    },
-    [contenuId, headers, handleComplete]
-  );
-
-  // === NAVIGATION ===
-  const goToContent = useCallback(
-    (direction) => {
-      const currentIndex = contenus.findIndex((c) => c._id === contenuId);
-      let targetIndex = currentIndex;
-
-      if (direction === 'prev' && currentIndex > 0) {
-        targetIndex = currentIndex - 1;
-      } else if (direction === 'next' && currentIndex < contenus.length - 1) {
-        targetIndex = currentIndex + 1;
+      } else if (err.code === 'ECONNREFUSED') {
+        errorMessage = "🔌 Serveur inaccessible - Vérifiez votre connexion et l'état du serveur";
+      } else if (err.code === 'NETWORK_ERROR') {
+        errorMessage = '🌐 Erreur réseau - Vérifiez votre connexion internet';
+      } else if (err.code === 'TIMEOUT') {
+        errorMessage = '⏰ Timeout - Le serveur met trop de temps à répondre';
+      } else {
+        errorMessage = err.message || 'Erreur inconnue lors du chargement';
       }
 
-      if (targetIndex !== currentIndex) {
-        navigate(`/student/learn/${courseId}/contenu/${contenus[targetIndex]._id}`);
+      setError(errorMessage);
+      setCourse(null);
+      setContenus([]);
+      setProgress(null);
+
+      if (shouldLogout) {
+        setTimeout(() => {
+          logout();
+          navigate('/login', {
+            state: {
+              returnUrl: `/student/course/${courseIdentifier}`,
+              message: 'Session expirée - Veuillez vous reconnecter',
+            },
+          });
+        }, 3000);
       }
-    },
-    [contenus, contenuId, courseId, navigate]
-  );
-
-  const currentIndex = useMemo(
-    () => contenus.findIndex((c) => c._id === contenuId),
-    [contenus, contenuId]
-  );
-
-  // === GESTIONNAIRES D'ÉVÉNEMENTS ===
-  const handleVideoProgress = useCallback((progress) => {
-    setVideoProgress(progress);
-  }, []);
-
-  const handleVideoEnd = useCallback(() => {
-    if (!isCompleted && contenu?.type === 'video') {
-      handleComplete();
+    } finally {
+      setLoading(false);
+      setRetrying(false);
     }
-  }, [isCompleted, contenu?.type, handleComplete]);
+  }, [courseIdentifier, user, logout, navigate, API_BASE_URL]);
 
-  const handleRetry = useCallback(() => {
-    window.location.reload();
-  }, []);
+  // Effet de chargement initial
+  useEffect(() => {
+    fetchCourseData();
+  }, [fetchCourseData]);
 
-  const handleGoHome = useCallback(() => {
-    navigate('/student/dashboard');
-  }, [navigate]);
+  /**
+   * Réessai de chargement des données
+   */
+  const handleRetry = useCallback(async () => {
+    setRetrying(true);
+    await fetchCourseData();
+  }, [fetchCourseData]);
 
-  const handleGoToCourses = useCallback(() => {
-    navigate('/student/courses');
-  }, [navigate]);
+  /**
+   * Navigation vers le premier contenu disponible
+   */
+  const handleStartLearning = useCallback(() => {
+    if (contenus.length === 0) {
+      addNotification('Aucun contenu disponible pour ce cours', 'warning');
+      return;
+    }
 
-  // === ÉCRAN DE CHARGEMENT ===
+    const firstValidContenu = contenus.find((contenu) => getContenuId(contenu));
+    if (!firstValidContenu) {
+      addNotification('Aucun contenu valide trouvé', 'error');
+      return;
+    }
+
+    const firstContenuId = getContenuId(firstValidContenu);
+    console.log('🎬 Navigation vers le premier contenu:', firstContenuId);
+
+    navigate(`/student/learn/${courseIdentifier}/contenu/${firstContenuId}`, {
+      state: {
+        message: `Bonne découverte du cours "${course?.titre}" !`,
+        courseTitle: course?.titre,
+      },
+    });
+  }, [navigate, courseIdentifier, contenus, course?.titre, addNotification]);
+
+  /**
+   * Navigation vers un contenu spécifique
+   */
+  const handleContenuClick = useCallback(
+    (contenu) => {
+      const contenuId = getContenuId(contenu);
+      if (!contenuId) {
+        addNotification('Contenu inaccessible - ID manquant', 'error');
+        return;
+      }
+
+      console.log('📂 Navigation vers le contenu:', contenuId);
+      navigate(`/student/learn/${courseIdentifier}/contenu/${contenuId}`, {
+        state: {
+          message: `Ouverture de "${contenu.titre}"`,
+          contenuTitle: contenu.titre,
+        },
+      });
+    },
+    [navigate, courseIdentifier, addNotification]
+  );
+
+  /**
+   * Navigation vers la progression détaillée
+   */
+  const handleViewProgress = useCallback(() => {
+    navigate(`/student/progress/${courseIdentifier}`, {
+      state: {
+        courseTitle: course?.titre,
+        progress: progress?.pourcentage,
+      },
+    });
+  }, [navigate, courseIdentifier, course?.titre, progress?.pourcentage]);
+
+  /**
+   * Navigation vers les certificats
+   */
+  const handleViewCertificate = useCallback(() => {
+    navigate('/student/certificates', {
+      state: {
+        courseId: courseIdentifier,
+        courseTitle: course?.titre,
+      },
+    });
+  }, [navigate, courseIdentifier, course?.titre]);
+
+  /**
+   * Calcul des statistiques automatiques
+   */
+  const courseStats = useMemo(() => {
+    const totalContenus = contenus.length;
+    const completedContenus = contenus.filter((c) => c.isCompleted).length;
+    const completionRate =
+      totalContenus > 0 ? Math.round((completedContenus / totalContenus) * 100) : 0;
+
+    const contenusByType = contenus.reduce((acc, contenu) => {
+      acc[contenu.type] = (acc[contenu.type] || 0) + 1;
+      return acc;
+    }, {});
+
+    return {
+      totalContenus,
+      completedContenus,
+      completionRate,
+      contenusByType,
+      estimatedTime: contenus.reduce((total, contenu) => total + (contenu.duree || 0), 0),
+    };
+  }, [contenus]);
+
+  // === AFFICHAGE DU CHARGEMENT ===
   if (loading) {
     return (
       <Box
@@ -590,11 +577,10 @@ const CoursePlayer = () => {
           flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
-          minHeight: '100vh',
+          height: '100vh',
           width: '100vw',
-          background: `linear-gradient(135deg, ${colors.navy}, ${colors.darkNavy})`,
-          color: '#ffffff',
-          gap: 3,
+          background: `linear-gradient(135deg, ${colors.navy}, ${colors.darkBg})`,
+          animation: `${fadeInUp} 0.5s ease-out`,
         }}
       >
         <CircularProgress
@@ -602,21 +588,34 @@ const CoursePlayer = () => {
           thickness={4}
           sx={{
             color: colors.red,
-            animation: `${pulse} 1.5s ease-in-out infinite`,
+            animation: `${pulse} 2s ease-in-out infinite`,
           }}
         />
-        <Typography variant='h5' sx={{ fontWeight: 600 }}>
-          Chargement du cours...
+        <Typography
+          sx={{
+            color: '#ffffff',
+            fontSize: { xs: '1.2rem', sm: '1.4rem' },
+            fontWeight: 600,
+            mt: 3,
+          }}
+        >
+          Chargement de votre cours...
         </Typography>
-        <Typography variant='body1' sx={{ opacity: 0.8 }}>
+        <Typography
+          sx={{
+            color: 'rgba(255, 255, 255, 0.6)',
+            fontSize: '1rem',
+            mt: 1,
+          }}
+        >
           Préparation de votre expérience d'apprentissage
         </Typography>
       </Box>
     );
   }
 
-  // === ÉCRAN D'ERREUR ===
-  if (error || !course || contenus.length === 0) {
+  // === AFFICHAGE D'ERREUR ===
+  if (error || !course) {
     return (
       <Box
         sx={{
@@ -624,12 +623,11 @@ const CoursePlayer = () => {
           flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
-          minHeight: '100vh',
+          height: '100vh',
           width: '100vw',
-          background: `linear-gradient(135deg, ${colors.navy}, ${colors.darkNavy})`,
-          color: '#ffffff',
+          background: `linear-gradient(135deg, ${colors.navy}, ${colors.darkBg})`,
+          p: { xs: 3, sm: 4 },
           gap: 4,
-          p: 3,
         }}
       >
         <Box
@@ -641,71 +639,48 @@ const CoursePlayer = () => {
           <AlertCircle size={80} color={colors.red} />
         </Box>
 
-        <Typography variant='h4' sx={{ fontWeight: 700, textAlign: 'center' }}>
-          Oups ! Quelque chose s'est mal passé
-        </Typography>
-
-        <Typography variant='h6' sx={{ opacity: 0.8, textAlign: 'center', maxWidth: '500px' }}>
-          {error || 'Le cours demandé est indisponible ou a été supprimé.'}
-        </Typography>
-
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 2 }}>
-          <Button
-            onClick={handleRetry}
-            startIcon={<RotateCw size={20} />}
-            variant='contained'
-            sx={{
-              background: `linear-gradient(135deg, ${colors.red}, ${colors.pink})`,
-              borderRadius: '12px',
-              padding: '12px 24px',
-              fontWeight: 600,
-              '&:hover': {
-                transform: 'translateY(-2px)',
-                boxShadow: `0 8px 25px ${colors.red}4d`,
-              },
-            }}
-          >
-            Réessayer
-          </Button>
-
-          <Button
-            onClick={handleGoHome}
-            startIcon={<Home size={20} />}
-            variant='outlined'
-            sx={{
-              borderColor: colors.border,
-              color: '#ffffff',
-              borderRadius: '12px',
-              padding: '12px 24px',
-              fontWeight: 600,
-              '&:hover': {
-                borderColor: colors.red,
-                backgroundColor: `${colors.red}1a`,
-              },
-            }}
-          >
-            Retour à l'accueil
-          </Button>
-
-          <Button
-            onClick={handleGoToCourses}
-            startIcon={<BookOpen size={20} />}
-            variant='outlined'
-            sx={{
-              borderColor: colors.border,
-              color: '#ffffff',
-              borderRadius: '12px',
-              padding: '12px 24px',
-              fontWeight: 600,
-              '&:hover': {
-                borderColor: colors.purple,
-                backgroundColor: `${colors.purple}1a`,
-              },
-            }}
-          >
-            Mes cours
-          </Button>
-        </Stack>
+        <Alert
+          severity='error'
+          sx={{
+            width: { xs: '100%', sm: '80%', md: '50%' },
+            bgcolor: `${colors.red}15`,
+            color: '#ffffff',
+            borderRadius: '20px',
+            p: 3,
+            border: `1px solid ${colors.red}44`,
+            '& .MuiAlert-icon': {
+              color: colors.red,
+              alignItems: 'center',
+            },
+          }}
+          action={
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+              <ActionButton
+                size='small'
+                onClick={handleRetry}
+                disabled={retrying}
+                startIcon={retrying ? <CircularProgress size={16} /> : <RotateCcw size={16} />}
+              >
+                {retrying ? 'Chargement...' : 'Réessayer'}
+              </ActionButton>
+              <BackButton
+                size='small'
+                onClick={() => navigate('/student/courses')}
+                startIcon={<ArrowLeft size={16} />}
+              >
+                Mes Cours
+              </BackButton>
+            </Stack>
+          }
+        >
+          <Typography sx={{ fontSize: '1.1rem', fontWeight: 600, mb: 1 }}>
+            {error || 'Cours non trouvé'}
+          </Typography>
+          <Typography sx={{ fontSize: '0.95rem', opacity: 0.9 }}>
+            Nous n'avons pas pu charger les détails de ce cours. Vérifiez votre connexion ou
+            réessayez.
+          </Typography>
+        </Alert>
       </Box>
     );
   }
@@ -716,457 +691,677 @@ const CoursePlayer = () => {
       sx={{
         minHeight: '100vh',
         width: '100vw',
-        background: `linear-gradient(135deg, ${colors.navy}, ${colors.darkNavy})`,
-        position: 'relative',
-        overflowX: 'hidden',
+        background: `linear-gradient(135deg, ${colors.navy}, ${colors.darkBg})`,
+        p: { xs: 2, sm: 3, md: 4 },
+        overflow: 'auto',
       }}
     >
-      {/* Arrière-plan animé */}
-      <Box
-        sx={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: `
-            radial-gradient(circle at 20% 20%, ${colors.red}08, transparent 50%),
-            radial-gradient(circle at 80% 80%, ${colors.purple}08, transparent 50%),
-            radial-gradient(circle at 40% 40%, ${colors.pink}06, transparent 50%)
-          `,
-          pointerEvents: 'none',
-          zIndex: 0,
-        }}
-      />
+      {/* En-tête de navigation */}
+      <Fade in timeout={800}>
+        <Box sx={{ mb: { xs: 4, sm: 6 } }}>
+          <BackButton
+            startIcon={<ArrowLeft size={20} />}
+            onClick={() => navigate('/student/courses')}
+            aria-label='Retour à mes cours'
+          >
+            Retour à mes cours
+          </BackButton>
+        </Box>
+      </Fade>
 
-      <Container
-        maxWidth={false}
-        disableGutters
-        sx={{
-          position: 'relative',
-          zIndex: 1,
-        }}
-      >
-        <Fade in timeout={800}>
-          <Box>
-            {/* EN-TÊTE FIXE */}
-            <Box
+      {/* En-tête du cours */}
+      <Fade in timeout={800}>
+        <Box sx={{ mb: { xs: 4, sm: 6 } }}>
+          <Typography
+            variant='h1'
+            sx={{
+              color: '#ffffff',
+              fontWeight: 800,
+              mb: 2,
+              fontSize: { xs: '2rem', sm: '2.8rem', md: '3.2rem' },
+              background: 'linear-gradient(135deg, #ffffff, #ff6b74)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              lineHeight: 1.2,
+            }}
+          >
+            {course.titre}
+          </Typography>
+          <Typography
+            sx={{
+              color: 'rgba(255, 255, 255, 0.8)',
+              fontSize: { xs: '1.1rem', sm: '1.2rem' },
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+            }}
+          >
+            <BookOpen size={20} />
+            Domaine: {course.domaine}
+          </Typography>
+        </Box>
+      </Fade>
+
+      <Grid container spacing={{ xs: 3, sm: 4, md: 4 }}>
+        {/* Colonne principale - Détails du cours */}
+        <Grid item xs={12} lg={8}>
+          {/* Carte principale du cours */}
+          <CourseCard elevation={0} sx={{ mb: 4 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 4, gap: 3 }}>
+              <Box
+                sx={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: '16px',
+                  background: `linear-gradient(135deg, ${colors.red}33, ${colors.purple}33)`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: `2px solid ${colors.border}`,
+                }}
+              >
+                <BookOpen size={32} color={colors.red} />
+              </Box>
+              <Box>
+                <Typography
+                  variant='h2'
+                  sx={{
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    fontSize: { xs: '1.5rem', sm: '1.8rem' },
+                    mb: 0.5,
+                  }}
+                >
+                  Détails du Cours
+                </Typography>
+                <Typography
+                  sx={{
+                    color: 'rgba(255, 255, 255, 0.6)',
+                    fontSize: '1rem',
+                  }}
+                >
+                  Explorez le contenu et commencez votre apprentissage
+                </Typography>
+              </Box>
+            </Box>
+
+            <Divider sx={{ borderColor: `${colors.red}33`, mb: 4 }} />
+
+            {/* Description enrichie */}
+            <Box sx={{ mb: 4 }}>
+              <Typography
+                sx={{
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  fontSize: { xs: '1rem', sm: '1.1rem' },
+                  lineHeight: 1.8,
+                  mb: 3,
+                }}
+              >
+                {course.description}
+              </Typography>
+
+              {/* Métadonnées avancées */}
+              <Grid container spacing={3}>
+                {/* Niveau */}
+                <Grid item xs={12} sm={6} md={4}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 2,
+                      p: 2,
+                      borderRadius: '12px',
+                      bgcolor: `${colors.purple}15`,
+                    }}
+                  >
+                    <Chip
+                      label={course.niveau}
+                      sx={{
+                        backgroundColor: `${colors.purple}33`,
+                        color: colors.purple,
+                        fontWeight: 700,
+                        fontSize: '0.85rem',
+                      }}
+                    />
+                    <Typography
+                      sx={{
+                        color: 'rgba(255, 255, 255, 0.8)',
+                        fontSize: '0.9rem',
+                        fontWeight: 600,
+                      }}
+                    >
+                      Niveau
+                    </Typography>
+                  </Box>
+                </Grid>
+
+                {/* Durée */}
+                {course.duree && (
+                  <Grid item xs={12} sm={6} md={4}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 2,
+                        p: 2,
+                        borderRadius: '12px',
+                        bgcolor: `${colors.pink}15`,
+                      }}
+                    >
+                      <Clock size={20} color={colors.pink} />
+                      <Box>
+                        <Typography sx={{ color: colors.pink, fontSize: '1rem', fontWeight: 700 }}>
+                          {formatDuration(course.duree)}
+                        </Typography>
+                        <Typography sx={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.85rem' }}>
+                          Durée estimée
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+                )}
+
+                {/* Contenus */}
+                <Grid item xs={12} sm={6} md={4}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 2,
+                      p: 2,
+                      borderRadius: '12px',
+                      bgcolor: `${colors.info}15`,
+                    }}
+                  >
+                    <FileText size={20} color={colors.info} />
+                    <Box>
+                      <Typography sx={{ color: colors.info, fontSize: '1rem', fontWeight: 700 }}>
+                        {courseStats.totalContenus}
+                      </Typography>
+                      <Typography sx={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.85rem' }}>
+                        Contenus
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Grid>
+
+                {/* Instructeur */}
+                {course.createur && (
+                  <Grid item xs={12}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 2,
+                        p: 2,
+                        borderRadius: '12px',
+                        bgcolor: `${colors.success}15`,
+                      }}
+                    >
+                      <User size={20} color={colors.success} />
+                      <Box>
+                        <Typography
+                          sx={{ color: '#ffffff', fontSize: '1rem', fontWeight: 600, mb: 0.5 }}
+                        >
+                          Instructeur
+                        </Typography>
+                        <Typography sx={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.95rem' }}>
+                          {typeof course.createur === 'object'
+                            ? `${course.createur.prenom || ''} ${course.createur.nom || ''}`.trim()
+                            : course.createur}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+                )}
+              </Grid>
+            </Box>
+
+            {/* Bouton d'action principal */}
+            <ActionButton
+              fullWidth
+              onClick={handleStartLearning}
+              endIcon={<Play size={22} />}
+              disabled={contenus.length === 0}
               sx={{
-                position: 'sticky',
-                top: 0,
-                zIndex: 1000,
-                background: `linear-gradient(135deg, ${colors.glassDark}, ${colors.navy}ee)`,
-                backdropFilter: 'blur(20px)',
-                borderBottom: `1px solid ${colors.border}`,
                 py: 2,
-                px: { xs: 2, md: 4 },
+                fontSize: '1.1rem',
+                background:
+                  contenus.length === 0
+                    ? 'rgba(255, 255, 255, 0.1)'
+                    : `linear-gradient(135deg, ${colors.red}, ${colors.pink})`,
               }}
             >
-              <Stack
-                direction={{ xs: 'column', md: 'row' }}
-                justifyContent='space-between'
-                alignItems='center'
-                spacing={3}
-              >
-                {/* Navigation */}
-                <Stack direction='row' spacing={2} alignItems='center'>
-                  <NavButton
-                    startIcon={<ArrowLeft size={20} />}
-                    onClick={() => navigate(`/student/course/${courseId}`)}
-                  >
-                    Retour au cours
-                  </NavButton>
+              {contenus.length > 0
+                ? "🎯 Commencer l'Apprentissage"
+                : '⏳ Contenu en préparation...'}
+            </ActionButton>
+          </CourseCard>
 
+          {/* Section des contenus */}
+          {contenus.length > 0 ? (
+            <Box>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  mb: 4,
+                }}
+              >
+                <Typography
+                  variant='h2'
+                  sx={{
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    fontSize: { xs: '1.4rem', sm: '1.6rem' },
+                  }}
+                >
+                  Parcours d'Apprentissage
+                </Typography>
+                <Chip
+                  label={`${courseStats.totalContenus} contenus`}
+                  sx={{
+                    backgroundColor: `${colors.purple}33`,
+                    color: colors.purple,
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                  }}
+                />
+              </Box>
+
+              <Stack spacing={3}>
+                {contenus.map((contenu, index) => {
+                  const ContenuIcon = getContenuIcon(contenu.type);
+                  const contenuColor = getContenuColor(contenu.type);
+
+                  return (
+                    <ContenuCard
+                      key={contenu._id}
+                      elevation={0}
+                      completed={contenu.isCompleted}
+                      sx={{
+                        animation: `${slideInRight} 0.6s ease-out ${index * 0.1}s forwards`,
+                        opacity: 0,
+                      }}
+                      onClick={() => handleContenuClick(contenu)}
+                    >
+                      {/* En-tête du contenu */}
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 3, mb: 2 }}>
+                        <Box
+                          sx={{
+                            width: 50,
+                            height: 50,
+                            borderRadius: '12px',
+                            background: `${contenuColor}33`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: `2px solid ${contenuColor}66`,
+                            flexShrink: 0,
+                          }}
+                        >
+                          <ContenuIcon size={24} color={contenuColor} />
+                        </Box>
+
+                        <Box sx={{ flex: 1 }}>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 2,
+                              mb: 1,
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <Typography
+                              sx={{
+                                color: '#ffffff',
+                                fontWeight: 700,
+                                fontSize: { xs: '1.1rem', sm: '1.2rem' },
+                              }}
+                            >
+                              {contenu.ordre}. {contenu.titre}
+                            </Typography>
+
+                            <Chip
+                              label={contenu.type?.toUpperCase()}
+                              size='small'
+                              sx={{
+                                backgroundColor: `${contenuColor}33`,
+                                color: contenuColor,
+                                fontWeight: 700,
+                                fontSize: '0.75rem',
+                              }}
+                            />
+
+                            {contenu.isCompleted && (
+                              <Tooltip title='Contenu terminé' arrow>
+                                <CheckCircle size={20} color={colors.success} />
+                              </Tooltip>
+                            )}
+                          </Box>
+
+                          <Typography
+                            sx={{
+                              color: 'rgba(255, 255, 255, 0.8)',
+                              fontSize: { xs: '0.9rem', sm: '1rem' },
+                              lineHeight: 1.6,
+                              mb: 1,
+                            }}
+                          >
+                            {contenu.description}
+                          </Typography>
+
+                          {/* Métadonnées du contenu */}
+                          <Box
+                            sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}
+                          >
+                            {contenu.duree && (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Clock size={16} color={colors.pink} />
+                                <Typography
+                                  sx={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.85rem' }}
+                                >
+                                  {contenu.duree} min
+                                </Typography>
+                              </Box>
+                            )}
+
+                            {contenu.createdAt && (
+                              <Typography
+                                sx={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '0.8rem' }}
+                              >
+                                Ajouté le {new Date(contenu.createdAt).toLocaleDateString('fr-FR')}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+                      </Box>
+
+                      {/* Indicateur d'action */}
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}
+                      >
+                        <Typography
+                          sx={{
+                            color: contenu.isCompleted ? colors.success : colors.pink,
+                            fontSize: '0.9rem',
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                          }}
+                        >
+                          {contenu.isCompleted ? 'Revoir le contenu' : 'Commencer'}
+                          <ArrowRight size={16} />
+                        </Typography>
+                      </Box>
+                    </ContenuCard>
+                  );
+                })}
+              </Stack>
+            </Box>
+          ) : (
+            <Alert
+              severity='info'
+              sx={{
+                bgcolor: `${colors.info}15`,
+                color: '#ffffff',
+                borderRadius: '20px',
+                p: 3,
+                border: `1px solid ${colors.info}33`,
+                '& .MuiAlert-icon': {
+                  color: colors.info,
+                },
+              }}
+            >
+              <Typography sx={{ fontWeight: 600, mb: 1 }}>
+                📝 Contenu en cours de préparation
+              </Typography>
+              <Typography sx={{ fontSize: '0.95rem', opacity: 0.9 }}>
+                Les contenus de ce cours sont actuellement en développement. Revenez bientôt pour
+                découvrir le matériel d'apprentissage.
+              </Typography>
+            </Alert>
+          )}
+        </Grid>
+
+        {/* Colonne latérale - Progression et Actions */}
+        <Grid item xs={12} lg={4}>
+          {/* Carte de progression */}
+          <CourseCard elevation={0} sx={{ mb: 4 }}>
+            <Typography
+              variant='h3'
+              sx={{
+                color: '#ffffff',
+                fontWeight: 700,
+                mb: 3,
+                fontSize: '1.3rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+              }}
+            >
+              <BarChart3 size={24} color={colors.purple} />
+              Votre Progression
+            </Typography>
+
+            {/* Indicateur de progression principal */}
+            <StatBox progress={progress?.pourcentage || 0} sx={{ mb: 3 }}>
+              <Typography
+                sx={{
+                  color: colors.success,
+                  fontWeight: 800,
+                  fontSize: { xs: '2.5rem', sm: '3rem' },
+                  mb: 1,
+                  position: 'relative',
+                  zIndex: 1,
+                }}
+              >
+                {progress?.pourcentage || 0}%
+              </Typography>
+              <Typography
+                sx={{
+                  color: 'rgba(255, 255, 255, 0.8)',
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  position: 'relative',
+                  zIndex: 1,
+                }}
+              >
+                {progress?.pourcentage === 100 ? '🎉 Cours Maîtrisé !' : 'Progression Globale'}
+              </Typography>
+
+              {/* Barre de progression détaillée */}
+              <Box sx={{ mt: 3, position: 'relative', zIndex: 1 }}>
+                <ProgressBar
+                  variant='determinate'
+                  value={progress?.pourcentage || 0}
+                  sx={{ mb: 2 }}
+                />
+                <Typography
+                  sx={{
+                    color: 'rgba(255, 255, 255, 0.6)',
+                    fontSize: '0.9rem',
+                    textAlign: 'center',
+                  }}
+                >
+                  {courseStats.completedContenus} sur {courseStats.totalContenus} contenus terminés
+                </Typography>
+              </Box>
+            </StatBox>
+
+            {/* Dates importantes */}
+            <Stack spacing={2}>
+              {progress?.dateDebut && (
+                <Box
+                  sx={{
+                    p: 2,
+                    backgroundColor: `${colors.purple}15`,
+                    borderRadius: '12px',
+                    border: `1px solid ${colors.purple}33`,
+                  }}
+                >
                   <Typography
-                    variant='h6'
+                    sx={{
+                      color: 'rgba(255, 255, 255, 0.7)',
+                      fontSize: '0.9rem',
+                      mb: 0.5,
+                      fontWeight: 600,
+                    }}
+                  >
+                    🗓️ Commencé le:
+                  </Typography>
+                  <Typography
                     sx={{
                       color: '#ffffff',
                       fontWeight: 700,
-                      display: { xs: 'none', md: 'block' },
+                      fontSize: '0.95rem',
                     }}
                   >
-                    {course.titre}
+                    {new Date(progress.dateDebut).toLocaleDateString('fr-FR', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
                   </Typography>
-                </Stack>
+                </Box>
+              )}
 
-                {/* Progression */}
-                <Stack
-                  direction='row'
-                  spacing={3}
-                  alignItems='center'
-                  sx={{ width: { xs: '100%', md: 'auto' } }}
+              {progress?.dateFin && (
+                <Box
+                  sx={{
+                    p: 2,
+                    backgroundColor: `${colors.success}15`,
+                    borderRadius: '12px',
+                    border: `1px solid ${colors.success}33`,
+                  }}
                 >
-                  <Box sx={{ flex: 1, maxWidth: '400px' }}>
-                    <Typography
-                      variant='body2'
-                      sx={{
-                        color: '#ffffff',
-                        mb: 1,
-                        textAlign: { xs: 'center', md: 'left' },
-                        fontWeight: 600,
-                      }}
-                    >
-                      Progression globale: {Math.round(progress)}%
-                    </Typography>
-                    <LinearProgress
-                      variant='determinate'
-                      value={progress}
-                      sx={{
-                        height: 8,
-                        borderRadius: 4,
-                        backgroundColor: `${colors.navy}99`,
-                        '& .MuiLinearProgress-bar': {
-                          background: `linear-gradient(90deg, ${colors.red}, ${colors.pink})`,
-                          borderRadius: 4,
-                          animation: `${glow} 2s ease-in-out infinite`,
-                        },
-                      }}
-                    />
-                  </Box>
+                  <Typography
+                    sx={{
+                      color: 'rgba(255, 255, 255, 0.7)',
+                      fontSize: '0.9rem',
+                      mb: 0.5,
+                      fontWeight: 600,
+                    }}
+                  >
+                    🏆 Terminé le:
+                  </Typography>
+                  <Typography
+                    sx={{
+                      color: colors.success,
+                      fontWeight: 700,
+                      fontSize: '0.95rem',
+                    }}
+                  >
+                    {new Date(progress.dateFin).toLocaleDateString('fr-FR', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </Typography>
+                </Box>
+              )}
+            </Stack>
+          </CourseCard>
 
-                  <ProgressIndicator progress={progress}>
-                    <CircularProgress
-                      variant='determinate'
-                      value={progress}
-                      size={60}
-                      thickness={4}
-                      sx={{
-                        color: colors.red,
-                        animation: `${glow} 2s ease-in-out infinite`,
-                      }}
-                    />
-                    <div className='progress-text'>{Math.round(progress)}%</div>
-                  </ProgressIndicator>
-                </Stack>
-              </Stack>
-            </Box>
-
-            {/* CONTENU PRINCIPAL */}
-            <Box
+          {/* Actions rapides */}
+          <Stack spacing={2}>
+            <ActionButton
+              fullWidth
+              startIcon={<BarChart3 size={20} />}
+              onClick={handleViewProgress}
               sx={{
-                display: 'flex',
-                flexDirection: { xs: 'column', lg: 'row' },
-                gap: 4,
-                p: { xs: 2, md: 4 },
-                minHeight: 'calc(100vh - 100px)',
+                background: `linear-gradient(135deg, ${colors.info}, #60a5fa)`,
               }}
             >
-              {/* BARRE LATÉRALE - LISTE DES CONTENUS */}
-              <Box sx={{ width: { xs: '100%', lg: 350 }, order: { xs: 2, lg: 1 } }}>
-                <SidebarCard>
-                  <CardContent>
-                    <Typography
-                      variant='h6'
-                      sx={{
-                        color: '#ffffff',
-                        fontWeight: 700,
-                        mb: 3,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                      }}
-                    >
-                      <BookOpen size={20} />
-                      Plan du cours
-                    </Typography>
+              Détails de la Progression
+            </ActionButton>
 
-                    <List sx={{ p: 0 }}>
-                      {contenus.map((content, index) => (
-                        <React.Fragment key={content._id}>
-                          <ListItem
-                            button
-                            selected={content._id === contenuId}
-                            onClick={() =>
-                              navigate(`/student/learn/${courseId}/contenu/${content._id}`)
-                            }
-                            sx={{
-                              borderRadius: '12px',
-                              mb: 1,
-                              py: 2,
-                              transition: 'all 0.3s ease',
-                              border:
-                                content._id === contenuId
-                                  ? `2px solid ${colors.red}`
-                                  : '2px solid transparent',
-                              '&.Mui-selected': {
-                                backgroundColor: `${colors.red}15`,
-                                '&:hover': {
-                                  backgroundColor: `${colors.red}25`,
-                                },
-                              },
-                              '&:hover': {
-                                backgroundColor: `${colors.red}10`,
-                                transform: 'translateX(4px)',
-                              },
-                            }}
-                          >
-                            <ListItemText
-                              primary={
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                  {/* Icône selon le type */}
-                                  {content.type === 'video' && (
-                                    <Play size={18} color={colors.red} />
-                                  )}
-                                  {content.type === 'document' && (
-                                    <FileText size={18} color={colors.purple} />
-                                  )}
-                                  {content.type === 'quiz' && (
-                                    <HelpCircle size={18} color={colors.warning} />
-                                  )}
+            {progress?.pourcentage === 100 && (
+              <ActionButton
+                fullWidth
+                startIcon={<Award size={20} />}
+                onClick={handleViewCertificate}
+                sx={{
+                  background: `linear-gradient(135deg, ${colors.success}, #34d399)`,
+                  animation: `${pulse} 2s infinite`,
+                }}
+              >
+                Voir Mon Certificat
+              </ActionButton>
+            )}
 
-                                  <Typography
-                                    variant='body1'
-                                    sx={{
-                                      color: '#ffffff',
-                                      fontWeight: content._id === contenuId ? 700 : 500,
-                                      fontSize: '0.9rem',
-                                    }}
-                                  >
-                                    {content.titre || `Contenu ${index + 1}`}
-                                  </Typography>
-                                </Box>
-                              }
-                              secondary={
-                                <Typography
-                                  variant='caption'
-                                  sx={{ color: 'rgba(255,255,255,0.6)', mt: 0.5 }}
-                                >
-                                  Durée: {content.duree || 'N/A'} • Étape {index + 1}
-                                </Typography>
-                              }
-                            />
+            <BackButton
+              fullWidth
+              startIcon={<BookOpen size={20} />}
+              onClick={() => navigate('/student/courses')}
+            >
+              Retour aux Cours
+            </BackButton>
+          </Stack>
 
-                            {/* Indicateur de complétion */}
-                            {content.isCompleted && (
-                              <CheckCircle
-                                size={20}
-                                color={colors.success}
-                                style={{ flexShrink: 0 }}
-                              />
-                            )}
-                          </ListItem>
+          {/* Statistiques rapides */}
+          {courseStats.totalContenus > 0 && (
+            <CourseCard elevation={0} sx={{ mt: 4 }}>
+              <Typography
+                sx={{
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  mb: 3,
+                  fontSize: '1.1rem',
+                }}
+              >
+                📊 Aperçu du Cours
+              </Typography>
 
-                          {index < contenus.length - 1 && (
-                            <Divider sx={{ bgcolor: colors.borderLight, my: 1 }} />
-                          )}
-                        </React.Fragment>
-                      ))}
-                    </List>
-                  </CardContent>
-                </SidebarCard>
-              </Box>
+              <Stack spacing={2}>
+                <Box
+                  sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                >
+                  <Typography sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.9rem' }}>
+                    Contenus terminés:
+                  </Typography>
+                  <Typography sx={{ color: colors.success, fontWeight: 700, fontSize: '1rem' }}>
+                    {courseStats.completedContenus}/{courseStats.totalContenus}
+                  </Typography>
+                </Box>
 
-              {/* CONTENU DU COURS */}
-              <GlassCard sx={{ order: { xs: 1, lg: 2 }, flex: 1 }}>
-                <Stack spacing={4}>
-                  {/* En-tête du contenu */}
-                  <Box>
-                    <Stack
-                      direction={{ xs: 'column', sm: 'row' }}
-                      spacing={2}
-                      alignItems={{ xs: 'flex-start', sm: 'center' }}
-                      justifyContent='space-between'
-                      sx={{ mb: 3 }}
-                    >
-                      <Box>
-                        <Chip
-                          label={contenu?.type?.toUpperCase() || 'CONTENU'}
-                          size='small'
-                          sx={{
-                            bgcolor:
-                              contenu?.type === 'video'
-                                ? colors.red
-                                : contenu?.type === 'document'
-                                  ? colors.purple
-                                  : contenu?.type === 'quiz'
-                                    ? colors.warning
-                                    : colors.success,
-                            color: '#ffffff',
-                            fontWeight: 700,
-                            mb: 2,
-                          }}
-                        />
-                        <Typography
-                          variant='h3'
-                          sx={{
-                            color: '#ffffff',
-                            fontWeight: 800,
-                            fontSize: { xs: '2rem', md: '2.5rem' },
-                            lineHeight: 1.2,
-                          }}
-                        >
-                          {contenu?.titre || 'Titre non disponible'}
-                        </Typography>
-                      </Box>
+                <Box
+                  sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                >
+                  <Typography sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.9rem' }}>
+                    Taux de complétion:
+                  </Typography>
+                  <Typography sx={{ color: colors.pink, fontWeight: 700, fontSize: '1rem' }}>
+                    {courseStats.completionRate}%
+                  </Typography>
+                </Box>
 
-                      {isCompleted && (
-                        <Chip
-                          icon={<CheckCircle size={16} />}
-                          label='TERMINÉ'
-                          color='success'
-                          sx={{ fontWeight: 700 }}
-                        />
-                      )}
-                    </Stack>
-
-                    <Typography
-                      variant='h6'
-                      sx={{
-                        color: 'rgba(255,255,255,0.8)',
-                        fontWeight: 600,
-                      }}
-                    >
-                      {course.titre}
-                    </Typography>
-
-                    {contenu?.description && (
-                      <Typography
-                        sx={{
-                          color: 'rgba(255,255,255,0.7)',
-                          lineHeight: 1.7,
-                          mt: 2,
-                          fontSize: '1.1rem',
-                        }}
-                      >
-                        {contenu.description}
-                      </Typography>
-                    )}
-                  </Box>
-
-                  {/* Contenu spécifique selon le type */}
-                  <Box sx={{ minHeight: '400px' }}>
-                    {contenu?.type === 'video' && (
-                      <VideoPlayer
-                        videoUrl={contenu.url}
-                        onProgress={handleVideoProgress}
-                        onEnded={handleVideoEnd}
-                        autoPlay={!isCompleted}
-                      />
-                    )}
-
-                    {contenu?.type === 'document' && (
-                      <DocumentViewer pdfUrl={contenu.url} title={contenu.titre} />
-                    )}
-
-                    {contenu?.type === 'quiz' && (
-                      <QuizComponent
-                        questions={contenu.questions || []}
-                        onSubmit={handleQuizSubmit}
-                        disabled={isCompleted}
-                      />
-                    )}
-                  </Box>
-
-                  {/* Actions de navigation */}
-                  <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    spacing={2}
-                    sx={{ mt: 4 }}
-                    justifyContent='space-between'
-                    alignItems='center'
+                {courseStats.estimatedTime > 0 && (
+                  <Box
+                    sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                   >
-                    <NavButton
-                      startIcon={<ArrowLeft size={20} />}
-                      onClick={() => goToContent('prev')}
-                      disabled={currentIndex === 0}
-                      sx={{ minWidth: '140px' }}
-                    >
-                      Précédent
-                    </NavButton>
-
-                    {/* Bouton de complétion conditionnel */}
-                    {!isCompleted && contenu?.type !== 'quiz' && (
-                      <CompleteButton
-                        onClick={handleComplete}
-                        disabled={completing}
-                        completed={isCompleted}
-                        sx={{ minWidth: '200px' }}
-                      >
-                        {completing ? (
-                          <>
-                            <CircularProgress size={16} sx={{ color: '#fff', mr: 1 }} />
-                            Marquage...
-                          </>
-                        ) : (
-                          'Marquer comme terminé'
-                        )}
-                      </CompleteButton>
-                    )}
-
-                    {isCompleted && (
-                      <CompleteButton completed={true} disabled sx={{ minWidth: '200px' }}>
-                        <CheckCircle size={20} style={{ marginRight: '8px' }} />
-                        Terminé
-                      </CompleteButton>
-                    )}
-
-                    <NavButton
-                      endIcon={<ArrowRight size={20} />}
-                      onClick={() => goToContent('next')}
-                      disabled={currentIndex === contenus.length - 1}
-                      sx={{ minWidth: '140px' }}
-                    >
-                      Suivant
-                    </NavButton>
-                  </Stack>
-
-                  {/* Indicateur de progression */}
-                  <Box sx={{ textAlign: 'center', mt: 2 }}>
-                    <Typography variant='body2' sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                      {currentIndex + 1} sur {contenus.length} contenus • Progression:{' '}
-                      {Math.round(
-                        ((currentIndex + (isCompleted ? 1 : videoProgress)) / contenus.length) * 100
-                      )}
-                      %
+                    <Typography sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.9rem' }}>
+                      Temps total estimé:
+                    </Typography>
+                    <Typography sx={{ color: colors.warning, fontWeight: 700, fontSize: '1rem' }}>
+                      {Math.ceil(courseStats.estimatedTime / 60)}h
                     </Typography>
                   </Box>
-                </Stack>
-              </GlassCard>
-            </Box>
-          </Box>
-        </Fade>
-      </Container>
-
-      {/* SNACKBAR DE NOTIFICATION */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={snackbar.severity === 'success' ? 6000 : 8000}
-        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        sx={{
-          '& .MuiSnackbarContent-root': {
-            borderRadius: '12px',
-            backdropFilter: 'blur(20px)',
-          },
-        }}
-      >
-        <Alert
-          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-          severity={snackbar.severity}
-          sx={{
-            width: '100%',
-            fontWeight: 600,
-            borderRadius: '12px',
-            backdropFilter: 'blur(20px)',
-            backgroundColor: `${colors.glassDark}`,
-            color: '#ffffff',
-            border: `1px solid ${colors.border}`,
-            '& .MuiAlert-icon': {
-              color: snackbar.severity === 'success' ? colors.success : colors.red,
-            },
-          }}
-          iconMapping={{
-            success: <CheckCircle size={24} />,
-            error: <AlertCircle size={24} />,
-            warning: <AlertCircle size={24} />,
-            info: <AlertCircle size={24} />,
-          }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+                )}
+              </Stack>
+            </CourseCard>
+          )}
+        </Grid>
+      </Grid>
     </Box>
   );
 };
 
-export default React.memo(CoursePlayer);
+export default React.memo(CourseView);
