@@ -6,17 +6,23 @@ import ProgressionModel, { IProgression } from '../../models/learning/Progressio
 import CertificatModel, { ICertificat } from '../../models/learning/Certificat';
 import InscriptionModel, { IInscription } from '../../models/learning/Inscription';
 
-// Interface pour les statistiques globales, aligned with AdminDashboard.jsx
+/**
+ * Interface pour les statistiques globales, alignée avec AdminDashboard.jsx
+ */
 interface GlobalStats {
   totalUsers: number;
   totalCourses: number;
+  totalEnrollments: number; // ✅ ajouté
   completionRate: number;
   usersByRole: Record<RoleUtilisateur, number>;
   recentActivities: { description: string; date: string }[];
   coursesData: { newUsers: number; completed: number }[];
+  //categories: string[]; // ✅ ajouté
 }
 
-// Interface pour les statistiques d’un utilisateur
+/**
+ * Interface pour les statistiques d’un utilisateur
+ */
 interface UserStats {
   user: { nom: string; prenom: string; role: RoleUtilisateur };
   enrollments: number;
@@ -26,7 +32,9 @@ interface UserStats {
   averageProgress: number;
 }
 
-// Interface pour les statistiques d’un cours
+/**
+ * Interface pour les statistiques d’un cours
+ */
 interface CourseStats {
   cours: { titre: string; niveau: string; domaine: string };
   enrollments: number;
@@ -34,7 +42,9 @@ interface CourseStats {
   certificates: number;
 }
 
-// Interface pour aggregation results
+/**
+ * Interface pour les résultats d'agrégation
+ */
 interface RoleAggregationResult {
   role: RoleUtilisateur | null;
   count: number;
@@ -45,13 +55,17 @@ interface MonthAggregationResult {
   newUsers: number;
 }
 
-// Interface pour populated inscription
+/**
+ * Interface pour une inscription peuplée
+ */
 interface PopulatedInscription extends Omit<FlattenMaps<IInscription>, 'apprenant' | 'cours'> {
   apprenant?: { nom: string; prenom: string };
   cours?: { titre: string };
 }
 
-// --- Statistiques globales ---
+/**
+ * --- Statistiques globales ---
+ */
 export const getGlobalStats = async (): Promise<GlobalStats> => {
   try {
     console.log('Fetching global stats from database');
@@ -63,6 +77,7 @@ export const getGlobalStats = async (): Promise<GlobalStats> => {
       recentInscriptions,
       usersByRole,
       newUsersByMonth,
+      categories,
     ] = await Promise.all([
       User.countDocuments(),
       Course.countDocuments(),
@@ -75,7 +90,7 @@ export const getGlobalStats = async (): Promise<GlobalStats> => {
         .populate<{ cours: { titre: string } }>('cours', 'titre')
         .lean(),
       User.aggregate<RoleAggregationResult>([
-        { $match: { role: { $in: Object.values(RoleUtilisateur) } } }, // Filter valid roles
+        { $match: { role: { $in: Object.values(RoleUtilisateur) } } },
         { $group: { _id: '$role', count: { $sum: 1 } } },
         { $project: { _id: 0, role: '$_id', count: 1 } },
       ]),
@@ -93,26 +108,24 @@ export const getGlobalStats = async (): Promise<GlobalStats> => {
         },
         { $sort: { _id: 1 } },
       ]),
+      // ✅ Ajout : récupération des catégories distinctes
+      Course.distinct('domaineId'), // ou 'categorie' selon ton modèle
     ]);
 
-    const completionRate = totalInscriptions > 0 ? Math.round((completedInscriptions / totalInscriptions) * 100) : 0;
+    const completionRate =
+      totalInscriptions > 0
+        ? Math.round((completedInscriptions / totalInscriptions) * 100)
+        : 0;
 
     const recentActivities = recentInscriptions.map((ins: PopulatedInscription) => ({
       description: `${ins.apprenant?.nom || 'Utilisateur'} ${ins.apprenant?.prenom || ''} s'est inscrit au cours "${ins.cours?.titre || 'Inconnu'}"`,
       date: ins.dateInscription.toISOString(),
     }));
 
-    console.log('usersByRole raw data:', usersByRole);
     const usersByRoleMap = usersByRole.reduce<Record<RoleUtilisateur, number>>(
       (acc: Record<RoleUtilisateur, number>, { role, count }: RoleAggregationResult) => {
-        if (!role) {
-          console.warn('Skipping invalid role entry:', { role, count });
-          return acc;
-        }
-        return {
-          ...acc,
-          [role]: count,
-        };
+        if (!role) return acc;
+        return { ...acc, [role]: count };
       },
       {
         [RoleUtilisateur.ETUDIANT]: 0,
@@ -124,37 +137,39 @@ export const getGlobalStats = async (): Promise<GlobalStats> => {
     const coursesData = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'].map((_, i: number) => {
       const date = new Date();
       date.setMonth(date.getMonth() - 5 + i);
-      const monthKey = date.toISOString().slice(0, 7); // YYYY-MM
+      const monthKey = date.toISOString().slice(0, 7);
       const found = newUsersByMonth.find((r: MonthAggregationResult) => r._id === monthKey);
-      return {
-        newUsers: found ? found.newUsers : 0,
-        completed: 0, // Replace with actual completion logic if available
-      };
+      return { newUsers: found ? found.newUsers : 0, completed: 0 };
     });
 
     return {
       totalUsers,
       totalCourses,
+      totalEnrollments: totalInscriptions, // ✅ ajouté
       completionRate,
       usersByRole: usersByRoleMap,
       recentActivities,
       coursesData,
+    //  categories, // ✅ ajouté
     };
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     console.error('Error in getGlobalStats:', errorMessage, err instanceof Error ? err.stack : '');
-    throw createError(500, `Erreur lors de la récupération des statistiques globales: ${errorMessage}`);
+    throw createError(
+      500,
+      `Erreur lors de la récupération des statistiques globales: ${errorMessage}`
+    );
   }
 };
 
-// --- Statistiques pour un utilisateur ---
+/**
+ * --- Statistiques pour un utilisateur ---
+ */
 export const getUserStats = async (userId: string | Types.ObjectId): Promise<UserStats> => {
   try {
     console.log(`Fetching stats for user: ${userId}`);
     const user = await User.findById(userId);
-    if (!user) {
-      throw createError(404, 'Utilisateur non trouvé');
-    }
+    if (!user) throw createError(404, 'Utilisateur non trouvé');
 
     const [enrollments, progressions, completions, certificates] = await Promise.all([
       InscriptionModel.countDocuments({ apprenant: userId }),
@@ -179,18 +194,24 @@ export const getUserStats = async (userId: string | Types.ObjectId): Promise<Use
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     console.error('Error in getUserStats:', errorMessage, err instanceof Error ? err.stack : '');
-    throw createError(500, `Erreur lors de la récupération des statistiques utilisateur: ${errorMessage}`);
+    throw createError(
+      500,
+      `Erreur lors de la récupération des statistiques utilisateur: ${errorMessage}`
+    );
   }
 };
 
-// --- Statistiques pour un cours ---
+/**
+ * --- Statistiques pour un cours ---
+ */
 export const getCourseStats = async (coursId: string | Types.ObjectId): Promise<CourseStats> => {
   try {
     console.log(`Fetching stats for course: ${coursId}`);
-    const cours = await Course.findById(coursId).populate<{ domaineId: { nom: string } }>('domaineId', 'nom');
-    if (!cours) {
-      throw createError(404, 'Cours non trouvé');
-    }
+    const cours = await Course.findById(coursId).populate<{ domaineId: { nom: string } }>(
+      'domaineId',
+      'nom'
+    );
+    if (!cours) throw createError(404, 'Cours non trouvé');
 
     const [enrollments, completions, certificates] = await Promise.all([
       InscriptionModel.countDocuments({ cours: coursId }),
@@ -211,11 +232,16 @@ export const getCourseStats = async (coursId: string | Types.ObjectId): Promise<
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     console.error('Error in getCourseStats:', errorMessage, err instanceof Error ? err.stack : '');
-    throw createError(500, `Erreur lors de la récupération des statistiques du cours: ${errorMessage}`);
+    throw createError(
+      500,
+      `Erreur lors de la récupération des statistiques du cours: ${errorMessage}`
+    );
   }
 };
 
-// --- Utilisateurs récents ---
+/**
+ * --- Utilisateurs récents ---
+ */
 export const getRecentUsers = async (limit: number = 10): Promise<Partial<IUser>[]> => {
   try {
     console.log(`Fetching recent users, limit: ${limit}`);
@@ -230,7 +256,9 @@ export const getRecentUsers = async (limit: number = 10): Promise<Partial<IUser>
   }
 };
 
-// --- Taux global de complétion ---
+/**
+ * --- Taux global de complétion ---
+ */
 export const getCompletionRate = async (): Promise<{ rate: number }> => {
   try {
     console.log('Fetching global completion rate');
@@ -239,11 +267,16 @@ export const getCompletionRate = async (): Promise<{ rate: number }> => {
       ProgressionModel.countDocuments({ pourcentage: 100 }),
     ]);
     return {
-      rate: totalEnrollments > 0 ? Math.round((totalCompletions / totalEnrollments) * 100) : 0,
+      rate: totalEnrollments > 0
+        ? Math.round((totalCompletions / totalEnrollments) * 100)
+        : 0,
     };
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     console.error('Error in getCompletionRate:', errorMessage, err instanceof Error ? err.stack : '');
-    throw createError(500, `Erreur lors de la récupération du taux de complétion: ${errorMessage}`);
+    throw createError(
+      500,
+      `Erreur lors de la récupération du taux de complétion: ${errorMessage}`
+    );
   }
 };

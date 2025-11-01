@@ -16,7 +16,6 @@ import {
   LinearProgress,
   Tooltip,
   IconButton,
-  Container,
   List,
   ListItem,
   ListItemText,
@@ -24,7 +23,6 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Paper,
 } from '@mui/material';
 import { styled, keyframes } from '@mui/material/styles';
 import {
@@ -247,7 +245,7 @@ const getModuleIcon = (type) => {
   const icons = {
     VIDEO: VideoIcon,
     TEXTE: ArticleIcon,
-    QUIZ: HelpCircleIcon,
+    QUIZ: QuizIcon,
     DOCUMENT: FileTextIcon,
   };
   return icons[type] || BookIcon;
@@ -278,7 +276,11 @@ const CourseView = () => {
   const { addNotification } = useNotifications();
 
   const courseIdentifier = id || courseId;
+
+  // ✅ CORRECTION: URLs d'API corrigées
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+  const COURSES_API_URL = `${API_BASE_URL}/courses`;
+  const LEARNING_API_URL = `${API_BASE_URL}/learning`;
 
   // États du composant
   const [course, setCourse] = useState(null);
@@ -293,7 +295,7 @@ const CourseView = () => {
    */
   const handleModuleClick = useCallback(
     (module, section) => {
-      const moduleId = getContenuId(module);
+      const moduleId = module._id || module.id;
       if (!moduleId) {
         addNotification('Module inaccessible - ID manquant', 'error');
         return;
@@ -353,18 +355,25 @@ const CourseView = () => {
         'Content-Type': 'application/json',
       };
 
-      // Récupération parallèle des données
+      // ✅ CORRECTION: Récupération parallèle des données avec les bons endpoints
       const [courseResponse, progressResponse] = await Promise.allSettled([
         // Données du cours avec sections et modules
-        axios.get(`${API_BASE_URL}/courses/${courseIdentifier}`, {
+        axios.get(`${COURSES_API_URL}/${courseIdentifier}`, {
           headers,
           timeout: 15000,
         }),
         // Progression de l'utilisateur
-        axios.get(`${API_BASE_URL}/learning/progress/${courseIdentifier}`, {
-          headers,
-          timeout: 10000,
-        }),
+        axios
+          .get(`${LEARNING_API_URL}/progress/${courseIdentifier}`, {
+            headers,
+            timeout: 10000,
+          })
+          .catch((err) => {
+            console.warn(
+              '⚠️ Endpoint progression non disponible, utilisation des données par défaut'
+            );
+            return { data: { data: { pourcentage: 0, completedModules: [] } } };
+          }),
       ]);
 
       // Traitement de la réponse du cours
@@ -377,49 +386,65 @@ const CourseView = () => {
         throw new Error('❌ Données du cours non trouvées');
       }
 
-      // Normalisation de la structure des données
+      console.log('📋 Données cours reçues:', courseData);
+
+      // ✅ CORRECTION: Normalisation améliorée de la structure des données
       const normalizedCourse = {
         ...courseData,
         _id: courseData._id || courseIdentifier,
         titre: courseData.titre || courseData.title || 'Cours sans titre',
         description: courseData.description || 'Aucune description disponible pour le moment.',
         duree: courseData.duree || courseData.duration,
-        niveau: courseData.niveau || courseData.level || 'Débutant',
+        niveau: courseData.niveau || courseData.level || 'ALFA',
         domaine:
           courseData.domaineId?.nom || courseData.domaine || courseData.category || 'Général',
         createur: courseData.createur || courseData.instructor || courseData.auteur,
         contenu: courseData.contenu || { sections: [] },
       };
 
+      // ✅ CORRECTION: Validation et normalisation des sections et modules
+      if (normalizedCourse.contenu && normalizedCourse.contenu.sections) {
+        normalizedCourse.contenu.sections = normalizedCourse.contenu.sections.map(
+          (section, index) => ({
+            ...section,
+            _id: section._id || `section-${index}`,
+            titre: section.titre || `Section ${index + 1}`,
+            modules: (section.modules || []).map((module, modIndex) => ({
+              ...module,
+              _id: module._id || `module-${index}-${modIndex}`,
+              titre: module.titre || `Module ${modIndex + 1}`,
+              type: module.type || 'TEXTE',
+              duree: module.duree || 0,
+            })),
+          })
+        );
+      }
+
       setCourse(normalizedCourse);
 
       // Expansion de la première section par défaut
       if (normalizedCourse.contenu.sections.length > 0) {
-        setExpandedSections([normalizedCourse.contenu.sections[0]._id || 0]);
+        setExpandedSections([normalizedCourse.contenu.sections[0]._id]);
       }
 
-      // Traitement de la progression
+      // ✅ CORRECTION: Traitement amélioré de la progression
+      let progressData = { pourcentage: 0, completedModules: [] };
+
       if (progressResponse.status === 'fulfilled') {
-        const progressData = progressResponse.value.data?.data || progressResponse.value.data;
-        setProgress({
-          pourcentage: Math.min(100, Math.max(0, progressData?.pourcentage || 0)),
-          dateDebut: progressData?.dateDebut || progressData?.startDate,
-          dateFin: progressData?.dateFin || progressData?.endDate,
-          cours: courseIdentifier,
-          apprenant: user?._id || user?.id,
-          completedModules: progressData?.completedModules || [],
-        });
-      } else {
-        console.warn('⚠️ Erreur récupération progression:', progressResponse.reason?.message);
-        setProgress({
-          pourcentage: 0,
-          dateDebut: null,
-          dateFin: null,
-          cours: courseIdentifier,
-          apprenant: user?._id || user?.id,
-          completedModules: [],
-        });
+        progressData =
+          progressResponse.value.data?.data || progressResponse.value.data || progressData;
       }
+
+      console.log('📊 Données progression:', progressData);
+
+      setProgress({
+        pourcentage: Math.min(100, Math.max(0, progressData?.pourcentage || 0)),
+        dateDebut: progressData?.dateDebut || progressData?.startDate,
+        dateFin: progressData?.dateFin || progressData?.endDate,
+        cours: courseIdentifier,
+        apprenant: user?._id || user?.id,
+        completedModules: progressData?.completedModules || [],
+      });
     } catch (err) {
       console.error('❌ Erreur critique lors du chargement du cours:', {
         message: err.message,
@@ -482,7 +507,7 @@ const CourseView = () => {
       setLoading(false);
       setRetrying(false);
     }
-  }, [courseIdentifier, user, logout, navigate, API_BASE_URL]);
+  }, [courseIdentifier, user, logout, navigate, COURSES_API_URL, LEARNING_API_URL]);
 
   // Effet de chargement initial
   useEffect(() => {
@@ -990,13 +1015,13 @@ const CourseView = () => {
                   section.modules,
                   progress?.completedModules || []
                 );
-                const isExpanded = expandedSections.includes(section._id || sectionIndex);
+                const isExpanded = expandedSections.includes(section._id);
 
                 return (
                   <SectionCard
-                    key={section._id || sectionIndex}
+                    key={section._id}
                     expanded={isExpanded}
-                    onChange={() => handleSectionExpand(section._id || sectionIndex)}
+                    onChange={() => handleSectionExpand(section._id)}
                     completed={sectionProgress === 100}
                   >
                     <AccordionSummary
@@ -1115,7 +1140,7 @@ const CourseView = () => {
 
                             return (
                               <ModuleCard
-                                key={module._id || moduleIndex}
+                                key={module._id}
                                 completed={isCompleted}
                                 moduletype={module.type}
                                 onClick={() => handleModuleClick(module, section)}

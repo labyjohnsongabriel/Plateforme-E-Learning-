@@ -18,7 +18,6 @@ import {
   DialogContent,
   DialogActions,
   IconButton,
-  Container,
 } from '@mui/material';
 import { styled, keyframes } from '@mui/material/styles';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -99,7 +98,7 @@ const glow = keyframes`
 `;
 
 /**
- * Palette de couleurs UNIFIÉE (IDENTIQUE À Certificates.jsx)
+ * Palette de couleurs UNIFIÉE
  */
 const colors = {
   navy: '#010b40',
@@ -314,6 +313,10 @@ const getProgressLabel = (progress) => {
 
 const getLevelColor = (level) => {
   const levelColors = {
+    ALFA: colors.success,
+    BETA: colors.info,
+    GAMMA: colors.warning,
+    DELTA: colors.red,
     Débutant: colors.success,
     Intermédiaire: colors.info,
     Avancé: colors.warning,
@@ -377,7 +380,9 @@ const MyCourses = () => {
   const [selectedView, setSelectedView] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
 
+  // ✅ CORRECTION: URL d'API corrigée
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+  const LEARNING_API_URL = `${API_BASE_URL}/learning`;
 
   /**
    * Récupération des cours avec gestion d'erreur professionnelle
@@ -403,9 +408,10 @@ const MyCourses = () => {
       setLoading(true);
       setError(null);
 
-      console.log('Début de la récupération des cours...');
+      console.log('🔄 Début de la récupération des cours...');
 
-      const response = await axios.get(`${API_BASE_URL}/courses/my-courses`, {
+      // ✅ CORRECTION: Utilisation du bon endpoint pour les inscriptions
+      const response = await axios.get(`${LEARNING_API_URL}/enrollments`, {
         headers: {
           Authorization: `Bearer ${user.token}`,
           'Content-Type': 'application/json',
@@ -413,16 +419,14 @@ const MyCourses = () => {
         timeout: 20000,
       });
 
-      console.log('Réponse serveur reçue:', response.data);
+      console.log('✅ Réponse serveur reçue:', response.data);
 
-      // Traitement des données avec validation robuste
-      let coursesList = [];
+      // ✅ CORRECTION: Traitement des données d'inscription
+      let enrollmentsList = [];
       if (response.data?.data && Array.isArray(response.data.data)) {
-        coursesList = response.data.data;
+        enrollmentsList = response.data.data;
       } else if (Array.isArray(response.data)) {
-        coursesList = response.data;
-      } else if (response.data?.courses && Array.isArray(response.data.courses)) {
-        coursesList = response.data.courses;
+        enrollmentsList = response.data;
       } else {
         console.warn('Format de réponse inattendu:', response.data);
         setError('Format de données serveur invalide');
@@ -431,24 +435,54 @@ const MyCourses = () => {
         return;
       }
 
-      // Normalisation et enrichissement des données
-      const normalizedCourses = coursesList.map((course, index) => ({
-        ...course,
-        _id: course._id || course.id || `temp-${index}`,
-        title: course.title || course.titre || 'Cours sans titre',
-        description:
-          course.description || course.desc || 'Aucune description disponible pour le moment.',
-        progression: Math.min(100, Math.max(0, Number(course.progression || course.progress || 0))),
-        duration: course.duration || course.duree || null,
-        level: course.level || course.niveau?.nom || 'Débutant',
-        instructeur: course.instructeurId || course.instructeur || null,
-        inscriptionId: course.inscriptionId || course.enrollmentId || null,
-        categorie: course.categorie || course.category || 'Général',
-        dateInscription: course.dateInscription || course.createdAt || new Date().toISOString(),
-        rating: course.rating || Math.random() * 1 + 4,
-      }));
+      // ✅ CORRECTION: Normalisation des données d'inscription
+      const normalizedCourses = enrollmentsList
+        .filter((enrollment) => enrollment && enrollment.cours && enrollment._id)
+        .map((enrollment, index) => {
+          const course = enrollment.cours;
 
-      console.log(`${normalizedCourses.length} cours normalisés avec succès`);
+          // Gestion du domaine
+          let domaineNom = 'Général';
+          if (course.domaineId?._id && course.domaineId?.nom) {
+            domaineNom = course.domaineId.nom;
+          } else if (typeof course.domaineId === 'string') {
+            domaineNom = 'Domaine non défini';
+          }
+
+          // Gestion de l'instructeur
+          let instructeurNom = 'Instructeur';
+          if (course.instructeurId?._id) {
+            instructeurNom =
+              `${course.instructeurId.prenom || ''} ${course.instructeurId.nom || ''}`.trim() ||
+              instructeurNom;
+          } else if (course.createur?._id) {
+            instructeurNom =
+              `${course.createur.prenom || ''} ${course.createur.nom || ''}`.trim() ||
+              instructeurNom;
+          }
+
+          return {
+            ...course,
+            _id: course._id || `temp-${index}`,
+            inscriptionId: enrollment._id, // ID de l'inscription pour la suppression
+            title: course.titre || course.title || 'Cours sans titre',
+            description: course.description || 'Aucune description disponible pour le moment.',
+            progression: Math.min(
+              100,
+              Math.max(0, Number(enrollment.progression || enrollment.progress || 0))
+            ),
+            duration: course.duree || course.duration || null,
+            level: course.niveau || course.level || 'ALFA',
+            instructeur: instructeurNom,
+            categorie: domaineNom,
+            dateInscription:
+              enrollment.dateInscription || enrollment.createdAt || new Date().toISOString(),
+            rating: course.rating || Math.random() * 1 + 4,
+            statut: enrollment.statut || 'ACTIVE',
+          };
+        });
+
+      console.log(`✅ ${normalizedCourses.length} cours normalisés avec succès`);
 
       setCourses(normalizedCourses);
       setError(null);
@@ -459,7 +493,7 @@ const MyCourses = () => {
         navigate(location.pathname, { replace: true });
       }
     } catch (err) {
-      console.error('Erreur lors de la récupération des cours:', err);
+      console.error('❌ Erreur lors de la récupération des cours:', err);
 
       let errorMessage = 'Erreur lors du chargement de vos cours';
       let shouldLogout = false;
@@ -508,7 +542,7 @@ const MyCourses = () => {
       setLoading(false);
       setRetrying(false);
     }
-  }, [user, logout, navigate, location, addNotification, API_BASE_URL]);
+  }, [user, logout, navigate, location, addNotification, LEARNING_API_URL]);
 
   /**
    * Gestionnaires de suppression professionnels
@@ -536,7 +570,10 @@ const MyCourses = () => {
         return;
       }
 
-      await axios.delete(`${API_BASE_URL}/learning/enrollment/${selectedCourse.inscriptionId}`, {
+      console.log("🔄 Tentative de suppression de l'inscription:", selectedCourse.inscriptionId);
+
+      // ✅ CORRECTION: Utilisation du bon endpoint pour la suppression
+      await axios.delete(`${LEARNING_API_URL}/enrollments/${selectedCourse.inscriptionId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -553,7 +590,7 @@ const MyCourses = () => {
       setDeleteDialogOpen(false);
       setSelectedCourse(null);
     } catch (err) {
-      console.error('Erreur lors de la désinscription:', err);
+      console.error('❌ Erreur lors de la désinscription:', err);
 
       let errorMessage = 'Erreur lors de la désinscription';
       if (err.response) {
@@ -585,7 +622,7 @@ const MyCourses = () => {
     } finally {
       setDeleteLoading(false);
     }
-  }, [selectedCourse, user, navigate, addNotification, API_BASE_URL]);
+  }, [selectedCourse, user, navigate, addNotification, LEARNING_API_URL]);
 
   const handleDeleteDialogClose = useCallback(() => {
     if (!deleteLoading) {
@@ -970,7 +1007,7 @@ const MyCourses = () => {
                           }
                         : {
                             backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                            color: 'rgba( Cateurs, 255, 255, 0.7)',
+                            color: 'rgba(255, 255, 255, 0.7)',
                           }),
                     }}
                   />
@@ -1129,7 +1166,7 @@ const MyCourses = () => {
 
                     {/* Badge de niveau */}
                     <Chip
-                      label={course.level}
+                      label={`Niveau ${course.level}`}
                       size='small'
                       sx={{
                         position: 'absolute',
@@ -1258,9 +1295,7 @@ const MyCourses = () => {
                             fontWeight: 500,
                           }}
                         >
-                          {typeof course.instructeur === 'object'
-                            ? `${course.instructeur.prenom || ''} ${course.instructeur.nom || ''}`.trim()
-                            : 'Instructeur'}
+                          {course.instructeur}
                         </Typography>
                       </Box>
                     )}
@@ -1268,7 +1303,7 @@ const MyCourses = () => {
                     {/* Durée */}
                     {course.duration && (
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Clock size_USERNAME={18} color={colors.purple} />
+                        <Clock size={18} color={colors.purple} />
                         <Typography
                           sx={{
                             color: 'rgba(255, 255, 255, 0.7)',

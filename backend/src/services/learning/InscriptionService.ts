@@ -1,187 +1,321 @@
-// src/services/learning/InscriptionService.ts
 import { Types } from 'mongoose';
-import { MongoServerError } from 'mongodb';
 import createError from 'http-errors';
-import Inscription, { IInscription } from '../../models/learning/Inscription';
-import Cours from '../../models/course/Cours';
-import Progression from '../../models/learning/Progression';
+import InscriptionModel, { IInscription } from '../../models/learning/Inscription';
+import Course from '../../models/course/Cours';
 import { StatutInscription } from '../../models/enums/StatutInscription';
 
 class InscriptionService {
-  /**
-   * Enrôle un utilisateur dans un cours - CORRIGÉ
-   */
-  static async enroll(apprenant: string, coursId: string): Promise<IInscription> {
-    // ✅ Validation renforcée
-    if (!apprenant || !Types.ObjectId.isValid(apprenant)) {
-      throw createError(400, 'Identifiant utilisateur invalide');
-    }
-    if (!coursId || !Types.ObjectId.isValid(coursId)) {
-      throw createError(400, 'Identifiant de cours invalide');
-    }
-
-    const course = await Cours.findById(coursId);
-    if (!course) {
-      throw createError(404, 'Cours introuvable');
-    }
-
-    // ✅ Vérification d'existence avec cours valide
-    const existing = await Inscription.findOne({ 
-      apprenant, 
-      cours: coursId 
-    });
-    if (existing) {
-      throw createError(409, 'Utilisateur déjà inscrit à ce cours');
-    }
-
+  // =======================
+  // ✅ INSCRIPTION D'UN UTILISATEUR
+  // =======================
+  static enroll = async (userId: string, coursId: string) => {
     try {
-      const inscription = await Inscription.create({
-        apprenant: new Types.ObjectId(apprenant),
-        cours: new Types.ObjectId(coursId),
-        statut: StatutInscription.EN_COURS,
+      console.log(`Tentative d'inscription - User: ${userId}, Cours: ${coursId}`);
+
+      if (!Types.ObjectId.isValid(userId) || !Types.ObjectId.isValid(coursId)) {
+        throw createError(400, 'Identifiants invalides');
+      }
+
+      const cours = await Course.findById(coursId);
+      if (!cours) {
+        throw createError(404, 'Cours non trouvé');
+      }
+
+      const existingInscription = await InscriptionModel.findOne({
+        apprenant: userId,
+        cours: coursId,
+      });
+
+      if (existingInscription) {
+        throw createError(409, 'Vous êtes déjà inscrit à ce cours');
+      }
+
+      const inscription = new InscriptionModel({
+        apprenant: userId,
+        cours: coursId,
         dateInscription: new Date(),
+        statut: StatutInscription.ACTIVE,
       });
 
-      // ✅ Mise à jour du cours
-      await Cours.findByIdAndUpdate(coursId, { 
-        $addToSet: { etudiants: apprenant } 
-      });
+      await inscription.save();
 
-      // ✅ CORRECTION: Création de la progression avec le bon champ
-      await Progression.create({ 
-        apprenant: new Types.ObjectId(apprenant), // ✅ Changé de 'user' à 'apprenant'
-        cours: new Types.ObjectId(coursId), 
-        pourcentage: 0 
-      });
+      const populatedInscription = await InscriptionModel.findById(inscription._id)
+        .populate('apprenant', 'nom prenom email')
+        .populate({
+          path: 'cours',
+          select: 'titre description niveau domaineId instructeurId createur duree image datePublication estPublie',
+          populate: [
+            {
+              path: 'domaineId',
+              select: 'nom description'
+            },
+            {
+              path: 'instructeurId',
+              select: 'nom prenom email'
+            },
+            {
+              path: 'createur',
+              select: 'nom prenom email'
+            }
+          ]
+        })
+        .lean();
 
-      return await inscription.populate('cours', 'titre description');
-    } catch (error: unknown) {
-      if (error instanceof MongoServerError && error.code === 11000) {
-        throw createError(409, 'Inscription déjà existante');
-      }
-      
-      // ✅ Gestion spécifique des erreurs de validation
-      if (error instanceof Error && error.message.includes('cours')) {
-        throw createError(400, `Erreur de validation: ${error.message}`);
-      }
-      
-      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-      throw createError(500, `Erreur lors de l'inscription : ${errorMessage}`);
+      console.log('Inscription créée avec succès:', populatedInscription?._id);
+      return populatedInscription;
+
+    } catch (error) {
+      console.error('Erreur lors de l\'inscription:', error);
+      throw error;
     }
-  }
+  };
 
-  /**
-   * Récupère toutes les inscriptions d'un utilisateur
-   */
-  static async getUserEnrollments(apprenant: string): Promise<IInscription[]> {
-    if (!apprenant || !Types.ObjectId.isValid(apprenant)) {
-      throw createError(400, 'Identifiant utilisateur invalide');
-    }
-
+  // =======================
+  // ✅ RÉCUPÉRER LES INSCRIPTIONS D'UN UTILISATEUR - CORRIGÉ
+  // =======================
+  static getUserEnrollments = async (userId: string) => {
     try {
-      const enrollments = await Inscription.find({ 
-        apprenant,
-        cours: { $ne: null }
-      }).populate('cours', 'titre description');
+      console.log(`Récupération des inscriptions pour l'utilisateur: ${userId}`);
 
-      return enrollments as IInscription[];
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-      throw createError(
-        500,
-        `Erreur lors de la récupération des inscriptions : ${errorMessage}`
-      );
-    }
-  }
+      if (!Types.ObjectId.isValid(userId)) {
+        throw createError(400, 'Identifiant utilisateur invalide');
+      }
 
-  /**
-   * Met à jour le statut d'une inscription
-   */
-  static async updateStatus(
-    inscriptionId: string,
-    statut: StatutInscription,
-    apprenant: string
-  ): Promise<IInscription> {
-    if (!inscriptionId || !Types.ObjectId.isValid(inscriptionId)) {
-      throw createError(400, 'Identifiant d\'inscription invalide');
-    }
-    if (!apprenant || !Types.ObjectId.isValid(apprenant)) {
-      throw createError(400, 'Identifiant utilisateur invalide');
-    }
-    if (!Object.values(StatutInscription).includes(statut)) {
-      throw createError(400, 'Statut invalide');
-    }
+      const inscriptions = await InscriptionModel.find({ apprenant: userId })
+        .populate({
+          path: 'cours',
+          select: 'titre description niveau duree image domaineId instructeurId createur datePublication estPublie progression',
+          populate: [
+            {
+              path: 'domaineId',
+              select: 'nom description'
+            },
+            {
+              path: 'instructeurId', // CORRECTION: instructeurId au lieu de instructeur
+              select: 'nom prenom email'
+            },
+            {
+              path: 'createur',
+              select: 'nom prenom email'
+            }
+          ]
+        })
+        .populate('apprenant', 'nom prenom email')
+        .sort({ dateInscription: -1 })
+        .lean();
 
+      console.log(`Nombre d'inscriptions trouvées: ${inscriptions.length}`);
+
+      const validInscriptions = inscriptions.filter(inscription => {
+        try {
+          if (!inscription._id || !inscription.cours) {
+            console.warn('Inscription invalide ignorée (champs manquants):', inscription);
+            return false;
+          }
+
+          if (typeof inscription.cours !== 'object' || !inscription.cours._id) {
+            console.warn('Inscription invalide ignorée (cours invalide):', inscription);
+            return false;
+          }
+
+          return true;
+        } catch (error) {
+          console.warn('Erreur lors de la validation de l\'inscription:', error, inscription);
+          return false;
+        }
+      });
+
+      console.log(`Nombre d'inscriptions valides: ${validInscriptions.length}`);
+      return validInscriptions;
+
+    } catch (error) {
+      console.error('Erreur lors de la récupération des inscriptions:', error);
+      throw error;
+    }
+  };
+
+  // =======================
+  // ✅ MISE À JOUR DU STATUT D'UNE INSCRIPTION
+  // =======================
+  static updateStatus = async (inscriptionId: string, statut: StatutInscription, userId: string) => {
     try {
-      const inscription = await Inscription.findOne({
+      console.log(`Mise à jour du statut - Inscription: ${inscriptionId}, Statut: ${statut}`);
+
+      if (!Types.ObjectId.isValid(inscriptionId)) {
+        throw createError(400, 'Identifiant d\'inscription invalide');
+      }
+
+      const inscription = await InscriptionModel.findOne({
         _id: inscriptionId,
-        apprenant,
-        cours: { $ne: null }
+        apprenant: userId
       });
-      
+
       if (!inscription) {
-        throw createError(404, 'Inscription non trouvée ou invalide');
+        throw createError(404, 'Inscription non trouvée');
       }
 
       inscription.statut = statut;
+      if (statut === StatutInscription.COMPLETE) {
+        inscription.dateCompletion = new Date();
+      }
+
       await inscription.save();
 
-      return await inscription.populate('cours', 'titre description');
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-      throw createError(
-        500,
-        `Erreur lors de la mise à jour du statut : ${errorMessage}`
-      );
-    }
-  }
+      const updatedInscription = await InscriptionModel.findById(inscription._id)
+        .populate({
+          path: 'cours',
+          select: 'titre description niveau instructeurId createur',
+          populate: [
+            {
+              path: 'instructeurId', // CORRECTION: instructeurId au lieu de instructeur
+              select: 'nom prenom email'
+            },
+            {
+              path: 'createur',
+              select: 'nom prenom email'
+            }
+          ]
+        })
+        .populate('apprenant', 'nom prenom email')
+        .lean();
 
-  /**
-   * Supprime une inscription - CORRIGÉ
-   */
-  static async deleteEnrollment(
-    inscriptionId: string,
-    apprenant: string
-  ): Promise<{ message: string }> {
-    if (!inscriptionId || !Types.ObjectId.isValid(inscriptionId)) {
-      throw createError(400, 'Identifiant d\'inscription invalide');
-    }
-    if (!apprenant || !Types.ObjectId.isValid(apprenant)) {
-      throw createError(400, 'Identifiant utilisateur invalide');
-    }
+      return updatedInscription;
 
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du statut:', error);
+      throw error;
+    }
+  };
+
+  // =======================
+  // ✅ SUPPRESSION D'UNE INSCRIPTION
+  // =======================
+  static deleteEnrollment = async (inscriptionId: string, userId: string) => {
     try {
-      const inscription = await Inscription.findOneAndDelete({
+      console.log(`Suppression d'inscription - Inscription: ${inscriptionId}, User: ${userId}`);
+
+      if (!Types.ObjectId.isValid(inscriptionId)) {
+        throw createError(400, 'Identifiant d\'inscription invalide');
+      }
+
+      const inscription = await InscriptionModel.findOne({
         _id: inscriptionId,
-        apprenant,
-        cours: { $ne: null }
+        apprenant: userId
       });
 
       if (!inscription) {
-        throw createError(404, 'Inscription non trouvée ou invalide');
+        throw createError(404, 'Inscription non trouvée');
       }
 
-      // ✅ CORRECTION: Nettoyage avec le bon champ
-      if (inscription.cours) {
-        await Cours.findByIdAndUpdate(inscription.cours, {
-          $pull: { etudiants: apprenant },
-        });
+      await InscriptionModel.findByIdAndDelete(inscriptionId);
 
-        await Progression.deleteOne({ 
-          apprenant: new Types.ObjectId(apprenant), // ✅ Changé de 'user' à 'apprenant'
-          cours: inscription.cours 
-        });
-      }
+      return {
+        message: 'Inscription supprimée avec succès',
+        deletedId: inscriptionId
+      };
 
-      return { message: 'Inscription supprimée avec succès' };
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-      throw createError(
-        500,
-        `Erreur lors de la suppression de l'inscription : ${errorMessage}`
-      );
+    } catch (error) {
+      console.error('Erreur lors de la suppression de l\'inscription:', error);
+      throw error;
     }
-  }
+  };
+
+  // =======================
+  // ✅ STATISTIQUES DES INSCRIPTIONS
+  // =======================
+  static getEnrollmentStats = async (userId: string) => {
+    try {
+      if (!Types.ObjectId.isValid(userId)) {
+        throw createError(400, 'Identifiant utilisateur invalide');
+      }
+
+      const stats = await InscriptionModel.aggregate([
+        { $match: { apprenant: new Types.ObjectId(userId) } },
+        {
+          $group: {
+            _id: '$statut',
+            count: { $sum: 1 }
+          }
+        }
+      ]);
+
+      return stats.reduce((acc, stat) => {
+        acc[stat._id] = stat.count;
+        return acc;
+      }, {} as Record<string, number>);
+
+    } catch (error) {
+      console.error('Erreur lors de la récupération des statistiques:', error);
+      throw error;
+    }
+  };
+
+  // =======================
+  // ✅ VÉRIFICATION SI L'UTILISATEUR EST INSCRIT À UN COURS
+  // =======================
+  static isUserEnrolled = async (userId: string, coursId: string): Promise<boolean> => {
+    try {
+      if (!Types.ObjectId.isValid(userId) || !Types.ObjectId.isValid(coursId)) {
+        return false;
+      }
+
+      const inscription = await InscriptionModel.findOne({
+        apprenant: userId,
+        cours: coursId,
+        statut: StatutInscription.ACTIVE
+      });
+
+      return !!inscription;
+    } catch (error) {
+      console.error('Erreur lors de la vérification de l\'inscription:', error);
+      return false;
+    }
+  };
+
+  // =======================
+  // ✅ RÉCUPÉRER UNE INSCRIPTION SPÉCIFIQUE
+  // =======================
+  static getEnrollmentById = async (inscriptionId: string, userId: string) => {
+    try {
+      if (!Types.ObjectId.isValid(inscriptionId)) {
+        throw createError(400, 'Identifiant d\'inscription invalide');
+      }
+
+      const inscription = await InscriptionModel.findOne({
+        _id: inscriptionId,
+        apprenant: userId
+      })
+        .populate({
+          path: 'cours',
+          select: 'titre description niveau duree image domaineId instructeurId createur datePublication estPublie progression contenu',
+          populate: [
+            {
+              path: 'domaineId',
+              select: 'nom description'
+            },
+            {
+              path: 'instructeurId', // CORRECTION: instructeurId au lieu de instructeur
+              select: 'nom prenom email'
+            },
+            {
+              path: 'createur',
+              select: 'nom prenom email'
+            }
+          ]
+        })
+        .populate('apprenant', 'nom prenom email')
+        .lean();
+
+      if (!inscription) {
+        throw createError(404, 'Inscription non trouvée');
+      }
+
+      return inscription;
+    } catch (error) {
+      console.error('Erreur lors de la récupération de l\'inscription:', error);
+      throw error;
+    }
+  };
 }
 
 export default InscriptionService;

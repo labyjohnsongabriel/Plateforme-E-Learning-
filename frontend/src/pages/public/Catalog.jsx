@@ -31,11 +31,10 @@ import axios from 'axios';
 import { useNotifications } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
 
-// ✅ CORRECTION: URL de base séparée pour les cours et l'apprentissage
-const COURSES_API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/courses';
-const LEARNING_API_BASE_URL = import.meta.env.VITE_API_BASE_URL ? 
-  import.meta.env.VITE_API_BASE_URL.replace('/courses', '') : 
-  'http://localhost:3001/api';
+// ✅ CORRECTION: URLs d'API corrigées
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+const COURSES_API_URL = `${API_BASE_URL}/courses`;
+const LEARNING_API_URL = `${API_BASE_URL}/learning`;
 
 // Animations
 const fadeInUp = keyframes`
@@ -161,11 +160,12 @@ const Catalog = () => {
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
     try {
+      // ✅ CORRECTION: Appels API simplifiés avec les bonnes URLs
       const [statsResponse, coursesResponse, domainsResponse] = await Promise.all([
-        axios.get(`${COURSES_API_BASE_URL}/stats`, { headers }).catch(() => ({
+        axios.get(`${COURSES_API_URL}/stats`, { headers }).catch(() => ({
           data: { courses: '500+', learners: '1,200+', satisfaction: '95%' },
         })),
-        axios.get(`${COURSES_API_BASE_URL}/public`, {
+        axios.get(`${COURSES_API_URL}/public`, {
           params: {
             page,
             limit: coursesPerPage,
@@ -175,50 +175,65 @@ const Catalog = () => {
           },
           headers,
         }),
-        axios.get(`${COURSES_API_BASE_URL}/domaine`, { headers }),
+        axios.get(`${COURSES_API_URL}/domaine`, { headers }).catch(() => ({
+          data: { data: [] }
+        })),
       ]);
 
       setStats(statsResponse.data);
-      const coursesData = coursesResponse.data.data || [];
+      const coursesData = coursesResponse.data.data || coursesResponse.data || [];
       const domainsData = domainsResponse.data.data || domainsResponse.data || [];
+      
       setDomains([{ _id: 'all', nom: 'Tous les domaines' }, ...domainsData]);
 
-      // ✅ CORRECTION: Validation améliorée des cours
+      // ✅ CORRECTION: Normalisation améliorée des cours
       const normalizedCourses = coursesData
-        .filter(course => course && course._id) // Filtre les cours valides
+        .filter(course => course && course._id)
         .map((course) => {
           let domaineNom = 'N/A';
+          
+          // Gestion du domaine
           if (course.domaineId?._id && course.domaineId?.nom) {
             domaineNom = course.domaineId.nom;
           } else if (typeof course.domaineId === 'string') {
             const matchingDomain = domainsData.find((d) => d._id === course.domaineId);
             domaineNom = matchingDomain ? matchingDomain.nom : 'Domaine non défini';
+          } else if (course.domaineNom) {
+            domaineNom = course.domaineNom;
           }
+
           return {
             ...course,
             domaineNom,
-            title: course.titre || 'Titre non disponible',
+            title: course.titre || course.title || 'Titre non disponible',
             description: course.description || 'Description non disponible',
-            level: course.niveau || 'N/A',
-            // ✅ S'assurer que l'ID est valide
+            level: course.niveau || course.level || 'N/A',
             _id: course._id && typeof course._id === 'string' ? course._id : course._id?.toString()
           };
         });
       
       setCourses(normalizedCourses);
       setTotalPages(Math.max(1, coursesResponse.data.totalPages || 1));
+      
+      console.log('✅ Catalogue chargé:', {
+        coursesCount: normalizedCourses.length,
+        domainsCount: domainsData.length,
+        totalPages: coursesResponse.data.totalPages
+      });
+
     } catch (err) {
       console.error('❌ Erreur lors du chargement des données:', err);
       const errorMessage =
         err.response?.data?.message || 'Impossible de charger le catalogue. Veuillez réessayer.';
+      
       if (err.response?.status === 401) {
         setError('Veuillez vous connecter pour accéder au catalogue.');
         addNotification('Session expirée. Veuillez vous reconnecter.', 'warning');
         navigate('/login');
       } else {
         setError(errorMessage);
+        addNotification(errorMessage, 'error', { autoHideDuration: 5000 });
       }
-      addNotification(errorMessage, 'error', { autoHideDuration: 5000 });
     } finally {
       setLoading(false);
     }
@@ -226,7 +241,6 @@ const Catalog = () => {
 
   const filteredCourses = useMemo(() => {
     return courses.filter((course) => {
-      // ✅ CORRECTION: Validation stricte des cours
       if (!course?._id) return false;
       
       const courseLevel = course.level || 'N/A';
@@ -237,6 +251,7 @@ const Catalog = () => {
         searchTerm === '' ||
         course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         course.description.toLowerCase().includes(searchTerm.toLowerCase());
+      
       return matchesLevel && matchesDomain && matchesSearch;
     });
   }, [courses, filterLevel, filterDomain, searchTerm]);
@@ -258,16 +273,14 @@ const Catalog = () => {
     }
   };
 
-  // ✅ CORRECTION: Fonction d'inscription améliorée
+  // ✅ CORRECTION: Fonction d'inscription optimisée
   const handleEnrollClick = (course) => {
-    // Validation stricte du cours
     if (!course?._id) {
       console.error('❌ Cours invalide pour inscription:', course);
       addNotification('Erreur: Cours non valide', 'error');
       return;
     }
 
-    // Vérification de l'utilisateur
     if (!user) {
       addNotification('Veuillez vous connecter pour vous inscrire', 'warning');
       navigate('/login', { state: { returnUrl: `/course/${course._id}` } });
@@ -278,7 +291,7 @@ const Catalog = () => {
     setEnrollDialogOpen(true);
   };
 
-  // ✅ CORRECTION: Fonction de confirmation d'inscription
+  // ✅ CORRECTION: Fonction d'inscription principale
   const handleEnrollConfirm = async () => {
     if (!selectedCourse?._id) {
       console.error('❌ Aucun cours sélectionné pour inscription');
@@ -288,6 +301,7 @@ const Catalog = () => {
     }
 
     setEnrollLoading(true);
+    
     try {
       const token = localStorage.getItem('token') || user?.token;
       if (!token) {
@@ -297,11 +311,14 @@ const Catalog = () => {
         return;
       }
 
-      console.log('🔄 Tentative d\'inscription au cours:', selectedCourse._id);
+      console.log('🔄 Tentative d\'inscription au cours:', {
+        courseId: selectedCourse._id,
+        courseTitle: selectedCourse.title
+      });
 
-      // ✅ CORRECTION: URL corrigée pour l'inscription
+      // ✅ CORRECTION: Appel API d'inscription
       const response = await axios.post(
-        `${LEARNING_API_BASE_URL}/learning/enroll`,
+        `${LEARNING_API_URL}/enroll`,
         { 
           coursId: selectedCourse._id 
         },
@@ -310,7 +327,7 @@ const Catalog = () => {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          timeout: 10000, // Timeout de 10 secondes
+          timeout: 15000,
         }
       );
 
@@ -318,26 +335,30 @@ const Catalog = () => {
 
       addNotification(
         `Inscription au cours "${selectedCourse.title}" réussie !`, 
-        'success'
+        'success',
+        { autoHideDuration: 6000 }
       );
       
       setEnrollDialogOpen(false);
       setSelectedCourse(null);
       
       // Redirection vers les cours de l'étudiant
-      navigate('/student/courses');
+      setTimeout(() => {
+        navigate('/student/courses');
+      }, 2000);
 
     } catch (err) {
       console.error('❌ Erreur d\'inscription:', err);
       
       let errorMessage = 'Erreur lors de l\'inscription';
       let notificationType = 'error';
+      let shouldRedirect = false;
       
       if (err.response) {
         const status = err.response.status;
         const data = err.response.data;
         
-        console.log('📊 Réponse erreur:', { status, data });
+        console.log('📊 Détails erreur:', { status, data });
 
         switch (status) {
           case 400:
@@ -346,7 +367,7 @@ const Catalog = () => {
           case 401:
             errorMessage = 'Session expirée, veuillez vous reconnecter';
             notificationType = 'warning';
-            navigate('/login', { state: { returnUrl: `/course/${selectedCourse._id}` } });
+            shouldRedirect = true;
             break;
           case 403:
             errorMessage = 'Vous n\'avez pas accès à ce cours';
@@ -357,8 +378,7 @@ const Catalog = () => {
           case 409:
             errorMessage = 'Vous êtes déjà inscrit à ce cours';
             notificationType = 'info';
-            // Rediriger vers le cours si déjà inscrit
-            navigate('/student/courses');
+            shouldRedirect = true;
             break;
           case 500:
             errorMessage = 'Erreur serveur lors de l\'inscription';
@@ -373,6 +393,16 @@ const Catalog = () => {
       }
 
       addNotification(errorMessage, notificationType, { autoHideDuration: 6000 });
+
+      if (shouldRedirect) {
+        setTimeout(() => {
+          if (err.response?.status === 401) {
+            navigate('/login', { state: { returnUrl: `/course/${selectedCourse._id}` } });
+          } else if (err.response?.status === 409) {
+            navigate('/student/courses');
+          }
+        }, 2000);
+      }
     } finally {
       setEnrollLoading(false);
     }
@@ -385,12 +415,19 @@ const Catalog = () => {
     }
   };
 
-  // ✅ CORRECTION: Vérification améliorée de la validité du cours
   const isValidCourse = (course) => {
     return course && 
            course._id && 
            course.title && 
            course.title !== 'Titre non disponible';
+  };
+
+  // ✅ CORRECTION: Fonction pour réinitialiser les filtres
+  const handleResetFilters = () => {
+    setFilterLevel('all');
+    setFilterDomain('all');
+    setSearchTerm('');
+    setPage(1);
   };
 
   return (
@@ -498,13 +535,16 @@ const Catalog = () => {
                         fontSize: '1.1rem',
                         width: '100%',
                         outline: 'none',
+                        '&::placeholder': {
+                          color: 'rgba(255, 255, 255, 0.6)',
+                        },
                       }}
                     />
                   </SearchBox>
 
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 4 }}>
                     <Stack direction='row' spacing={2} sx={{ flexWrap: 'wrap' }}>
-                      {['all', 'Alfa', 'BETA', 'GAMMA'].map((level) => (
+                      {['all', 'ALFA', 'BETA', 'GAMMA', 'DELTA'].map((level) => (
                         <Button
                           key={level}
                           variant={filterLevel === level ? 'contained' : 'outlined'}
@@ -769,7 +809,6 @@ const Catalog = () => {
                 <Grid container spacing={4}>
                   {filteredCourses.length > 0 ? (
                     filteredCourses.map((course, index) => (
-                      // ✅ CORRECTION: Validation du cours avant affichage
                       isValidCourse(course) && (
                         <Grid item xs={12} sm={6} md={4} key={course._id}>
                           <Slide direction='up' in={isVisible} timeout={1000 + index * 200}>
@@ -895,17 +934,20 @@ const Catalog = () => {
                     ))
                   ) : (
                     <Box sx={{ textAlign: 'center', width: '100%', py: 8 }}>
-                      <Typography variant='h6' sx={{ color: colors.white }}>
+                      <Typography variant='h6' sx={{ color: colors.white, mb: 2 }}>
                         Aucun cours trouvé avec les critères sélectionnés.
                       </Typography>
                       <Button
                         variant='outlined'
-                        sx={{ mt: 2, color: colors.white, borderColor: colors.white }}
-                        onClick={() => {
-                          setFilterLevel('all');
-                          setFilterDomain('all');
-                          setSearchTerm('');
+                        sx={{ 
+                          color: colors.white, 
+                          borderColor: colors.white,
+                          '&:hover': {
+                            background: `${colors.white}22`,
+                            borderColor: colors.white,
+                          }
                         }}
+                        onClick={handleResetFilters}
                       >
                         Réinitialiser les filtres
                       </Button>
@@ -986,7 +1028,7 @@ const Catalog = () => {
             </Typography>
             <Button
               component={Link}
-              to='/register'
+              to={user ? '/student/courses' : '/register'}
               variant='contained'
               size='large'
               sx={{
@@ -1005,7 +1047,7 @@ const Catalog = () => {
               }}
               endIcon={<ChevronRight size={28} />}
             >
-              S'inscrire maintenant
+              {user ? 'Voir mes cours' : "S'inscrire maintenant"}
             </Button>
           </Stack>
         </Container>
