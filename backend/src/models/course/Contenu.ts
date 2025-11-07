@@ -6,11 +6,11 @@ export interface IContenu extends Document {
   titre: string;
   description?: string;
   url: string;
-  duree?: number;
+  duree: number; // CHANGÉ: rendu obligatoire
   ordre: number;
   cours: Types.ObjectId;
   type: 'VIDEO' | 'DOCUMENT' | 'QUIZ' | 'EXERCICE';
-  completedBy: Types.ObjectId[]; // AJOUTÉ
+  completedBy: Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
   visualiser(utilisateurId: Types.ObjectId): Promise<{ message: string }>;
@@ -18,8 +18,12 @@ export interface IContenu extends Document {
 
 // Interfaces discriminées
 interface IVideo extends IContenu {}
-interface IDocument extends IContenu { format?: 'pdf' | 'doc' | 'other'; }
-interface IExercice extends IContenu { instructions?: string; }
+interface IDocument extends IContenu { 
+  format?: 'PDF' | 'DOC' | 'OTHER'; // CHANGÉ: majuscules pour correspondre à l'enum
+}
+interface IExercice extends IContenu { 
+  instructions?: string; 
+}
 
 // Schéma principal
 const contenuSchema = new Schema<IContenu>(
@@ -27,7 +31,7 @@ const contenuSchema = new Schema<IContenu>(
     titre: { type: String, required: true },
     description: { type: String },
     url: { type: String, required: true },
-    duree: { type: Number },
+    duree: { type: Number, required: true }, // CHANGÉ: rendu obligatoire
     ordre: { type: Number, required: true },
     cours: { type: Schema.Types.ObjectId, ref: 'Cours', required: true },
     type: {
@@ -61,9 +65,13 @@ contenuSchema.methods.visualiser = async function (
 // Modèle
 const Contenu: Model<IContenu> = model<IContenu>('Contenu', contenuSchema);
 
-// Discriminateurs
+// Discriminateurs - CORRIGÉ: formats en majuscules
 Contenu.discriminator('VIDEO', new Schema<IVideo>({}));
-Contenu.discriminator('DOCUMENT', new Schema<IDocument>({ format: { type: String, enum: ['pdf', 'doc', 'other'] } }));
-Contenu.discriminator('EXERCICE', new Schema<IExercice>({ instructions: { type: String } }));
+Contenu.discriminator('DOCUMENT', new Schema<IDocument>({ 
+  format: { type: String, enum: ['PDF', 'DOC', 'OTHER'] } 
+}));
+Contenu.discriminator('EXERCICE', new Schema<IExercice>({ 
+  instructions: { type: String } 
+}));
 
 export default Contenu;

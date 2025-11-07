@@ -11,7 +11,6 @@ import {
   Container,
   Avatar,
   Alert,
-  Divider,
   Card,
   IconButton,
   List,
@@ -20,11 +19,6 @@ import {
   ListItemIcon,
   Badge,
   Fade,
-  Slide,
-  useMediaQuery,
-  useTheme,
-  Tabs,
-  Tab,
   Chip,
   CardContent,
   CardActions,
@@ -39,11 +33,9 @@ import {
   Save,
   Cancel,
   School,
-  Verified,
   Settings,
   Notifications as NotificationsIcon,
   MenuBook,
-  Shield,
   HowToReg,
   AdminPanelSettings,
   Groups,
@@ -51,7 +43,6 @@ import {
   Assignment,
   BarChart,
   People,
-  Security,
   Book,
   Star,
   TrendingUp,
@@ -126,22 +117,6 @@ const GlassCard = styled(Paper)(({ theme }) => ({
   },
 }));
 
-const ActionCard = styled(Card)(({ theme }) => ({
-  background: `linear-gradient(135deg, rgba(1, 11, 64, 0.8), rgba(26, 35, 126, 0.6))`,
-  backdropFilter: 'blur(20px)',
-  borderRadius: '20px',
-  border: `1px solid ${colors.red}33`,
-  padding: theme.spacing(3),
-  textAlign: 'center',
-  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-  cursor: 'pointer',
-  '&:hover': {
-    transform: 'translateY(-12px) scale(1.02)',
-    boxShadow: `0 25px 60px ${colors.navy}4d`,
-    animation: `${pulseGlow} 2s ease-in-out infinite`,
-  },
-}));
-
 const StatCard = styled(Card)(({ theme }) => ({
   background: `linear-gradient(135deg, rgba(1, 11, 64, 0.7), rgba(26, 35, 126, 0.5))`,
   backdropFilter: 'blur(15px)',
@@ -164,21 +139,18 @@ const ProfileHeader = ({ user, isEditing, onEditToggle }) => {
           icon: <AdminPanelSettings sx={{ fontSize: 32, color: colors.red }} />,
           title: 'Administrateur',
           color: colors.red,
-          badge: 'Staff',
         };
       case 'ENSEIGNANT':
         return {
           icon: <Groups sx={{ fontSize: 32, color: colors.orange }} />,
           title: 'Enseignant',
           color: colors.orange,
-          badge: 'Formateur',
         };
       default:
         return {
           icon: <HowToReg sx={{ fontSize: 32, color: colors.blue }} />,
           title: 'Étudiant',
           color: colors.blue,
-          badge: 'Apprenant',
         };
     }
   };
@@ -203,9 +175,6 @@ const ProfileHeader = ({ user, isEditing, onEditToggle }) => {
                 animation: `${floatingAnimation} 3s ease-in-out infinite`,
                 backgroundColor: colors.lightNavy,
                 objectFit: 'cover',
-              }}
-              onError={(e) => {
-                e.currentTarget.src = '/fallback-avatar.png'; // Fallback image
               }}
             >
               {user.prenom?.[0] || ''}
@@ -319,7 +288,7 @@ const ProfileInfo = ({
                   src={
                     editForm.avatar
                       ? URL.createObjectURL(editForm.avatar)
-                      : user.avatar || '/fallback-avatar.png'
+                      : user.avatar || undefined
                   }
                   alt='Avatar Preview'
                   sx={{
@@ -328,9 +297,6 @@ const ProfileInfo = ({
                     border: `3px solid ${colors.red}`,
                     boxShadow: `0 8px 32px ${colors.navy}4d`,
                     objectFit: 'cover',
-                  }}
-                  onError={(e) => {
-                    e.currentTarget.src = '/fallback-avatar.png';
                   }}
                 />
                 <Button
@@ -963,9 +929,9 @@ const NotificationsPanel = ({
             </Typography>
           ) : (
             <List>
-              {notifications.slice(0, 5).map((notification) => (
+              {notifications.slice(0, 5).map((notification, index) => (
                 <ListItem
-                  key={notification._id || notification.id}
+                  key={notification._id || notification.id || index}
                   sx={{
                     bgcolor: notification.lu ? 'transparent' : `${colors.purple}1a`,
                     borderRadius: 2,
@@ -1015,8 +981,6 @@ const Profile = ({ userId }) => {
     error: notificationError,
   } = useNotifications();
   const navigate = useNavigate();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const [user, setUser] = useState({
     nom: '',
@@ -1096,7 +1060,7 @@ const Profile = ({ userId }) => {
           nom: userData.nom || '',
           prenom: userData.prenom || '',
           email: userData.email || '',
-          avatar: userData.avatar ? `${API_URL}/${userData.avatar}` : '', // Prepend API_URL to avatar path
+          avatar: userData.avatar || '',
           dateInscription:
             userData.dateInscription || userData.createdAt || new Date().toISOString(),
           role: userData.role || 'ETUDIANT',
@@ -1243,13 +1207,6 @@ const Profile = ({ userId }) => {
         formData.append('avatar', editForm.avatar);
       }
 
-      // Log the FormData contents for debugging
-      const formDataEntries = {};
-      formData.forEach((value, key) => {
-        formDataEntries[key] = value instanceof File ? value.name : value;
-      });
-      console.log('🔄 Envoi des données de mise à jour:', formDataEntries);
-
       const response = await axios.put(`${API_URL}/api/auth/profile`, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1272,7 +1229,7 @@ const Profile = ({ userId }) => {
       setUser((prev) => ({
         ...prev,
         ...updatedUserData,
-        avatar: updatedUserData.avatar ? `${API_URL}/${updatedUserData.avatar}` : prev.avatar,
+        avatar: updatedUserData.avatar || prev.avatar,
         statistics: updatedUserData.statistics || prev.statistics,
         coursRecents: updatedUserData.coursRecents || prev.coursRecents,
       }));

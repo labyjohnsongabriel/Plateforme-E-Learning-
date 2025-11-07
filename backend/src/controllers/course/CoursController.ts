@@ -1,4 +1,4 @@
-// src/controllers/course/CoursController.ts
+// src/controllers/course/CoursController.ts - CORRIGÉ
 import { Request, Response, NextFunction } from 'express';
 import createError from 'http-errors';
 import mongoose from 'mongoose';
@@ -11,9 +11,84 @@ import { CourseDocument, CourseData, CourseResponse } from '../../types';
 import Progression from '../../models/learning/Progression';
 
 class CoursService {
+  // FONCTION HELPER POUR VALIDER ET NETTOYER LE CONTENU DU COURS
+  private static validateAndCleanCourseContent(contenu: any): any {
+    if (!contenu || !contenu.sections || !Array.isArray(contenu.sections)) {
+      return contenu;
+    }
+
+    const cleanedSections = contenu.sections.map((section: any, sectionIndex: number) => {
+      if (!section || typeof section !== 'object') {
+        return { 
+          titre: `Section ${sectionIndex + 1}`, 
+          modules: [], 
+          ordre: sectionIndex + 1 
+        };
+      }
+
+      const modules = Array.isArray(section.modules) ? section.modules : [];
+
+      const cleanedModules = modules.map((module: any, moduleIndex: number) => {
+        // Créer un objet module nettoyé
+        const cleanedModule: any = {
+          titre: module.titre ? module.titre.toString().trim() : `Module ${moduleIndex + 1}`,
+          type: 'DOCUMENT', // Valeur par défaut
+          duree: 5, // Valeur par défaut
+          ordre: module.ordre || moduleIndex + 1,
+          contenu: module.contenu ? module.contenu.toString().trim() : '',
+          description: module.description ? module.description.toString().trim() : ''
+        };
+
+        // Gestion du type - conversion en MAJUSCULES
+        if (module.type) {
+          const type = module.type.toString().toUpperCase();
+          const validTypes = ['VIDEO', 'DOCUMENT', 'QUIZ', 'EXERCICE'];
+          cleanedModule.type = validTypes.includes(type) ? type : 'DOCUMENT';
+        }
+
+        // Gestion de la durée
+        if (module.duree !== null && module.duree !== undefined && module.duree !== '') {
+          const dureeNum = Number(module.duree);
+          if (!isNaN(dureeNum) && dureeNum > 0) {
+            cleanedModule.duree = dureeNum;
+          }
+        }
+
+        // Conserver les métadonnées des fichiers
+        if (module.metadata && typeof module.metadata === 'object') {
+          cleanedModule.metadata = module.metadata;
+        }
+
+        // URL du fichier (important pour les contenus)
+        if (module.url) {
+          cleanedModule.url = module.url.toString().trim();
+        } else if (module.contenu) {
+          // Si pas d'URL mais un contenu textuel, on le considère comme URL
+          cleanedModule.url = module.contenu.toString().trim();
+        }
+
+        logger.debug(`Module nettoyé: ${cleanedModule.titre}, type: ${cleanedModule.type}, durée: ${cleanedModule.duree}min`);
+        
+        return cleanedModule;
+      });
+
+      return {
+        titre: section.titre ? section.titre.toString().trim() : `Section ${sectionIndex + 1}`,
+        description: section.description ? section.description.toString().trim() : '',
+        ordre: section.ordre || sectionIndex + 1,
+        modules: cleanedModules
+      };
+    });
+
+    return {
+      ...contenu,
+      sections: cleanedSections
+    };
+  }
+
   static async create(data: CourseData, createurId: string): Promise<CourseDocument> {
     try {
-      // Plus de 'domaine' → uniquement domaineId
+      // Validation des champs requis
       if (!data.titre || !data.description || !data.domaineId || !data.niveau || !data.duree) {
         throw createError(400, 'Champs requis manquants: titre, description, domaineId, niveau, duree');
       }
@@ -32,26 +107,48 @@ class CoursService {
         throw createError(400, `Niveau invalide: ${validLevels.join(', ')}`);
       }
 
+      // VALIDATION ET NETTOYAGE DU CONTENU
+      let cleanedContenu = data.contenu;
+      if (data.contenu) {
+        try {
+          cleanedContenu = this.validateAndCleanCourseContent(data.contenu);
+          logger.info('Contenu du cours validé et nettoyé avec succès');
+        } catch (validationError) {
+          logger.warn('Erreur lors de la validation du contenu, utilisation du contenu original:', validationError);
+          // On continue avec le contenu original en cas d'erreur de validation
+        }
+      }
+
+      // Validation de la durée
+      const courseDuree = Number(data.duree);
+      if (isNaN(courseDuree) || courseDuree <= 0) {
+        throw createError(400, 'La durée du cours doit être un nombre supérieur à 0');
+      }
+
       const cours = new Cours({
         ...data,
+        contenu: cleanedContenu,
         createur: createurId,
         domaineId: data.domaineId,
+        duree: courseDuree,
       });
 
       await cours.save();
 
+      // Lier le cours au domaine
       try {
         await Domaine.findByIdAndUpdate(data.domaineId, {
           $push: { cours: cours._id },
         });
+        logger.info(`Cours ${cours._id} lié au domaine ${data.domaineId}`);
       } catch (linkErr) {
-        logger.warn(`Lien domaine échoué: ${(linkErr as Error).message}`);
+        logger.warn(`Échec de liaison au domaine: ${(linkErr as Error).message}`);
       }
 
-      logger.info(`Cours créé: ${cours._id}`);
+      logger.info(`Cours créé avec succès: ${cours._id}`);
       return await this.getById(cours._id.toString());
     } catch (err) {
-      logger.error(`Création échouée: ${(err as Error).message}`);
+      logger.error(`Échec de création du cours: ${(err as Error).message}`);
       throw err;
     }
   }
@@ -124,8 +221,8 @@ class CoursService {
         currentPage: page,
       };
     } catch (err) {
-      logger.error(`Récupération échouée: ${(err as Error).message}`);
-      throw createError(500, 'Erreur serveur');
+      logger.error(`Échec de récupération des cours: ${(err as Error).message}`);
+      throw createError(500, 'Erreur serveur lors de la récupération des cours');
     }
   }
 
@@ -195,8 +292,8 @@ class CoursService {
         currentPage: page,
       };
     } catch (err) {
-      logger.error(`Cours publics échoués: ${(err as Error).message}`);
-      throw createError(500, 'Erreur serveur');
+      logger.error(`Échec de récupération des cours publics: ${(err as Error).message}`);
+      throw createError(500, 'Erreur serveur lors de la récupération des cours publics');
     }
   }
 
@@ -208,10 +305,18 @@ class CoursService {
       const pending = await Cours.countDocuments({ statutApprobation: 'PENDING' });
       const approved = await Cours.countDocuments({ statutApprobation: 'APPROVED' });
       const rejected = await Cours.countDocuments({ statutApprobation: 'REJECTED' });
-      return { total, published, draft, pending, approved, rejected };
+      
+      return { 
+        total, 
+        published, 
+        draft, 
+        pending, 
+        approved, 
+        rejected 
+      };
     } catch (err) {
-      logger.error(`Stats échouées: ${(err as Error).message}`);
-      throw createError(500, 'Erreur serveur');
+      logger.error(`Échec de récupération des statistiques: ${(err as Error).message}`);
+      throw createError(500, 'Erreur serveur lors de la récupération des statistiques');
     }
   }
 
@@ -232,8 +337,12 @@ class CoursService {
 
       const total = await Cours.countDocuments({ etudiants: userId });
 
+      // Calcul de la progression pour chaque cours
       for (const course of courses) {
-        const progression = await Progression.findOne({ user: userId, cours: course._id });
+        const progression = await Progression.findOne({ 
+          user: userId, 
+          cours: course._id 
+        });
         (course as any).progression = progression ? progression.pourcentage : 0;
       }
 
@@ -244,8 +353,8 @@ class CoursService {
         currentPage: page,
       };
     } catch (err) {
-      logger.error(`Mes cours échoués: ${(err as Error).message}`);
-      throw createError(500, 'Erreur serveur');
+      logger.error(`Échec de récupération des cours de l'utilisateur: ${(err as Error).message}`);
+      throw createError(500, 'Erreur serveur lors de la récupération de vos cours');
     }
   }
 
@@ -265,7 +374,7 @@ class CoursService {
 
       return cours as unknown as CourseDocument;
     } catch (err) {
-      logger.error(`Récupération échouée: ${(err as Error).message}`);
+      logger.error(`Échec de récupération du cours ${id}: ${(err as Error).message}`);
       throw err;
     }
   }
@@ -275,7 +384,7 @@ class CoursService {
       const currentCourse = await Cours.findById(id);
       if (!currentCourse) throw createError(404, 'Cours non trouvé');
 
-      // Plus de 'domaine' → uniquement domaineId
+      // Validation du domaine
       if (data.domaineId) {
         if (!mongoose.Types.ObjectId.isValid(data.domaineId)) {
           throw createError(400, 'Domaine ID invalide');
@@ -285,10 +394,21 @@ class CoursService {
         if (!domaineExists) throw createError(400, 'Domaine non trouvé');
       }
 
+      // Validation du niveau
       if (data.niveau) {
         const validLevels = ['ALFA', 'BETA', 'GAMMA', 'DELTA'];
         if (!validLevels.includes(data.niveau)) {
           throw createError(400, `Niveau invalide: ${validLevels.join(', ')}`);
+        }
+      }
+
+      // VALIDATION ET NETTOYAGE DU CONTENU
+      if (data.contenu) {
+        try {
+          data.contenu = this.validateAndCleanCourseContent(data.contenu);
+          logger.info('Contenu du cours validé et nettoyé pour la mise à jour');
+        } catch (validationError) {
+          logger.warn('Erreur lors de la validation du contenu pour mise à jour:', validationError);
         }
       }
 
@@ -305,6 +425,7 @@ class CoursService {
 
       if (!updated) throw createError(404, 'Cours non trouvé après mise à jour');
 
+      // Mise à jour des liens de domaine si nécessaire
       if (oldDomaineId) {
         await Domaine.findByIdAndUpdate(oldDomaineId, { $pull: { cours: id } });
         await Domaine.findByIdAndUpdate(data.domaineId, { $push: { cours: id } });
@@ -312,7 +433,7 @@ class CoursService {
 
       return await this.getById(id);
     } catch (err) {
-      logger.error(`Mise à jour échouée: ${(err as Error).message}`);
+      logger.error(`Échec de mise à jour du cours ${id}: ${(err as Error).message}`);
       throw err;
     }
   }
@@ -322,15 +443,20 @@ class CoursService {
       const cours = await Cours.findByIdAndDelete(id).lean();
       if (!cours) throw createError(404, 'Cours non trouvé');
 
-      await Contenu.deleteMany({ cours: id });
-      await Quiz.deleteMany({ cours: id });
-      await Progression.deleteMany({ cours: id });
+      // Nettoyage des données associées
+      await Promise.all([
+        Contenu.deleteMany({ cours: id }),
+        Quiz.deleteMany({ cours: id }),
+        Progression.deleteMany({ cours: id })
+      ]);
 
+      // Retirer le cours du domaine
       await Domaine.findByIdAndUpdate(cours.domaineId, { $pull: { cours: id } });
 
+      logger.info(`Cours ${id} supprimé avec succès`);
       return cours as unknown as CourseDocument;
     } catch (err) {
-      logger.error(`Suppression échouée: ${(err as Error).message}`);
+      logger.error(`Échec de suppression du cours ${id}: ${(err as Error).message}`);
       throw err;
     }
   }
@@ -339,9 +465,24 @@ class CoursService {
 class CoursController {
   static async create(req: Request<{}, {}, CourseData>, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (!req.user?.id) throw createError(401, 'Non authentifié');
+      if (!req.user?.id) throw createError(401, 'Utilisateur non authentifié');
+      
+      logger.info('Création d\'un nouveau cours', { 
+        userId: req.user.id,
+        data: {
+          titre: req.body.titre,
+          domaineId: req.body.domaineId,
+          niveau: req.body.niveau
+        }
+      });
+      
       const cours = await CoursService.create(req.body, req.user.id);
-      res.status(201).json(cours);
+      
+      res.status(201).json({
+        success: true,
+        data: cours,
+        message: 'Cours créé avec succès'
+      });
     } catch (err) {
       next(err);
     }
@@ -358,8 +499,14 @@ class CoursController {
       const search = req.query.search || '';
       const statusFilter = req.query.statusFilter || 'ALL';
       const approvalFilter = req.query.approvalFilter || 'ALL';
+      
       const result = await CoursService.getAll(page, limit, search, statusFilter, approvalFilter);
-      res.json(result);
+      
+      res.json({
+        success: true,
+        ...result,
+        message: 'Cours récupérés avec succès'
+      });
     } catch (err) {
       next(err);
     }
@@ -376,8 +523,14 @@ class CoursController {
       const search = req.query.search || '';
       const level = req.query.level || 'all';
       const domain = req.query.domain || 'all';
+      
       const result = await CoursService.getPublicCourses(page, limit, search, level, domain);
-      res.json(result);
+      
+      res.json({
+        success: true,
+        ...result,
+        message: 'Cours publics récupérés avec succès'
+      });
     } catch (err) {
       next(err);
     }
@@ -386,7 +539,12 @@ class CoursController {
   static async getStats(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const stats = await CoursService.getStats();
-      res.json(stats);
+      
+      res.json({
+        success: true,
+        data: stats,
+        message: 'Statistiques récupérées avec succès'
+      });
     } catch (err) {
       next(err);
     }
@@ -395,7 +553,12 @@ class CoursController {
   static async getById(req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> {
     try {
       const cours = await CoursService.getById(req.params.id);
-      res.json(cours);
+      
+      res.json({
+        success: true,
+        data: cours,
+        message: 'Cours récupéré avec succès'
+      });
     } catch (err) {
       next(err);
     }
@@ -403,8 +566,18 @@ class CoursController {
 
   static async update(req: Request<{ id: string }, {}, Partial<CourseData>>, res: Response, next: NextFunction): Promise<void> {
     try {
+      logger.info('Mise à jour du cours', { 
+        courseId: req.params.id,
+        updates: Object.keys(req.body)
+      });
+      
       const cours = await CoursService.update(req.params.id, req.body);
-      res.json(cours);
+      
+      res.json({
+        success: true,
+        data: cours,
+        message: 'Cours mis à jour avec succès'
+      });
     } catch (err) {
       next(err);
     }
@@ -412,8 +585,15 @@ class CoursController {
 
   static async delete(req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> {
     try {
+      logger.info('Suppression du cours', { courseId: req.params.id });
+      
       const cours = await CoursService.delete(req.params.id);
-      res.json({ message: 'Cours supprimé', cours });
+      
+      res.json({
+        success: true,
+        data: cours,
+        message: 'Cours supprimé avec succès'
+      });
     } catch (err) {
       next(err);
     }
@@ -425,11 +605,18 @@ class CoursController {
     next: NextFunction
   ): Promise<void> {
     try {
-      if (!req.user?.id) throw createError(401, 'Non authentifié');
+      if (!req.user?.id) throw createError(401, 'Utilisateur non authentifié');
+      
       const page = parseInt(req.query.page || '1', 10);
       const limit = parseInt(req.query.limit || '10', 10);
+      
       const result = await CoursService.getMyCourses(req.user.id, page, limit);
-      res.json(result);
+      
+      res.json({
+        success: true,
+        ...result,
+        message: 'Vos cours récupérés avec succès'
+      });
     } catch (err) {
       next(err);
     }

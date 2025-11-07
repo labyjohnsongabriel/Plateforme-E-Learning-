@@ -728,7 +728,7 @@ const Dashboard = () => {
         </Grid>
 
         {/* Temps d'Étude Total */}
-        <Grid item xs={6} sm={4} md={3}>
+     { /*  <Grid item xs={6} sm={4} md={3}>
           <StatCard color={colors.warning}>
             <Clock size={36} color={colors.warning} style={{ marginBottom: '16px' }} />
             <Typography
@@ -751,7 +751,7 @@ const Dashboard = () => {
               Temps d'Étude
             </Typography>
           </StatCard>
-        </Grid>
+        </Grid>*/}
 
         {/* Apprenants Actifs (statique pour l'instant) */}
         <Grid item xs={6} sm={4} md={3}>

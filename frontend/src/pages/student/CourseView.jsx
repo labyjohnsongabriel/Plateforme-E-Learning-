@@ -234,9 +234,9 @@ const ProgressBar = styled(LinearProgress)({
 const getModuleColor = (type) => {
   const colorsMap = {
     VIDEO: colors.red,
-    TEXTE: colors.info,
+    DOCUMENT: colors.info,
     QUIZ: colors.warning,
-    DOCUMENT: colors.purple,
+    EXERCICE: colors.purple,
   };
   return colorsMap[type] || colors.pink;
 };
@@ -244,9 +244,9 @@ const getModuleColor = (type) => {
 const getModuleIcon = (type) => {
   const icons = {
     VIDEO: VideoIcon,
-    TEXTE: ArticleIcon,
+    DOCUMENT: ArticleIcon,
     QUIZ: QuizIcon,
-    DOCUMENT: FileTextIcon,
+    EXERCICE: FileTextIcon,
   };
   return icons[type] || BookIcon;
 };
@@ -263,24 +263,18 @@ const calculateSectionProgress = (modules, completedModules = []) => {
   return Math.round((completedCount / modules.length) * 100);
 };
 
-// Fonction utilitaire pour obtenir l'ID du contenu
-const getContenuId = (contenu) => {
-  return contenu._id || contenu.id;
-};
-
 // === COMPOSANT PRINCIPAL ===
 const CourseView = () => {
   const { id, courseId } = useParams();
   const navigate = useNavigate();
   const { user, logout } = useAuth() || { user: null, logout: () => {} };
-  const { addNotification } = useNotifications();
+  const { addNotification } = useNotifications() || { addNotification: () => {} };
 
   const courseIdentifier = id || courseId;
 
-  // ✅ CORRECTION: URLs d'API corrigées
+  // ✅ CORRECTION: URLs d'API corrigées et simplifiées
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
   const COURSES_API_URL = `${API_BASE_URL}/courses`;
-  const LEARNING_API_URL = `${API_BASE_URL}/learning`;
 
   // États du composant
   const [course, setCourse] = useState(null);
@@ -327,7 +321,7 @@ const CourseView = () => {
       if (!user?.token) {
         setError('🔐 Authentification requise - Veuillez vous reconnecter');
         setTimeout(() => {
-          logout();
+          logout?.();
           navigate('/login', {
             state: {
               returnUrl: `/student/course/${courseIdentifier}`,
@@ -355,37 +349,18 @@ const CourseView = () => {
         'Content-Type': 'application/json',
       };
 
-      // ✅ CORRECTION: Récupération parallèle des données avec les bons endpoints
-      const [courseResponse, progressResponse] = await Promise.allSettled([
-        // Données du cours avec sections et modules
-        axios.get(`${COURSES_API_URL}/${courseIdentifier}`, {
-          headers,
-          timeout: 15000,
-        }),
-        // Progression de l'utilisateur
-        axios
-          .get(`${LEARNING_API_URL}/progress/${courseIdentifier}`, {
-            headers,
-            timeout: 10000,
-          })
-          .catch((err) => {
-            console.warn(
-              '⚠️ Endpoint progression non disponible, utilisation des données par défaut'
-            );
-            return { data: { data: { pourcentage: 0, completedModules: [] } } };
-          }),
-      ]);
+      // ✅ CORRECTION: Récupération simple du cours d'abord
+      const courseResponse = await axios.get(`${COURSES_API_URL}/${courseIdentifier}`, {
+        headers,
+        timeout: 15000,
+      });
 
       // Traitement de la réponse du cours
-      if (courseResponse.status === 'rejected') {
-        throw new Error(`Erreur cours: ${courseResponse.reason.message}`);
-      }
-
-      const courseData = courseResponse.value.data?.data || courseResponse.value.data;
-      if (!courseData) {
+      if (!courseResponse.data) {
         throw new Error('❌ Données du cours non trouvées');
       }
 
+      const courseData = courseResponse.data.data || courseResponse.data;
       console.log('📋 Données cours reçues:', courseData);
 
       // ✅ CORRECTION: Normalisation améliorée de la structure des données
@@ -394,7 +369,7 @@ const CourseView = () => {
         _id: courseData._id || courseIdentifier,
         titre: courseData.titre || courseData.title || 'Cours sans titre',
         description: courseData.description || 'Aucune description disponible pour le moment.',
-        duree: courseData.duree || courseData.duration,
+        duree: courseData.duree || courseData.duration || 0,
         niveau: courseData.niveau || courseData.level || 'ALFA',
         domaine:
           courseData.domaineId?.nom || courseData.domaine || courseData.category || 'Général',
@@ -402,22 +377,31 @@ const CourseView = () => {
         contenu: courseData.contenu || { sections: [] },
       };
 
-      // ✅ CORRECTION: Validation et normalisation des sections et modules
+      // ✅ CORRECTION: Validation et normalisation robuste des sections et modules
       if (normalizedCourse.contenu && normalizedCourse.contenu.sections) {
-        normalizedCourse.contenu.sections = normalizedCourse.contenu.sections.map(
-          (section, index) => ({
-            ...section,
+        normalizedCourse.contenu.sections = normalizedCourse.contenu.sections
+          .filter((section) => section && typeof section === 'object')
+          .map((section, index) => ({
             _id: section._id || `section-${index}`,
             titre: section.titre || `Section ${index + 1}`,
-            modules: (section.modules || []).map((module, modIndex) => ({
-              ...module,
-              _id: module._id || `module-${index}-${modIndex}`,
-              titre: module.titre || `Module ${modIndex + 1}`,
-              type: module.type || 'TEXTE',
-              duree: module.duree || 0,
-            })),
-          })
-        );
+            description: section.description || '',
+            ordre: section.ordre || index + 1,
+            modules: (section.modules || [])
+              .filter((module) => module && typeof module === 'object')
+              .map((module, modIndex) => ({
+                _id: module._id || `module-${index}-${modIndex}`,
+                titre: module.titre || `Module ${modIndex + 1}`,
+                type: (module.type || 'DOCUMENT').toUpperCase(),
+                duree: module.duree || 0,
+                description: module.description || '',
+                ordre: module.ordre || modIndex + 1,
+                contenu: module.contenu || '',
+                url: module.url || '',
+                metadata: module.metadata || null,
+              })),
+          }));
+      } else {
+        normalizedCourse.contenu = { sections: [] };
       }
 
       setCourse(normalizedCourse);
@@ -427,12 +411,27 @@ const CourseView = () => {
         setExpandedSections([normalizedCourse.contenu.sections[0]._id]);
       }
 
-      // ✅ CORRECTION: Traitement amélioré de la progression
+      // ✅ CORRECTION: Tentative de récupération de la progression avec fallback
       let progressData = { pourcentage: 0, completedModules: [] };
 
-      if (progressResponse.status === 'fulfilled') {
-        progressData =
-          progressResponse.value.data?.data || progressResponse.value.data || progressData;
+      try {
+        const progressResponse = await axios.get(
+          `${API_BASE_URL}/learning/progress/${courseIdentifier}`,
+          {
+            headers,
+            timeout: 10000,
+          }
+        );
+
+        if (progressResponse.data) {
+          progressData = progressResponse.data.data || progressResponse.data || progressData;
+        }
+      } catch (progressError) {
+        console.warn(
+          '⚠️ Endpoint progression non disponible, utilisation des données par défaut:',
+          progressError.message
+        );
+        // On continue avec les données par défaut
       }
 
       console.log('📊 Données progression:', progressData);
@@ -494,7 +493,7 @@ const CourseView = () => {
 
       if (shouldLogout) {
         setTimeout(() => {
-          logout();
+          logout?.();
           navigate('/login', {
             state: {
               returnUrl: `/student/course/${courseIdentifier}`,
@@ -507,7 +506,7 @@ const CourseView = () => {
       setLoading(false);
       setRetrying(false);
     }
-  }, [courseIdentifier, user, logout, navigate, COURSES_API_URL, LEARNING_API_URL]);
+  }, [courseIdentifier, user, logout, navigate, COURSES_API_URL, API_BASE_URL]);
 
   // Effet de chargement initial
   useEffect(() => {
@@ -1216,7 +1215,7 @@ const CourseView = () => {
                                         )}
 
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                          {module.duree && (
+                                          {module.duree > 0 && (
                                             <Box
                                               sx={{
                                                 display: 'flex',

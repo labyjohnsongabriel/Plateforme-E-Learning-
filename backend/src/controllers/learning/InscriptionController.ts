@@ -6,7 +6,7 @@ import { Types } from 'mongoose';
 
 class InscriptionController {
   // =======================
-  // ✅ 1. INSCRIPTION D'UN UTILISATEUR
+  // ✅ INSCRIPTION D'UN UTILISATEUR
   // =======================
   static enroll = async (
     req: Request<{}, {}, { coursId: string }>,
@@ -41,7 +41,7 @@ class InscriptionController {
   };
 
   // =======================
-  // ✅ 2. RÉCUPÉRER LES INSCRIPTIONS D'UN UTILISATEUR
+  // ✅ RÉCUPÉRER LES INSCRIPTIONS D'UN UTILISATEUR
   // =======================
   static getUserEnrollments = async (
     req: Request,
@@ -66,7 +66,54 @@ class InscriptionController {
   };
 
   // =======================
-  // ✅ 3. RÉCUPÉRER UNE INSCRIPTION SPÉCIFIQUE
+  // ✅ RÉCUPÉRER LES ÉTUDIANTS D'UN INSTRUCTEUR - NOUVEAU
+  // =======================
+  static getInstructorStudents = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+      const instructorId = InscriptionController.getUserId(req);
+      console.log('Récupération des étudiants pour instructeur:', instructorId);
+
+      const result = await InscriptionService.getInstructorStudents(instructorId);
+      
+      res.json({ 
+        success: true,
+        ...result
+      });
+    } catch (err) {
+      console.error('Erreur dans getInstructorStudents:', err);
+      next(err);
+    }
+  };
+
+  // =======================
+  // ✅ STATISTIQUES INSTRUCTEUR - NOUVEAU
+  // =======================
+  static getInstructorStats = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+      const instructorId = InscriptionController.getUserId(req);
+      
+      const stats = await InscriptionService.getInstructorStats(instructorId);
+      
+      res.json({
+        success: true,
+        data: stats
+      });
+    } catch (err) {
+      console.error('Erreur dans getInstructorStats:', err);
+      next(err);
+    }
+  };
+
+  // =======================
+  // ✅ RÉCUPÉRER UNE INSCRIPTION SPÉCIFIQUE
   // =======================
   static getEnrollmentById = async (
     req: Request<{ id: string }>,
@@ -97,7 +144,7 @@ class InscriptionController {
   };
 
   // =======================
-  // ✅ 4. MISE À JOUR DU STATUT D'UNE INSCRIPTION
+  // ✅ MISE À JOUR DU STATUT D'UNE INSCRIPTION
   // =======================
   static updateStatus = async (
     req: Request<{ id: string }, {}, { statut: StatutInscription }>,
@@ -132,7 +179,7 @@ class InscriptionController {
   };
 
   // =======================
-  // ✅ 5. SUPPRESSION D'UNE INSCRIPTION
+  // ✅ SUPPRESSION D'UNE INSCRIPTION
   // =======================
   static delete = async (
     req: Request<{ id: string }>,
@@ -162,7 +209,7 @@ class InscriptionController {
   };
 
   // =======================
-  // ✅ 6. STATISTIQUES DES INSCRIPTIONS
+  // ✅ STATISTIQUES DES INSCRIPTIONS
   // =======================
   static getStats = async (
     req: Request,
@@ -184,7 +231,7 @@ class InscriptionController {
   };
 
   // =======================
-  // ✅ 7. VÉRIFICATION D'INSCRIPTION À UN COURS
+  // ✅ VÉRIFICATION D'INSCRIPTION À UN COURS
   // =======================
   static checkEnrollment = async (
     req: Request<{ coursId: string }>,
@@ -213,12 +260,14 @@ class InscriptionController {
   };
 
   // =======================
-  // ✅ 8. MÉTHODE PRIVÉE POUR RÉCUPÉRER L'ID UTILISATEUR
+  // ✅ MÉTHODE PRIVÉE POUR RÉCUPÉRER L'ID UTILISATEUR
   // =======================
   private static getUserId(req: Request): string {
-    const id = req.user?._id?.toString();
-    if (!id) throw createError(401, 'Non authentifié');
-    return id;
+    const user = (req as any).user;
+    if (!user || !user._id) {
+      throw createError(401, 'Non authentifié');
+    }
+    return user._id.toString();
   }
 }
 

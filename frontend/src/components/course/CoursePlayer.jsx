@@ -1,4 +1,3 @@
-// CoursePlayer.jsx - VERSION PROFESSIONNELLE COMPLÈTE
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -29,6 +28,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Breadcrumbs,
 } from '@mui/material';
 import { styled, keyframes } from '@mui/material/styles';
 import {
@@ -41,7 +41,7 @@ import {
   Analytics as BarChart3Icon,
   PlayArrow as PlayIcon,
   Description as FileTextIcon,
-  Help as HelpCircleIcon,
+  HelpOutline as HelpCircleIcon,
   Pause as PauseIcon,
   VolumeUp as VolumeUpIcon,
   VolumeOff as VolumeOffIcon,
@@ -55,11 +55,15 @@ import {
   SkipNext as SkipNextIcon,
   SkipPrevious as SkipPreviousIcon,
   Replay as ReplayIcon,
+  Quiz as QuizIcon,
+  VideoLibrary as VideoIcon,
+  Article as ArticleIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 
 // === CONFIGURATION AVANCÉE ===
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+const UPLOADS_BASE_URL = import.meta.env.VITE_UPLOADS_BASE_URL || 'http://localhost:3001/uploads';
 
 // === SYSTEME DE LOGGING PROFESSIONNEL ===
 const logger = {
@@ -104,308 +108,214 @@ const pulse = keyframes`
   }
   50% { 
     transform: scale(1.05); 
-    box-shadow: 0 0 0 12px rgba(241, 53, 68, 0);
-  }
-`;
-
-const shimmer = keyframes`
-  0% {
-    background-position: -1000px 0;
-  }
-  100% {
-    background-position: 1000px 0;
-  }
-`;
-
-const float = keyframes`
-  0%, 100% { 
-    transform: translateY(0px) rotate(0deg); 
-  }
-  50% { 
-    transform: translateY(-20px) rotate(5deg); 
+    boxShadow: 0 0 0 12px rgba(241, 53, 68, 0);
   }
 `;
 
 // === SYSTÈME DE DESIGN PROFESSIONNEL ===
 const colors = {
-  // Couleurs principales
-  navy: '#010b40',
-  darkNavy: '#00072d',
-  deepSpace: '#0a0f2d',
-  spaceBlue: '#1a237e',
-
-  // Accents
-  red: '#f13544',
-  redLight: '#ff6b74',
-  redDark: '#c71f2e',
-  purple: '#8b5cf6',
-  purpleLight: '#a78bfa',
-
-  // États
+  primary: '#1a237e',
+  secondary: '#f50057',
   success: '#10b981',
-  successLight: '#34d399',
-  successDark: '#047857',
   warning: '#f59e0b',
-  warningLight: '#fbbf24',
   error: '#ef4444',
-  errorLight: '#f87171',
   info: '#3b82f6',
-  infoLight: '#60a5fa',
-
-  // Glassmorphism
-  glass: 'rgba(255, 255, 255, 0.08)',
-  glassDark: 'rgba(1, 11, 64, 0.6)',
-  glassLight: 'rgba(255, 255, 255, 0.12)',
-  glassExtra: 'rgba(255, 255, 255, 0.05)',
-
-  // Bordures
-  border: 'rgba(241, 53, 68, 0.25)',
-  borderLight: 'rgba(255, 255, 255, 0.15)',
-  borderDark: 'rgba(1, 11, 64, 0.5)',
-
-  // Texte
+  background: '#010b40',
+  surface: '#010b40',
   text: {
-    primary: '#ffffff',
-    secondary: 'rgba(255, 255, 255, 0.85)',
-    muted: 'rgba(255, 255, 255, 0.65)',
-    disabled: 'rgba(255, 255, 255, 0.4)',
-    inverse: '#010b40',
+    primary: '#f8fafc',
+    secondary: '#cbd5e1',
+    muted: '#94a3b8',
   },
 };
 
-// === STYLED COMPONENTS PROFESSIONNELS ===
-const GlassCard = styled(Card)(({ theme }) => ({
-  background: `linear-gradient(135deg, ${colors.glass}, ${colors.glassDark})`,
-  backdropFilter: 'blur(25px)',
-  border: `1px solid ${colors.border}`,
-  borderRadius: '28px',
-  padding: theme.spacing(4),
-  animation: `${fadeInUp} 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)`,
-  boxShadow: `
-    0 25px 50px ${colors.navy}40,
-    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
-    0 1px 0 0 rgba(255, 255, 255, 0.1) inset
-  `,
-  position: 'relative',
-  overflow: 'hidden',
-  '&::before': {
-    content: '""',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '2px',
-    background: `linear-gradient(90deg, transparent, ${colors.red}, transparent)`,
-    animation: `${shimmer} 3s ease-in-out infinite`,
-  },
-  '&::after': {
-    content: '""',
-    position: 'absolute',
-    top: '-50%',
-    left: '-50%',
-    width: '200%',
-    height: '200%',
-    background: `linear-gradient(45deg, 
-      transparent 0%, 
-      ${colors.red}08 50%, 
-      transparent 100%
-    )`,
-    animation: `${float} 6s ease-in-out infinite`,
-    pointerEvents: 'none',
-  },
-  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-  '&:hover': {
-    transform: 'translateY(-8px)',
-    boxShadow: `
-      0 35px 70px ${colors.navy}60,
-      0 0 0 1px rgba(255, 255, 255, 0.12) inset
-    `,
-  },
-  [theme.breakpoints.down('md')]: {
-    padding: theme.spacing(3),
-    borderRadius: '24px',
-  },
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(2.5),
-    borderRadius: '20px',
-  },
-}));
+// ✅ FONCTION: Simplification des noms de fichiers pour la recherche
+const simplifyFilename = (filename) => {
+  if (!filename) return '';
 
-const SidebarCard = styled(Card)(({ theme, mobileopen }) => ({
-  background: `linear-gradient(135deg, ${colors.glassLight}, ${colors.glassDark})`,
-  backdropFilter: 'blur(25px)',
-  border: `1px solid ${colors.borderLight}`,
-  borderRadius: '24px',
-  animation: `${slideInLeft} 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94)`,
-  boxShadow: `
-    0 15px 40px ${colors.navy}50,
-    0 0 0 1px rgba(255, 255, 255, 0.06) inset
-  `,
-  maxHeight: mobileopen ? '80vh' : 'calc(100vh - 200px)',
-  overflow: 'hidden',
-  display: 'flex',
-  flexDirection: 'column',
-  transition: 'all 0.3s ease',
-  [theme.breakpoints.down('lg')]: {
-    position: mobileopen ? 'fixed' : 'relative',
-    top: mobileopen ? 0 : 'auto',
-    left: mobileopen ? 0 : 'auto',
-    width: mobileopen ? '100vw' : '100%',
-    height: mobileopen ? '100vh' : 'auto',
-    maxHeight: mobileopen ? '100vh' : '500px',
-    zIndex: mobileopen ? 1300 : 1,
-    borderRadius: mobileopen ? 0 : '24px',
-  },
-}));
+  return filename
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s\-.]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+};
 
-const NavButton = styled(Button)(({ theme }) => ({
-  color: colors.text.primary,
-  borderRadius: '14px',
-  padding: '14px 32px',
-  fontWeight: 600,
-  fontSize: '0.95rem',
-  border: `1px solid ${colors.border}`,
-  background: `linear-gradient(135deg, ${colors.glass}, ${colors.glassDark})`,
-  backdropFilter: 'blur(15px)',
-  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-  textTransform: 'none',
-  position: 'relative',
-  overflow: 'hidden',
-  '&::before': {
-    content: '""',
-    position: 'absolute',
-    top: 0,
-    left: '-100%',
-    width: '100%',
-    height: '100%',
-    background: `linear-gradient(90deg, transparent, ${colors.red}20, transparent)`,
-    transition: 'left 0.6s ease',
-  },
-  '&:hover': {
-    backgroundColor: `${colors.red}15`,
-    borderColor: colors.red,
-    transform: 'translateY(-3px)',
-    boxShadow: `0 12px 25px ${colors.red}25`,
-    '&::before': {
-      left: '100%',
-    },
-  },
-  '&:disabled': {
-    opacity: 0.5,
-    cursor: 'not-allowed',
-    transform: 'none',
-  },
-  [theme.breakpoints.down('sm')]: {
-    padding: '12px 24px',
-    fontSize: '0.9rem',
-  },
-}));
+// ✅ FONCTION: Vérification de fichier
+const checkFileAvailability = async (videoUrl) => {
+  if (!videoUrl) {
+    console.warn('❌ URL vidéo manquante');
+    return false;
+  }
 
-const CompleteButton = styled(Button)(({ completed, theme }) => ({
-  background: completed
-    ? `linear-gradient(135deg, ${colors.success}, ${colors.successLight})`
-    : `linear-gradient(135deg, ${colors.red}, ${colors.redLight})`,
-  color: colors.text.primary,
-  borderRadius: '14px',
-  padding: '16px 40px',
-  fontWeight: 700,
-  fontSize: '1rem',
-  textTransform: 'none',
-  animation: completed ? 'none' : `${pulse} 2s infinite`,
-  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-  boxShadow: completed ? `0 12px 30px ${colors.success}40` : `0 12px 30px ${colors.red}40`,
-  position: 'relative',
-  overflow: 'hidden',
-  '&::before': {
-    content: '""',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: 'linear-gradient(135deg, rgba(255,255,255,0.1), transparent)',
-    opacity: 0,
-    transition: 'opacity 0.3s ease',
-  },
-  '&:hover': {
-    transform: 'translateY(-4px) scale(1.02)',
-    boxShadow: completed ? `0 20px 45px ${colors.success}50` : `0 20px 45px ${colors.red}50`,
-    '&::before': {
-      opacity: 1,
-    },
-  },
-  '&:disabled': {
-    opacity: 0.7,
-    transform: 'none',
-    animation: 'none',
-  },
-  [theme.breakpoints.down('sm')]: {
-    padding: '14px 32px',
-    fontSize: '0.95rem',
-  },
-}));
+  try {
+    const filename = videoUrl.split('/').pop();
 
-const ContentListItem = styled(ListItem)(({ selected, completed, theme }) => ({
-  borderRadius: '16px',
-  marginBottom: '12px',
-  padding: '16px 20px',
-  background: selected
-    ? `linear-gradient(135deg, ${colors.red}20, ${colors.red}08)`
-    : 'transparent',
-  border: selected ? `1px solid ${colors.red}40` : `1px solid ${colors.borderLight}30`,
-  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-  cursor: 'pointer',
-  position: 'relative',
-  overflow: 'hidden',
-  '&::before': {
-    content: '""',
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: '4px',
-    borderRadius: '0 4px 4px 0',
-    background: completed
-      ? `linear-gradient(180deg, ${colors.success}, ${colors.successLight})`
-      : selected
-        ? `linear-gradient(180deg, ${colors.red}, ${colors.redLight})`
-        : 'transparent',
-    transition: 'all 0.3s ease',
-  },
-  '&:hover': {
-    background: selected
-      ? `linear-gradient(135deg, ${colors.red}25, ${colors.red}12)`
-      : `${colors.glass}`,
-    borderColor: selected ? colors.red : colors.borderLight,
-    transform: 'translateX(8px)',
-    boxShadow: `0 8px 20px ${colors.navy}30`,
-  },
-  '&:active': {
-    transform: 'translateX(4px) scale(0.98)',
-  },
-}));
+    if (!filename) {
+      console.warn("❌ Impossible d'extraire le nom de fichier de l'URL:", videoUrl);
+      return false;
+    }
 
-const StatsCard = styled(Paper)(({ theme }) => ({
-  background: `linear-gradient(135deg, ${colors.glass}, ${colors.glassDark})`,
-  backdropFilter: 'blur(15px)',
-  border: `1px solid ${colors.borderLight}`,
-  borderRadius: '18px',
-  padding: theme.spacing(3),
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(2.5),
-  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-  cursor: 'default',
-  '&:hover': {
-    transform: 'translateY(-5px)',
-    borderColor: colors.red,
-    boxShadow: `0 15px 35px ${colors.navy}40`,
-  },
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(2.5),
-    gap: theme.spacing(2),
-  },
-}));
+    console.log('🔍 Vérification disponibilité fichier:', filename);
+
+    const decodedFilename = decodeURIComponent(filename);
+    console.log('🔍 Nom de fichier décodé:', decodedFilename);
+
+    const checkUrl = `http://localhost:3001/api/upload/check/${encodeURIComponent(decodedFilename)}`;
+    console.log('📡 URL de vérification:', checkUrl);
+
+    const response = await axios.get(checkUrl, {
+      timeout: 10000,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    console.log('✅ Réponse vérification fichier:', response.data);
+
+    if (response.data.exists) {
+      const actualUrl = response.data.url;
+      console.log('🎯 URL réelle du fichier:', actualUrl);
+      return actualUrl;
+    } else {
+      console.warn('❌ Fichier non trouvé sur le serveur:', decodedFilename);
+
+      const simplifiedName = simplifyFilename(decodedFilename);
+      console.log('🔄 Tentative avec nom simplifié:', simplifiedName);
+
+      if (simplifiedName !== decodedFilename) {
+        const fallbackCheckUrl = `http://localhost:3001/api/upload/check/${encodeURIComponent(simplifiedName)}`;
+        try {
+          const fallbackResponse = await axios.get(fallbackCheckUrl, {
+            timeout: 5000,
+          });
+
+          if (fallbackResponse.data.exists) {
+            console.log('✅ Fichier trouvé avec nom simplifié:', simplifiedName);
+            return fallbackResponse.data.url;
+          }
+        } catch (fallbackError) {
+          console.log('❌ Échec vérification nom simplifié');
+        }
+      }
+
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ Erreur vérification fichier:', error);
+
+    try {
+      console.log('🔄 Fallback - Essai direct de l URL originale:', videoUrl);
+      const testResponse = await axios.head(videoUrl, {
+        timeout: 5000,
+        validateStatus: (status) => status < 500,
+      });
+
+      if (testResponse.status === 200) {
+        console.log('✅ Fallback réussi - Fichier accessible directement');
+        return videoUrl;
+      } else {
+        console.warn(`❌ Statut HTTP ${testResponse.status} pour l'URL directe`);
+        return false;
+      }
+    } catch (fallbackError) {
+      console.error('❌ Fallback échoué:', fallbackError);
+      return false;
+    }
+  }
+};
+
+// ✅ FONCTION: Charger la vidéo
+const loadVideo = async (videoUrl) => {
+  if (!videoUrl) {
+    console.warn('❌ URL vidéo manquante');
+    return null;
+  }
+
+  try {
+    console.log('🎬 Tentative de chargement vidéo:', videoUrl);
+
+    const preparedUrl = prepareMediaUrl(videoUrl);
+    console.log('🔧 URL préparée:', preparedUrl);
+
+    if (!preparedUrl) {
+      console.warn('❌ URL préparée invalide');
+      return null;
+    }
+
+    const actualVideoUrl = await checkFileAvailability(preparedUrl);
+
+    if (actualVideoUrl) {
+      console.log('✅ Chargement vidéo avec URL:', actualVideoUrl);
+      return actualVideoUrl;
+    } else {
+      console.warn('❌ Aucune URL vidéo valide trouvée');
+
+      const filename = preparedUrl.split('/').pop();
+      if (filename) {
+        console.log('🔄 Tentative de recherche avancée pour:', filename);
+        try {
+          const searchUrl = `http://localhost:3001/api/upload/search/${encodeURIComponent(decodeURIComponent(filename))}`;
+          const searchResponse = await axios.get(searchUrl, { timeout: 5000 });
+
+          if (searchResponse.data.found) {
+            console.log(
+              '✅ Fichier trouvé via recherche avancée:',
+              searchResponse.data.bestMatch.url
+            );
+            return searchResponse.data.bestMatch.url;
+          }
+        } catch (searchError) {
+          console.log('❌ Recherche avancée échouée');
+        }
+      }
+
+      return null;
+    }
+  } catch (error) {
+    console.error('❌ Erreur chargement vidéo:', error);
+    return null;
+  }
+};
+
+// ✅ FONCTION: Préparer les URLs
+const prepareMediaUrl = (url) => {
+  if (!url) {
+    logger.warn('URL manquante');
+    return null;
+  }
+
+  try {
+    let finalUrl = url;
+
+    if (finalUrl.includes('localhost:5173')) {
+      finalUrl = finalUrl.replace('localhost:5173', 'localhost:3001');
+      logger.info(`🔄 URL corrigée vers backend: ${finalUrl}`);
+    }
+
+    if (finalUrl.startsWith('/uploads/')) {
+      finalUrl = `http://localhost:3001${finalUrl}`;
+    } else if (finalUrl.startsWith('/') && !finalUrl.startsWith('//')) {
+      finalUrl = `${UPLOADS_BASE_URL}/${encodeURIComponent(finalUrl.substring(1))}`;
+    }
+
+    try {
+      new URL(finalUrl);
+    } catch (urlError) {
+      logger.warn('URL invalide, tentative de correction', finalUrl);
+      if (!finalUrl.includes('://')) {
+        finalUrl = `${UPLOADS_BASE_URL}/${encodeURIComponent(finalUrl)}`;
+      }
+    }
+
+    logger.info(`🎬 URL média finale: ${finalUrl}`);
+    return finalUrl;
+  } catch (error) {
+    logger.error('❌ Erreur lors de la préparation de l URL', error);
+    return url;
+  }
+};
 
 // === HOOK PERSONNALISÉ POUR LA GESTION DES COURS ===
 const useCourseData = (courseId, contenuId, headers) => {
@@ -437,9 +347,8 @@ const useCourseData = (courseId, contenuId, headers) => {
       setState((prev) => ({ ...prev, loading: true, error: null }));
 
       try {
-        logger.info(`Chargement du cours: ${courseId}`);
+        logger.info(`🔄 Chargement du cours: ${courseId}`);
 
-        // 1. Chargement des données du cours
         const courseResponse = await axios.get(`${API_BASE_URL}/courses/${courseId}`, {
           headers,
           timeout: 15000,
@@ -451,21 +360,25 @@ const useCourseData = (courseId, contenuId, headers) => {
           throw new Error('Données du cours non disponibles');
         }
 
-        logger.info('Cours chargé avec succès', { titre: courseData.titre });
+        logger.info('✅ Cours chargé avec succès', {
+          titre: courseData.titre,
+          contenu: courseData.contenu ? 'Oui' : 'Non',
+        });
 
-        // 2. Extraction et normalisation des contenus
+        if (!courseData.contenu || !courseData.contenu.sections) {
+          throw new Error('Structure de contenu invalide ou manquante');
+        }
+
         let contenusData = await extractAndNormalizeContents(courseData, courseId, headers);
 
         if (contenusData.length === 0) {
           throw new Error('Aucun contenu disponible pour ce cours');
         }
 
-        logger.info(`Contenus normalisés: ${contenusData.length} éléments`);
+        logger.info(`📚 Contenus normalisés: ${contenusData.length} éléments`);
 
-        // 3. Sélection du contenu actuel
         const currentContent = findCurrentContent(contenusData, contenuId, courseId, navigate);
 
-        // 4. Chargement de la progression
         const progressData = await loadProgress(courseId, headers, contenusData);
 
         setState({
@@ -478,9 +391,9 @@ const useCourseData = (courseId, contenuId, headers) => {
           error: null,
         });
 
-        logger.info('Initialisation terminée avec succès');
+        logger.info('🎯 Initialisation terminée avec succès');
       } catch (error) {
-        logger.error('Erreur lors du chargement des données', error);
+        logger.error('❌ Erreur lors du chargement des données', error);
 
         const errorMessage = getErrorMessage(error);
         setState((prev) => ({
@@ -497,83 +410,142 @@ const useCourseData = (courseId, contenuId, headers) => {
   return state;
 };
 
-// === FONCTIONS UTILITAIRES AVANCÉES ===
 const extractAndNormalizeContents = async (courseData, courseId, headers) => {
-  let contenusData = [];
+  const contenusData = [];
 
   try {
-    // Stratégie 1: Contenus dans la structure du cours
-    if (courseData.contenu?.sections) {
-      contenusData = courseData.contenu.sections.flatMap((section, sectionIndex) =>
-        (section.modules || section.contenus || []).map((module, moduleIndex) => ({
-          ...module,
-          _id: module._id || `section-${sectionIndex}-module-${moduleIndex}`,
-          sectionTitre: section.titre,
-          sectionOrdre: sectionIndex + 1,
-          ordre: module.ordre || moduleIndex + 1,
-          type: determineContentType(module),
-        }))
-      );
+    if (!courseData?.contenu || typeof courseData.contenu !== 'object') {
+      logger.warn('Structure contenu manquante ou invalide', courseData);
+      return [];
     }
 
-    // Stratégie 2: Chargement via API dédiée (fallback)
-    if (contenusData.length === 0) {
-      const endpoints = [
-        `${API_BASE_URL}/courses/${courseId}/contenus`,
-        `${API_BASE_URL}/contenus?courseId=${courseId}`,
-        `${API_BASE_URL}/courses/contenu?courseId=${courseId}`,
-      ];
+    const sections = courseData.contenu.sections;
+    if (!Array.isArray(sections) || sections.length === 0) {
+      logger.warn('Aucune section trouvée dans le contenu');
+      return [];
+    }
 
-      for (const endpoint of endpoints) {
-        try {
-          const response = await axios.get(endpoint, { headers, timeout: 8000 });
-          const data = response.data?.data || response.data;
-          if (Array.isArray(data) && data.length > 0) {
-            contenusData = data;
-            break;
-          }
-        } catch (error) {
+    logger.info(`Traitement de ${sections.length} section(s)`);
+
+    for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
+      const section = sections[sectionIndex];
+
+      if (!section || typeof section !== 'object') {
+        logger.warn(`Section ${sectionIndex} invalide`, section);
+        continue;
+      }
+
+      const modules = section.modules;
+      if (!Array.isArray(modules)) {
+        logger.warn(`Modules de la section ${sectionIndex} invalides`, modules);
+        continue;
+      }
+
+      for (let moduleIndex = 0; moduleIndex < modules.length; moduleIndex++) {
+        const module = modules[moduleIndex];
+
+        if (!module || typeof module !== 'object') {
+          logger.warn(`Module ${moduleIndex} invalide dans section ${sectionIndex}`, module);
           continue;
         }
+
+        const moduleId = module._id || module.id || `section-${sectionIndex}-module-${moduleIndex}`;
+        const moduleTitre = (module.titre || '').trim() || `Module ${moduleIndex + 1}`;
+
+        if (!moduleId || !moduleTitre) {
+          logger.warn(`Module ${moduleIndex} incomplet dans section ${sectionIndex}`, module);
+          continue;
+        }
+
+        let contentUrl = null;
+        let contentData = null;
+
+        if (module.contenu) {
+          if (module.type === 'TEXTE') {
+            contentData = String(module.contenu).trim();
+          } else {
+            contentUrl = prepareMediaUrl(String(module.contenu).trim());
+          }
+        }
+
+        const typeMap = {
+          VIDEO: 'video',
+          TEXTE: 'texte',
+          QUIZ: 'quiz',
+          DOCUMENT: 'document',
+        };
+
+        const moduleType = typeMap[(module.type || '').toString().toUpperCase()] || 'document';
+
+        logger.info(`Module: ${moduleTitre}`, {
+          type: moduleType,
+          url: contentUrl,
+          hasContentData: !!contentData,
+          originalType: module.type,
+        });
+
+        contenusData.push({
+          _id: moduleId,
+          titre: moduleTitre,
+          type: moduleType,
+          url: contentUrl,
+          contenu: contentData,
+          description: (module.description || '').trim(),
+          duration: Number(module.duree) || 0,
+          questions: Array.isArray(module.questions) ? module.questions : [],
+          isCompleted: Boolean(module.isCompleted),
+          ordre: Number(module.ordre) || moduleIndex + 1,
+          sectionTitre: (section.titre || '').trim() || `Section ${sectionIndex + 1}`,
+          sectionOrdre: sectionIndex + 1,
+          metadata: module.metadata || {},
+          isValid: true,
+          hasContent: !!contentUrl || !!contentData || moduleType === 'quiz',
+          originalType: module.type,
+        });
       }
     }
 
-    // Normalisation finale
-    return contenusData
-      .map((content, index) => ({
-        _id: content._id || content.id || `content-${index}`,
-        titre: content.titre || content.title || content.nom || `Contenu ${index + 1}`,
-        type: content.type || determineContentType(content),
-        url: content.url || content.contenuUrl || content.fileUrl || content.videoUrl,
-        description: content.description || content.desc || '',
-        duration: content.duree || content.duration || content.temps,
-        questions: content.questions || [],
-        isCompleted: Boolean(content.isCompleted || content.completed || content.estTermine),
-        ordre: content.ordre || content.order || index + 1,
-        sectionTitre: content.sectionTitre || content.section,
-        metadata: content.metadata || {},
-      }))
-      .sort((a, b) => a.ordre - b.ordre);
+    contenusData.sort((a, b) => (a.ordre || 0) - (b.ordre || 0));
+
+    logger.info(`Normalisation OK: ${contenusData.length} contenu(x)`);
+    return contenusData;
   } catch (error) {
-    logger.error('Erreur lors de la normalisation des contenus', error);
+    logger.error('Erreur normalisation', error);
     return [];
   }
 };
 
-const determineContentType = (content) => {
-  if (content.type) return content.type;
-  if (content.questions && Array.isArray(content.questions)) return 'quiz';
-  if (content.url?.includes('.mp4') || content.url?.includes('.webm')) return 'video';
-  if (content.url?.includes('.pdf') || content.url?.includes('.doc')) return 'document';
-  return 'document';
-};
-
 const findCurrentContent = (contenus, contenuId, courseId, navigate) => {
-  let current = contenuId ? contenus.find((c) => c._id === contenuId) : contenus[0];
+  if (!contenus || contenus.length === 0) {
+    logger.error('Aucun contenu disponible');
+    return null;
+  }
 
-  if (!current && contenus.length > 0) {
-    current = contenus[0];
-    navigate(`/student/learn/${courseId}/contenu/${current._id}`, { replace: true });
+  let current = null;
+
+  if (contenuId) {
+    current = contenus.find((c) => c._id === contenuId);
+
+    if (!current) {
+      logger.warn(`Contenu ${contenuId} non trouvé, utilisation du premier contenu`);
+      current = contenus[0];
+
+      if (current && current._id) {
+        navigate(`/student/learn/${courseId}/contenu/${current._id}`, { replace: true });
+      }
+    }
+  } else {
+    current = contenus.find((c) => !c.isCompleted) || contenus[0];
+
+    if (current && current._id) {
+      navigate(`/student/learn/${courseId}/contenu/${current._id}`, { replace: true });
+    }
+  }
+
+  if (current) {
+    logger.info(`🎯 Contenu actuel: ${current.titre} (${current.type}) - URL: ${current.url}`);
+  } else {
+    logger.error('❌ Aucun contenu valide trouvé');
   }
 
   return current;
@@ -584,44 +556,84 @@ const loadProgress = async (courseId, headers, contenus) => {
     const endpoints = [
       `${API_BASE_URL}/learning/progress/${courseId}`,
       `${API_BASE_URL}/progress/${courseId}`,
-      `${API_BASE_URL}/courses/${courseId}/progress`,
+      `${API_BASE_URL}/learning/${courseId}/progress`,
     ];
 
     for (const endpoint of endpoints) {
       try {
-        const response = await axios.get(endpoint, { headers, timeout: 5000 });
+        logger.info(`🔄 Tentative de chargement progression: ${endpoint}`);
+
+        const response = await axios.get(endpoint, {
+          headers,
+          timeout: 8000,
+        });
+
         const data = response.data?.data || response.data;
         const progress = data?.pourcentage || data?.progress || data?.percentage;
-        if (progress !== undefined) return Math.min(100, Math.max(0, progress));
+
+        if (progress !== undefined && progress !== null) {
+          const normalizedProgress = Math.min(100, Math.max(0, Number(progress)));
+          logger.info(`✅ Progression chargée: ${normalizedProgress}%`);
+          return normalizedProgress;
+        }
       } catch (error) {
+        logger.warn(`❌ Échec endpoint progression: ${endpoint}`, error.message);
         continue;
       }
     }
 
-    // Fallback: calcul basé sur les contenus complétés
-    const completedCount = contenus.filter((c) => c.isCompleted).length;
-    return contenus.length > 0 ? Math.round((completedCount / contenus.length) * 100) : 0;
+    const validContenus = contenus.filter((c) => c.isValid);
+    const completedCount = validContenus.filter((c) => c.isCompleted).length;
+    const fallbackProgress =
+      validContenus.length > 0 ? Math.round((completedCount / validContenus.length) * 100) : 0;
+
+    logger.info(
+      `📊 Progression fallback: ${fallbackProgress}% (${completedCount}/${validContenus.length})`
+    );
+    return fallbackProgress;
   } catch (error) {
-    logger.warn('Erreur lors du chargement de la progression, utilisation du fallback');
+    logger.error('❌ Erreur lors du chargement de la progression', error);
+
     const completedCount = contenus.filter((c) => c.isCompleted).length;
-    return contenus.length > 0 ? Math.round((completedCount / contenus.length) * 100) : 0;
+    const ultraFallback =
+      contenus.length > 0 ? Math.round((completedCount / contenus.length) * 100) : 0;
+
+    logger.warn(`🆘 Progression ultra-fallback: ${ultraFallback}%`);
+    return ultraFallback;
   }
 };
 
 const getErrorMessage = (error) => {
-  if (error.response?.status === 404) {
-    return 'Cours ou contenu non trouvé';
+  if (error.response) {
+    const status = error.response.status;
+    const data = error.response.data;
+
+    switch (status) {
+      case 401:
+        return 'Session expirée - Veuillez vous reconnecter';
+      case 403:
+        return 'Accès non autorisé à ce cours';
+      case 404:
+        return 'Cours ou contenu non trouvé';
+      case 500:
+        return 'Erreur serveur - Veuillez réessayer plus tard';
+      default:
+        return data?.message || `Erreur ${status} - ${data?.error || 'Veuillez réessayer'}`;
+    }
   }
-  if (error.response?.status === 401) {
-    return 'Session expirée - Veuillez vous reconnecter';
+
+  if (error.request) {
+    return 'Impossible de se connecter au serveur - Vérifiez votre connexion';
   }
-  if (error.response?.status === 403) {
-    return 'Accès non autorisé à ce cours';
+
+  if (error.message) {
+    return error.message;
   }
-  return error.response?.data?.message || error.message || 'Une erreur est survenue';
+
+  return 'Une erreur inattendue est survenue';
 };
 
-// === COMPOSANT LECTEUR VIDÉO PROFESSIONNEL ===
+// === COMPOSANT LECTEUR VIDÉO ===
 const VideoPlayer = React.memo(({ videoUrl, onEnded, onProgress, autoComplete = true }) => {
   const videoRef = useRef(null);
   const [playerState, setPlayerState] = useState({
@@ -633,39 +645,142 @@ const VideoPlayer = React.memo(({ videoUrl, onEnded, onProgress, autoComplete = 
     showControls: true,
     isLoading: true,
     hasError: false,
+    errorType: null,
+    errorDetails: null,
+    resolvedUrl: null,
   });
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const controlsTimeoutRef = useRef();
 
+  const preparedVideoUrl = useMemo(() => {
+    return prepareMediaUrl(videoUrl);
+  }, [videoUrl]);
+
+  const isValidVideoUrl = useMemo(() => {
+    if (!preparedVideoUrl) {
+      logger.warn('URL vidéo manquante après préparation');
+      return false;
+    }
+
+    try {
+      new URL(preparedVideoUrl);
+
+      if (!preparedVideoUrl.includes('localhost:3001')) {
+        logger.warn(`URL ne pointe pas vers le backend: ${preparedVideoUrl}`);
+        return false;
+      }
+
+      if (preparedVideoUrl.match(/\.(mp4|webm|mov|avi|mkv|m3u8)$/i)) {
+        return true;
+      }
+
+      logger.warn(`URL vidéo sans extension reconnue: ${preparedVideoUrl}`);
+      return true;
+    } catch (error) {
+      logger.warn(`URL vidéo non valide: ${preparedVideoUrl}`, error);
+      return false;
+    }
+  }, [preparedVideoUrl]);
+
+  useEffect(() => {
+    const verifyVideoAvailability = async () => {
+      if (!preparedVideoUrl || !isValidVideoUrl) {
+        setPlayerState((prev) => ({
+          ...prev,
+          hasError: true,
+          errorType: 'network',
+          errorDetails: 'URL invalide',
+          isLoading: false,
+        }));
+        return;
+      }
+
+      try {
+        setPlayerState((prev) => ({ ...prev, isLoading: true }));
+
+        const actualVideoUrl = await loadVideo(preparedVideoUrl);
+
+        if (actualVideoUrl) {
+          setPlayerState((prev) => ({
+            ...prev,
+            isLoading: false,
+            resolvedUrl: actualVideoUrl,
+          }));
+
+          if (videoRef.current) {
+            videoRef.current.load();
+          }
+        } else {
+          setPlayerState((prev) => ({
+            ...prev,
+            hasError: true,
+            errorType: 'network',
+            errorDetails: 'Fichier non trouvé sur le serveur',
+            isLoading: false,
+          }));
+        }
+      } catch (error) {
+        logger.warn('❌ Erreur lors de la vérification du fichier vidéo', error);
+        setPlayerState((prev) => ({
+          ...prev,
+          isLoading: false,
+          hasError: true,
+          errorType: 'network',
+          errorDetails: error.message,
+        }));
+      }
+    };
+
+    verifyVideoAvailability();
+  }, [preparedVideoUrl, isValidVideoUrl]);
+
   const togglePlay = useCallback(() => {
-    if (videoRef.current) {
+    if (!videoRef.current || !playerState.resolvedUrl || playerState.hasError) return;
+
+    try {
       if (playerState.isPlaying) {
         videoRef.current.pause();
+        setPlayerState((prev) => ({ ...prev, isPlaying: false }));
       } else {
-        videoRef.current.play().catch((error) => {
-          logger.error('Erreur lors de la lecture vidéo', error);
-          setPlayerState((prev) => ({ ...prev, hasError: true }));
-        });
+        videoRef.current
+          .play()
+          .then(() => {
+            setPlayerState((prev) => ({ ...prev, isPlaying: true }));
+          })
+          .catch((error) => {
+            logger.error('❌ Erreur lors de la lecture vidéo', error);
+            setPlayerState((prev) => ({
+              ...prev,
+              hasError: true,
+              errorType: 'format',
+              errorDetails: error.message,
+            }));
+          });
       }
-      setPlayerState((prev) => ({ ...prev, isPlaying: !prev.isPlaying }));
+    } catch (error) {
+      logger.error('❌ Erreur toggle play', error);
+      setPlayerState((prev) => ({
+        ...prev,
+        hasError: true,
+        errorType: 'format',
+        errorDetails: error.message,
+      }));
     }
-  }, [playerState.isPlaying]);
+  }, [playerState.isPlaying, playerState.resolvedUrl, playerState.hasError]);
 
   const handleTimeUpdate = useCallback(() => {
     if (videoRef.current) {
       const currentTime = videoRef.current.currentTime;
-      const duration = videoRef.current.duration;
+      const duration = videoRef.current.duration || 0;
       setPlayerState((prev) => ({ ...prev, currentTime, duration }));
 
-      // Rapport de progression
       if (onProgress && duration > 0) {
         const progress = (currentTime / duration) * 100;
         onProgress(progress);
       }
 
-      // Auto-complétion à 95%
       if (autoComplete && currentTime > 0 && duration > 0 && currentTime / duration > 0.95) {
         onEnded?.();
       }
@@ -678,53 +793,71 @@ const VideoPlayer = React.memo(({ videoUrl, onEnded, onProgress, autoComplete = 
       isLoading: false,
       duration: videoRef.current?.duration || 0,
     }));
+    logger.info('✅ Données vidéo chargées avec succès');
   }, []);
 
-  const handleError = useCallback(() => {
-    logger.error('Erreur de chargement vidéo', { url: videoUrl });
-    setPlayerState((prev) => ({ ...prev, hasError: true, isLoading: false }));
-  }, [videoUrl]);
+  const handleError = useCallback(
+    (event) => {
+      const video = event.target;
+      const error = video.error;
+
+      let errorType = 'unknown';
+      let errorDetails = 'Erreur inconnue';
+
+      if (error) {
+        switch (error.code) {
+          case error.MEDIA_ERR_ABORTED:
+            errorType = 'network';
+            errorDetails = 'Chargement annulé';
+            break;
+          case error.MEDIA_ERR_NETWORK:
+            errorType = 'network';
+            errorDetails = 'Erreur réseau';
+            break;
+          case error.MEDIA_ERR_DECODE:
+            errorType = 'format';
+            errorDetails = 'Erreur de décodage - format non supporté';
+            break;
+          case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+            errorType = 'format';
+            errorDetails = 'Format vidéo non supporté par le navigateur';
+            break;
+          default:
+            errorType = 'unknown';
+            errorDetails = `Code erreur: ${error.code}`;
+        }
+      }
+
+      logger.error('❌ Erreur de chargement vidéo', {
+        url: playerState.resolvedUrl,
+        errorType,
+        errorDetails,
+        errorCode: error?.code,
+        errorMessage: error?.message,
+      });
+
+      setPlayerState((prev) => ({
+        ...prev,
+        hasError: true,
+        errorType,
+        errorDetails,
+        isLoading: false,
+      }));
+    },
+    [playerState.resolvedUrl]
+  );
 
   const handleSeek = useCallback(
     (event) => {
-      if (videoRef.current) {
+      if (videoRef.current && playerState.duration > 0) {
         const rect = event.currentTarget.getBoundingClientRect();
         const percent = (event.clientX - rect.left) / rect.width;
-        videoRef.current.currentTime = percent * playerState.duration;
+        const newTime = Math.max(0, Math.min(playerState.duration, percent * playerState.duration));
+        videoRef.current.currentTime = newTime;
       }
     },
     [playerState.duration]
   );
-
-  const handleVolumeChange = useCallback((event) => {
-    const volume = parseFloat(event.target.value);
-    if (videoRef.current) {
-      videoRef.current.volume = volume;
-      setPlayerState((prev) => ({ ...prev, volume, isMuted: volume === 0 }));
-    }
-  }, []);
-
-  const toggleMute = useCallback(() => {
-    if (videoRef.current) {
-      const isMuted = !playerState.isMuted;
-      videoRef.current.muted = isMuted;
-      setPlayerState((prev) => ({ ...prev, isMuted }));
-    }
-  }, [playerState.isMuted]);
-
-  const toggleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) {
-      videoRef.current?.requestFullscreen?.();
-    } else {
-      document.exitFullscreen?.();
-    }
-  }, []);
-
-  const skip = useCallback((seconds) => {
-    if (videoRef.current) {
-      videoRef.current.currentTime += seconds;
-    }
-  }, []);
 
   const formatTime = useCallback((seconds) => {
     if (isNaN(seconds)) return '0:00';
@@ -733,21 +866,102 @@ const VideoPlayer = React.memo(({ videoUrl, onEnded, onProgress, autoComplete = 
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   }, []);
 
-  const showControls = useCallback(() => {
-    setPlayerState((prev) => ({ ...prev, showControls: true }));
-    clearTimeout(controlsTimeoutRef.current);
-    controlsTimeoutRef.current = setTimeout(() => {
-      if (playerState.isPlaying) {
-        setPlayerState((prev) => ({ ...prev, showControls: false }));
-      }
-    }, 3000);
-  }, [playerState.isPlaying]);
+  const getErrorMessage = useCallback(() => {
+    switch (playerState.errorType) {
+      case 'network':
+        return 'Problème de réseau - Vérifiez votre connexion internet';
+      case 'format':
+        return 'Format vidéo non supporté - Essayez un autre navigateur';
+      case 'access':
+        return 'Accès refusé - Vérifiez les permissions du fichier';
+      default:
+        return `Erreur de chargement - ${playerState.errorDetails || 'Vérifiez votre connexion'}`;
+    }
+  }, [playerState.errorType, playerState.errorDetails]);
+
+  const handleRetry = useCallback(() => {
+    logger.info('🔄 Tentative de rechargement de la vidéo');
+
+    setPlayerState({
+      isPlaying: false,
+      isMuted: false,
+      currentTime: 0,
+      duration: 0,
+      volume: 0.8,
+      showControls: true,
+      isLoading: true,
+      hasError: false,
+      errorType: null,
+      errorDetails: null,
+      resolvedUrl: playerState.resolvedUrl,
+    });
+
+    if (videoRef.current) {
+      videoRef.current.load();
+    }
+  }, [playerState.resolvedUrl]);
+
+  const handleOpenInNewTab = useCallback(() => {
+    if (playerState.resolvedUrl) {
+      window.open(playerState.resolvedUrl, '_blank');
+    }
+  }, [playerState.resolvedUrl]);
 
   useEffect(() => {
     return () => {
-      clearTimeout(controlsTimeoutRef.current);
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
     };
   }, []);
+
+  if (!isValidVideoUrl) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: isMobile ? 300 : 500,
+          bgcolor: colors.surface,
+          borderRadius: '20px',
+          border: `1px solid ${colors.error}30`,
+          color: 'white',
+          textAlign: 'center',
+          p: 4,
+        }}
+      >
+        <WarningIcon sx={{ fontSize: 64, color: colors.error, mb: 3 }} />
+        <Typography variant='h5' sx={{ mb: 2, fontWeight: 600 }}>
+          URL vidéo invalide
+        </Typography>
+        <Typography color={colors.text.muted} sx={{ mb: 2 }}>
+          L'URL de la vidéo n'est pas valide ou accessible.
+        </Typography>
+        <Typography
+          variant='body2'
+          color={colors.text.muted}
+          sx={{ mb: 3, wordBreak: 'break-all' }}
+        >
+          URL: {preparedVideoUrl || 'Non définie'}
+        </Typography>
+        <Button
+          variant='contained'
+          onClick={() =>
+            logger.info('Debug vidéo', {
+              preparedVideoUrl,
+              isValidVideoUrl,
+              originalUrl: videoUrl,
+            })
+          }
+          sx={{ bgcolor: colors.secondary }}
+        >
+          Voir les détails techniques
+        </Button>
+      </Box>
+    );
+  }
 
   if (playerState.hasError) {
     return (
@@ -758,7 +972,7 @@ const VideoPlayer = React.memo(({ videoUrl, onEnded, onProgress, autoComplete = 
           alignItems: 'center',
           justifyContent: 'center',
           height: isMobile ? 300 : 500,
-          bgcolor: colors.glassDark,
+          bgcolor: colors.surface,
           borderRadius: '20px',
           border: `1px solid ${colors.error}30`,
           color: 'white',
@@ -770,16 +984,36 @@ const VideoPlayer = React.memo(({ videoUrl, onEnded, onProgress, autoComplete = 
         <Typography variant='h5' sx={{ mb: 2, fontWeight: 600 }}>
           Erreur de chargement
         </Typography>
-        <Typography color={colors.text.muted} sx={{ mb: 3 }}>
-          Impossible de charger la vidéo. Vérifiez votre connexion.
+        <Typography color={colors.text.muted} sx={{ mb: 2 }}>
+          {getErrorMessage()}
         </Typography>
-        <Button
-          variant='contained'
-          onClick={() => window.open(videoUrl, '_blank')}
-          sx={{ bgcolor: colors.red }}
+        {playerState.errorDetails && (
+          <Typography variant='body2' color={colors.text.muted} sx={{ mb: 2 }}>
+            Détails: {playerState.errorDetails}
+          </Typography>
+        )}
+        <Typography
+          variant='body2'
+          color={colors.text.muted}
+          sx={{ mb: 3, wordBreak: 'break-all' }}
         >
-          Ouvrir dans un nouvel onglet
-        </Button>
+          URL: {playerState.resolvedUrl}
+        </Typography>
+
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          <Button variant='contained' onClick={handleRetry} sx={{ bgcolor: colors.secondary }}>
+            <ReplayIcon sx={{ mr: 1 }} />
+            Réessayer
+          </Button>
+          <Button
+            variant='outlined'
+            onClick={handleOpenInNewTab}
+            sx={{ borderColor: colors.text.muted, color: colors.text.primary }}
+          >
+            <VideoIcon sx={{ mr: 1 }} />
+            Ouvrir dans un nouvel onglet
+          </Button>
+        </Stack>
       </Box>
     );
   }
@@ -793,16 +1027,22 @@ const VideoPlayer = React.memo(({ videoUrl, onEnded, onProgress, autoComplete = 
         bgcolor: '#000',
         borderRadius: '20px',
         overflow: 'hidden',
-        boxShadow: `0 20px 60px ${colors.navy}80`,
+        boxShadow: `0 20px 60px rgba(0, 0, 0, 0.8)`,
       }}
-      onMouseMove={showControls}
-      onMouseEnter={showControls}
+      onMouseMove={() => {
+        setPlayerState((prev) => ({ ...prev, showControls: true }));
+        if (controlsTimeoutRef.current) {
+          clearTimeout(controlsTimeoutRef.current);
+        }
+        controlsTimeoutRef.current = setTimeout(() => {
+          setPlayerState((prev) => ({ ...prev, showControls: false }));
+        }, 3000);
+      }}
       onClick={togglePlay}
     >
-      {/* Vidéo */}
       <video
         ref={videoRef}
-        src={videoUrl}
+        src={playerState.resolvedUrl}
         style={{
           width: '100%',
           height: '100%',
@@ -814,9 +1054,11 @@ const VideoPlayer = React.memo(({ videoUrl, onEnded, onProgress, autoComplete = 
         onEnded={onEnded}
         onError={handleError}
         onClick={(e) => e.stopPropagation()}
+        preload='auto'
+        crossOrigin='anonymous'
+        playsInline
       />
 
-      {/* Overlay de chargement */}
       {playerState.isLoading && (
         <Box
           sx={{
@@ -831,12 +1073,16 @@ const VideoPlayer = React.memo(({ videoUrl, onEnded, onProgress, autoComplete = 
             bgcolor: 'rgba(0,0,0,0.7)',
           }}
         >
-          <CircularProgress size={60} thickness={4} sx={{ color: colors.red }} />
+          <Box textAlign='center'>
+            <CircularProgress size={60} thickness={4} sx={{ color: colors.secondary, mb: 2 }} />
+            <Typography color='white' variant='body2'>
+              Chargement de la vidéo...
+            </Typography>
+          </Box>
         </Box>
       )}
 
-      {/* Overlay de lecture */}
-      <Fade in={!playerState.isPlaying && !playerState.isLoading}>
+      {!playerState.isPlaying && !playerState.isLoading && !playerState.hasError && (
         <Box
           sx={{
             position: 'absolute',
@@ -849,14 +1095,14 @@ const VideoPlayer = React.memo(({ videoUrl, onEnded, onProgress, autoComplete = 
           <IconButton
             onClick={togglePlay}
             sx={{
-              bgcolor: `${colors.red}dd`,
+              bgcolor: `${colors.secondary}dd`,
               color: 'white',
               width: isMobile ? 80 : 100,
               height: isMobile ? 80 : 100,
               backdropFilter: 'blur(10px)',
               animation: `${pulse} 2s infinite`,
               '&:hover': {
-                bgcolor: colors.red,
+                bgcolor: colors.secondary,
                 transform: 'scale(1.1)',
               },
             }}
@@ -864,10 +1110,9 @@ const VideoPlayer = React.memo(({ videoUrl, onEnded, onProgress, autoComplete = 
             <PlayIcon sx={{ fontSize: isMobile ? 40 : 50 }} />
           </IconButton>
         </Box>
-      </Fade>
+      )}
 
-      {/* Contrôles avancés */}
-      <Fade in={playerState.showControls || !playerState.isPlaying}>
+      {playerState.showControls && !playerState.isLoading && !playerState.hasError && (
         <Box
           sx={{
             position: 'absolute',
@@ -880,7 +1125,6 @@ const VideoPlayer = React.memo(({ videoUrl, onEnded, onProgress, autoComplete = 
             zIndex: 10,
           }}
         >
-          {/* Barre de progression principale */}
           <Box
             sx={{
               width: '100%',
@@ -890,7 +1134,6 @@ const VideoPlayer = React.memo(({ videoUrl, onEnded, onProgress, autoComplete = 
               cursor: 'pointer',
               mb: 3,
               position: 'relative',
-              '&:hover': { height: 8 },
             }}
             onClick={handleSeek}
           >
@@ -898,33 +1141,14 @@ const VideoPlayer = React.memo(({ videoUrl, onEnded, onProgress, autoComplete = 
               sx={{
                 width: `${(playerState.currentTime / playerState.duration) * 100}%`,
                 height: '100%',
-                background: `linear-gradient(90deg, ${colors.red}, ${colors.purple})`,
+                background: `linear-gradient(90deg, ${colors.secondary}, ${colors.primary})`,
                 borderRadius: 3,
-                position: 'relative',
                 transition: 'width 0.1s ease',
               }}
             />
-            <Box
-              sx={{
-                position: 'absolute',
-                left: `${(playerState.currentTime / playerState.duration) * 100}%`,
-                top: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: 16,
-                height: 16,
-                borderRadius: '50%',
-                bgcolor: 'white',
-                boxShadow: `0 0 10px ${colors.red}`,
-                opacity: 0,
-                transition: 'opacity 0.2s ease',
-              }}
-              className='progress-thumb'
-            />
           </Box>
 
-          {/* Contrôles principaux */}
           <Stack direction='row' alignItems='center' justifyContent='space-between' spacing={2}>
-            {/* Groupe gauche */}
             <Stack direction='row' spacing={1} alignItems='center'>
               <Tooltip title={playerState.isPlaying ? 'Pause' : 'Lecture'}>
                 <IconButton onClick={togglePlay} sx={{ color: 'white' }}>
@@ -932,66 +1156,994 @@ const VideoPlayer = React.memo(({ videoUrl, onEnded, onProgress, autoComplete = 
                 </IconButton>
               </Tooltip>
 
-              <Tooltip title='Reculer 10s'>
-                <IconButton onClick={() => skip(-10)} sx={{ color: 'white' }}>
-                  <ReplayIcon />
-                </IconButton>
-              </Tooltip>
-
-              <Tooltip title='Avancer 10s'>
-                <IconButton onClick={() => skip(10)} sx={{ color: 'white' }}>
-                  <SkipNextIcon />
-                </IconButton>
-              </Tooltip>
-
-              <Tooltip title={playerState.isMuted ? 'Activer le son' : 'Désactiver le son'}>
-                <IconButton onClick={toggleMute} sx={{ color: 'white' }}>
-                  {playerState.isMuted ? <VolumeOffIcon /> : <VolumeUpIcon />}
-                </IconButton>
-              </Tooltip>
-
-              <Box sx={{ width: 80, display: { xs: 'none', sm: 'block' } }}>
-                <input
-                  type='range'
-                  min='0'
-                  max='1'
-                  step='0.1'
-                  value={playerState.volume}
-                  onChange={handleVolumeChange}
-                  style={{
-                    width: '100%',
-                    accentColor: colors.red,
-                  }}
-                />
-              </Box>
-
               <Typography variant='body2' color='white' sx={{ minWidth: 100 }}>
                 {formatTime(playerState.currentTime)} / {formatTime(playerState.duration)}
               </Typography>
             </Stack>
 
-            {/* Groupe droite */}
             <Stack direction='row' spacing={1}>
-              <Tooltip title='Télécharger'>
-                <IconButton onClick={() => window.open(videoUrl, '_blank')} sx={{ color: 'white' }}>
-                  <DownloadIcon />
-                </IconButton>
-              </Tooltip>
-
               <Tooltip title='Plein écran'>
-                <IconButton onClick={toggleFullscreen} sx={{ color: 'white' }}>
+                <IconButton
+                  onClick={() => videoRef.current?.requestFullscreen?.()}
+                  sx={{ color: 'white' }}
+                >
                   <MaximizeIcon />
                 </IconButton>
               </Tooltip>
             </Stack>
           </Stack>
         </Box>
-      </Fade>
+      )}
     </Box>
   );
 });
 
-// === COMPOSANT PRINCIPAL COURSE PLAYER ===
+// === COMPOSANT DOCUMENT VIEWER COMPLET ===
+const DocumentViewer = React.memo(({ documentUrl, onComplete }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const preparedDocumentUrl = useMemo(() => {
+    return prepareMediaUrl(documentUrl);
+  }, [documentUrl]);
+
+  const isValidDocumentUrl = useMemo(() => {
+    if (!preparedDocumentUrl) {
+      logger.warn('URL du document manquante après préparation');
+      return false;
+    }
+
+    try {
+      new URL(preparedDocumentUrl);
+
+      if (!preparedDocumentUrl.includes('localhost:3001')) {
+        logger.warn(`URL ne pointe pas vers le backend: ${preparedDocumentUrl}`);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      logger.warn(`URL document non valide: ${preparedDocumentUrl}`, error);
+      return false;
+    }
+  }, [preparedDocumentUrl]);
+
+  const handleLoadSuccess = useCallback(() => {
+    setLoading(false);
+    setError(null);
+    logger.info('✅ Document chargé avec succès');
+  }, []);
+
+  const handleLoadError = useCallback((err) => {
+    logger.error('❌ Erreur de chargement du document', err);
+    setLoading(false);
+    setError('Erreur de chargement du document');
+  }, []);
+
+  const handleDownload = useCallback(() => {
+    if (!isValidDocumentUrl) {
+      logger.error('URL document invalide pour le téléchargement', preparedDocumentUrl);
+      return;
+    }
+
+    try {
+      const link = document.createElement('a');
+      link.href = preparedDocumentUrl;
+      link.download = 'document.pdf';
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      logger.error('Erreur lors du téléchargement', error);
+      window.open(preparedDocumentUrl, '_blank');
+    }
+  }, [preparedDocumentUrl, isValidDocumentUrl]);
+
+  const handleViewOnline = useCallback(() => {
+    if (!isValidDocumentUrl) {
+      logger.error('URL document invalide pour la visualisation', preparedDocumentUrl);
+      return;
+    }
+
+    try {
+      window.open(preparedDocumentUrl, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      logger.error("Erreur lors de l'ouverture", error);
+    }
+  }, [preparedDocumentUrl, isValidDocumentUrl]);
+
+  const handleMarkComplete = useCallback(() => {
+    onComplete?.();
+  }, [onComplete]);
+
+  if (isValidDocumentUrl) {
+    return (
+      <Box
+        sx={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          bgcolor: colors.surface,
+          borderRadius: '20px',
+          overflow: 'hidden',
+          border: `1px solid ${colors.text.muted}30`,
+        }}
+      >
+        <Box
+          sx={{
+            p: 3,
+            borderBottom: `1px solid ${colors.text.muted}20`,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            bgcolor: colors.background,
+          }}
+        >
+          <Stack direction='row' spacing={2} alignItems='center'>
+            <FileTextIcon sx={{ fontSize: 32, color: colors.secondary }} />
+            <Box>
+              <Typography variant='h6' color={colors.text.primary} fontWeight={600}>
+                Document PDF
+              </Typography>
+              <Typography variant='body2' color={colors.text.muted}>
+                Lecture en ligne
+              </Typography>
+            </Box>
+          </Stack>
+
+          <Stack direction='row' spacing={1}>
+            <Tooltip title='Télécharger'>
+              <IconButton onClick={handleDownload} sx={{ color: colors.text.primary }}>
+                <DownloadIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title='Ouvrir dans un nouvel onglet'>
+              <IconButton onClick={handleViewOnline} sx={{ color: colors.text.primary }}>
+                <MaximizeIcon />
+              </IconButton>
+            </Tooltip>
+            <Button
+              variant='contained'
+              onClick={handleMarkComplete}
+              sx={{
+                bgcolor: colors.secondary,
+                '&:hover': { bgcolor: colors.primary },
+              }}
+            >
+              Terminer
+            </Button>
+          </Stack>
+        </Box>
+
+        <Box sx={{ flex: 1, position: 'relative' }}>
+          {loading && (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: 'rgba(0,0,0,0.7)',
+                zIndex: 2,
+              }}
+            >
+              <CircularProgress size={60} sx={{ color: colors.secondary }} />
+            </Box>
+          )}
+
+          <iframe
+            src={preparedDocumentUrl}
+            style={{
+              width: '100%',
+              height: '100%',
+              border: 'none',
+              background: 'white',
+            }}
+            onLoad={handleLoadSuccess}
+            onError={handleLoadError}
+            title='Document PDF'
+          />
+        </Box>
+
+        {error && (
+          <Box
+            sx={{
+              p: 3,
+              bgcolor: `${colors.error}15`,
+              borderTop: `1px solid ${colors.error}30`,
+              textAlign: 'center',
+            }}
+          >
+            <Typography color={colors.error}>{error}</Typography>
+            <Button
+              onClick={() => window.open(preparedDocumentUrl, '_blank')}
+              sx={{ mt: 1, color: colors.text.primary }}
+            >
+              Ouvrir dans un nouvel onglet
+            </Button>
+          </Box>
+        )}
+      </Box>
+    );
+  }
+
+  if (!isValidDocumentUrl) {
+    return (
+      <Box
+        sx={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: colors.surface,
+          borderRadius: '20px',
+          border: `1px solid ${colors.error}30`,
+          color: 'white',
+          textAlign: 'center',
+          p: 4,
+        }}
+      >
+        <WarningIcon sx={{ fontSize: 64, color: colors.error, mb: 3 }} />
+        <Typography variant='h5' sx={{ mb: 2, fontWeight: 600 }}>
+          Document non disponible
+        </Typography>
+        <Typography color={colors.text.muted} sx={{ mb: 2 }}>
+          Le document n'est pas accessible actuellement.
+        </Typography>
+        <Typography variant='body2' color={colors.text.muted} sx={{ mb: 3 }}>
+          URL: {preparedDocumentUrl || 'Non définie'}
+        </Typography>
+        <Button
+          variant='outlined'
+          onClick={() =>
+            logger.info('Debug document', {
+              preparedDocumentUrl,
+              isValidDocumentUrl,
+              originalUrl: documentUrl,
+            })
+          }
+          sx={{ color: colors.text.secondary }}
+        >
+          Voir les détails techniques
+        </Button>
+      </Box>
+    );
+  }
+
+  return (
+    <Box
+      sx={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        bgcolor: colors.surface,
+        borderRadius: '20px',
+        border: `1px solid ${colors.text.muted}30`,
+        color: 'white',
+        textAlign: 'center',
+        p: 4,
+        gap: 3,
+      }}
+    >
+      <FileTextIcon sx={{ fontSize: 80, color: colors.secondary, mb: 2 }} />
+      <Typography variant='h4' sx={{ mb: 1, fontWeight: 700 }}>
+        Document
+      </Typography>
+      <Typography color={colors.text.secondary} sx={{ mb: 3, maxWidth: 400 }}>
+        Ce document est disponible en téléchargement ou consultation en ligne
+      </Typography>
+
+      <Stack
+        direction={isMobile ? 'column' : 'row'}
+        spacing={2}
+        sx={{ width: '100%', maxWidth: 400 }}
+      >
+        <Button
+          variant='contained'
+          size='large'
+          startIcon={<DownloadIcon />}
+          onClick={handleDownload}
+          sx={{
+            bgcolor: colors.secondary,
+            px: 4,
+            py: 1.5,
+            fontSize: '1rem',
+            fontWeight: 600,
+            flex: 1,
+            '&:hover': {
+              bgcolor: colors.primary,
+            },
+          }}
+        >
+          Télécharger
+        </Button>
+        <Button
+          variant='outlined'
+          size='large'
+          startIcon={<ArticleIcon />}
+          onClick={handleViewOnline}
+          sx={{
+            borderColor: colors.text.muted,
+            color: colors.text.primary,
+            px: 4,
+            py: 1.5,
+            fontSize: '1rem',
+            fontWeight: 600,
+            flex: 1,
+            '&:hover': {
+              borderColor: colors.secondary,
+              bgcolor: `${colors.secondary}10`,
+            },
+          }}
+        >
+          Voir en ligne
+        </Button>
+      </Stack>
+
+      <Button
+        variant='contained'
+        onClick={handleMarkComplete}
+        sx={{
+          bgcolor: colors.success,
+          mt: 2,
+          '&:hover': { bgcolor: colors.success },
+        }}
+      >
+        Marquer comme terminé
+      </Button>
+
+      {process.env.NODE_ENV === 'development' && (
+        <Typography variant='caption' color={colors.text.muted} sx={{ mt: 2 }}>
+          Debug: {preparedDocumentUrl}
+        </Typography>
+      )}
+    </Box>
+  );
+});
+
+// === COMPOSANT TEXT VIEWER COMPLET ===
+const TextViewer = React.memo(({ content, title, onComplete }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const handleComplete = useCallback(() => {
+    onComplete?.();
+  }, [onComplete]);
+
+  const truncatedContent = useMemo(() => {
+    if (!content) return '';
+    if (isExpanded || content.length <= 500) return content;
+    return content.substring(0, 500) + '...';
+  }, [content, isExpanded]);
+
+  if (!content) {
+    return (
+      <Box
+        sx={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: colors.surface,
+          borderRadius: '20px',
+          border: `1px solid ${colors.warning}30`,
+          color: 'white',
+          textAlign: 'center',
+          p: 4,
+        }}
+      >
+        <ArticleIcon sx={{ fontSize: 64, color: colors.warning, mb: 3 }} />
+        <Typography variant='h5' sx={{ mb: 2, fontWeight: 600 }}>
+          Contenu texte non disponible
+        </Typography>
+        <Typography color={colors.text.muted}>
+          Aucun contenu textuel n'est disponible pour ce module.
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box
+      sx={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        bgcolor: colors.surface,
+        borderRadius: '20px',
+        border: `1px solid ${colors.text.muted}30`,
+        overflow: 'hidden',
+      }}
+    >
+      <Box
+        sx={{
+          p: 3,
+          borderBottom: `1px solid ${colors.text.muted}20`,
+          bgcolor: colors.background,
+        }}
+      >
+        <Stack direction='row' spacing={2} alignItems='center' justifyContent='space-between'>
+          <Stack direction='row' spacing={2} alignItems='center'>
+            <ArticleIcon sx={{ fontSize: 32, color: colors.secondary }} />
+            <Box>
+              <Typography variant='h5' color={colors.text.primary} fontWeight={700}>
+                {title || 'Contenu Textuel'}
+              </Typography>
+              <Typography variant='body2' color={colors.text.muted}>
+                Lecture en ligne
+              </Typography>
+            </Box>
+          </Stack>
+          <Button
+            variant='contained'
+            onClick={handleComplete}
+            sx={{
+              bgcolor: colors.secondary,
+              '&:hover': { bgcolor: colors.primary },
+            }}
+          >
+            Terminer la lecture
+          </Button>
+        </Stack>
+      </Box>
+
+      <Box
+        sx={{
+          flex: 1,
+          overflow: 'auto',
+          p: 4,
+        }}
+      >
+        <Paper
+          sx={{
+            p: 4,
+            bgcolor: colors.background,
+            border: `1px solid ${colors.text.muted}20`,
+            borderRadius: '12px',
+            maxWidth: '800px',
+            mx: 'auto',
+          }}
+        >
+          <Typography
+            variant='body1'
+            color={colors.text.primary}
+            sx={{
+              lineHeight: 1.8,
+              fontSize: '1.1rem',
+              whiteSpace: 'pre-line',
+              wordBreak: 'break-word',
+            }}
+          >
+            {truncatedContent}
+          </Typography>
+
+          {content.length > 500 && (
+            <Box sx={{ mt: 3, textAlign: 'center' }}>
+              <Button
+                variant='outlined'
+                onClick={() => setIsExpanded(!isExpanded)}
+                sx={{
+                  borderColor: colors.secondary,
+                  color: colors.secondary,
+                  '&:hover': {
+                    bgcolor: `${colors.secondary}10`,
+                  },
+                }}
+              >
+                {isExpanded ? 'Voir moins' : 'Voir plus'}
+              </Button>
+            </Box>
+          )}
+        </Paper>
+      </Box>
+
+      <Box
+        sx={{
+          p: 2,
+          borderTop: `1px solid ${colors.text.muted}20`,
+          bgcolor: colors.background,
+          textAlign: 'center',
+        }}
+      >
+        <Typography variant='body2' color={colors.text.muted}>
+          {content.length} caractères • Temps de lecture estimé: {Math.ceil(content.length / 1000)}{' '}
+          minute(s)
+        </Typography>
+      </Box>
+    </Box>
+  );
+});
+
+// === COMPOSANT QUIZ INTERACTIF COMPLET ===
+const QuizComponent = React.memo(({ questions, title, onComplete }) => {
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const [showResults, setShowResults] = useState(false);
+  const [score, setScore] = useState(0);
+  const [quizStarted, setQuizStarted] = useState(false);
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  const validQuestions = useMemo(() => {
+    if (!questions || !Array.isArray(questions)) {
+      logger.warn('Questions invalides ou non fournies');
+      return [];
+    }
+
+    return questions.filter((q, index) => {
+      if (!q || typeof q !== 'object') {
+        logger.warn(`Question ${index} invalide`, q);
+        return false;
+      }
+
+      if (!q.question || typeof q.question !== 'string') {
+        logger.warn(`Question ${index} sans texte`, q);
+        return false;
+      }
+
+      if (!q.options || !Array.isArray(q.options) || q.options.length === 0) {
+        logger.warn(`Question ${index} sans options valides`, q);
+        return false;
+      }
+
+      if (
+        typeof q.correctAnswer !== 'number' ||
+        q.correctAnswer < 0 ||
+        q.correctAnswer >= q.options.length
+      ) {
+        logger.warn(`Question ${index} avec réponse correcte invalide`, q);
+        return false;
+      }
+
+      return true;
+    });
+  }, [questions]);
+
+  const currentQ = validQuestions[currentQuestion];
+
+  const handleAnswerSelect = useCallback((questionIndex, answerIndex) => {
+    setAnswers((prev) => ({
+      ...prev,
+      [questionIndex]: answerIndex,
+    }));
+  }, []);
+
+  const handleNext = useCallback(() => {
+    if (currentQuestion < validQuestions.length - 1) {
+      setCurrentQuestion((prev) => prev + 1);
+    } else {
+      const calculatedScore = validQuestions.reduce((total, question, index) => {
+        return total + (answers[index] === question.correctAnswer ? 1 : 0);
+      }, 0);
+      setScore(calculatedScore);
+      setShowResults(true);
+    }
+  }, [currentQuestion, validQuestions, answers]);
+
+  const handlePrevious = useCallback(() => {
+    if (currentQuestion > 0) {
+      setCurrentQuestion((prev) => prev - 1);
+    }
+  }, [currentQuestion]);
+
+  const handleRestart = useCallback(() => {
+    setCurrentQuestion(0);
+    setAnswers({});
+    setShowResults(false);
+    setScore(0);
+    setQuizStarted(false);
+  }, []);
+
+  const handleStartQuiz = useCallback(() => {
+    setQuizStarted(true);
+  }, []);
+
+  const handleSubmitQuiz = useCallback(() => {
+    onComplete?.();
+  }, [onComplete]);
+
+  if (!quizStarted) {
+    return (
+      <Box
+        sx={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: colors.surface,
+          borderRadius: '20px',
+          border: `1px solid ${colors.text.muted}30`,
+          color: 'white',
+          textAlign: 'center',
+          p: 4,
+        }}
+      >
+        <QuizIcon sx={{ fontSize: 80, color: colors.secondary, mb: 3 }} />
+        <Typography variant='h3' sx={{ mb: 2, fontWeight: 800 }}>
+          {title || 'Quiz'}
+        </Typography>
+        <Typography variant='h6' color={colors.text.secondary} sx={{ mb: 4 }}>
+          Testez vos connaissances
+        </Typography>
+
+        <Stack spacing={3} sx={{ maxWidth: 400, width: '100%' }}>
+          <Paper
+            sx={{
+              p: 3,
+              bgcolor: colors.background,
+              border: `1px solid ${colors.text.muted}20`,
+            }}
+          >
+            <Stack direction='row' justifyContent='space-between' sx={{ mb: 2 }}>
+              <Typography color={colors.text.muted}>Nombre de questions:</Typography>
+              <Typography color={colors.text.primary} fontWeight={600}>
+                {validQuestions.length}
+              </Typography>
+            </Stack>
+            <Stack direction='row' justifyContent='space-between' sx={{ mb: 2 }}>
+              <Typography color={colors.text.muted}>Temps estimé:</Typography>
+              <Typography color={colors.text.primary} fontWeight={600}>
+                {Math.ceil(validQuestions.length * 1.5)} minutes
+              </Typography>
+            </Stack>
+            <Stack direction='row' justifyContent='space-between'>
+              <Typography color={colors.text.muted}>Score de passage:</Typography>
+              <Typography color={colors.success} fontWeight={600}>
+                70%
+              </Typography>
+            </Stack>
+          </Paper>
+
+          <Button
+            variant='contained'
+            size='large'
+            onClick={handleStartQuiz}
+            sx={{
+              bgcolor: colors.secondary,
+              py: 2,
+              fontSize: '1.1rem',
+              fontWeight: 700,
+              '&:hover': {
+                bgcolor: colors.primary,
+              },
+            }}
+          >
+            Commencer le Quiz
+          </Button>
+        </Stack>
+      </Box>
+    );
+  }
+
+  if (validQuestions.length === 0) {
+    return (
+      <Box
+        sx={{
+          p: 4,
+          bgcolor: colors.surface,
+          borderRadius: '20px',
+          border: `1px solid ${colors.warning}30`,
+          color: 'white',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+        }}
+      >
+        <QuizIcon sx={{ fontSize: 80, color: colors.warning, mb: 3 }} />
+        <Typography variant='h4' sx={{ mb: 2, fontWeight: 700 }}>
+          Quiz non disponible
+        </Typography>
+        <Typography color={colors.text.secondary} sx={{ mb: 4 }}>
+          Aucune question valide n'est disponible pour ce quiz.
+        </Typography>
+        <Button
+          variant='contained'
+          size='large'
+          onClick={onComplete}
+          sx={{
+            bgcolor: colors.secondary,
+            px: 6,
+            py: 2,
+            fontSize: '1.1rem',
+            fontWeight: 600,
+          }}
+        >
+          Marquer comme terminé
+        </Button>
+      </Box>
+    );
+  }
+
+  if (showResults) {
+    const percentage = Math.round((score / validQuestions.length) * 100);
+    const isPassing = percentage >= 70;
+
+    return (
+      <Box
+        sx={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          bgcolor: colors.surface,
+          borderRadius: '20px',
+          border: `1px solid ${isPassing ? colors.success : colors.error}30`,
+          color: 'white',
+          overflow: 'hidden',
+        }}
+      >
+        <Box
+          sx={{
+            p: 4,
+            textAlign: 'center',
+            bgcolor: colors.background,
+            borderBottom: `1px solid ${colors.text.muted}20`,
+          }}
+        >
+          <AwardIcon
+            sx={{
+              fontSize: 80,
+              color: isPassing ? colors.success : colors.error,
+              mb: 2,
+            }}
+          />
+          <Typography variant='h3' sx={{ mb: 2, fontWeight: 800 }}>
+            {isPassing ? '🎉 Félicitations !' : '📝 Presque !'}
+          </Typography>
+          <Typography variant='h4' sx={{ mb: 1, fontWeight: 700 }}>
+            Score: {score}/{validQuestions.length} ({percentage}%)
+          </Typography>
+          <Typography color={colors.text.secondary}>
+            {isPassing
+              ? 'Vous avez réussi le quiz avec brio !'
+              : 'Continuez à vous entraîner pour améliorer votre score.'}
+          </Typography>
+        </Box>
+
+        <Box sx={{ flex: 1, overflow: 'auto', p: 3 }}>
+          {validQuestions.map((question, index) => (
+            <Card
+              key={index}
+              sx={{
+                p: 3,
+                mb: 2,
+                borderRadius: '12px',
+                bgcolor: `${answers[index] === question.correctAnswer ? colors.success : colors.error}15`,
+                border: `1px solid ${answers[index] === question.correctAnswer ? colors.success : colors.error}30`,
+              }}
+            >
+              <Typography fontWeight={700} sx={{ mb: 2, fontSize: '1.1rem' }}>
+                {index + 1}. {question.question}
+              </Typography>
+
+              <Typography color={colors.text.muted} sx={{ mb: 1 }}>
+                Votre réponse:{' '}
+                <strong>{question.options?.[answers[index]] || 'Non répondue'}</strong>
+              </Typography>
+
+              {answers[index] !== question.correctAnswer && (
+                <Typography color={colors.success} sx={{ fontWeight: 600 }}>
+                  Réponse correcte: {question.options?.[question.correctAnswer]}
+                </Typography>
+              )}
+
+              {question.explanation && (
+                <Paper
+                  sx={{
+                    p: 2,
+                    mt: 2,
+                    bgcolor: colors.background,
+                    border: `1px solid ${colors.text.muted}20`,
+                  }}
+                >
+                  <Typography variant='body2' color={colors.text.secondary}>
+                    <strong>Explication:</strong> {question.explanation}
+                  </Typography>
+                </Paper>
+              )}
+            </Card>
+          ))}
+        </Box>
+
+        <Box sx={{ p: 3, borderTop: `1px solid ${colors.text.muted}20` }}>
+          <Stack direction={isMobile ? 'column' : 'row'} spacing={2}>
+            <Button
+              variant='outlined'
+              onClick={handleRestart}
+              sx={{
+                borderColor: colors.text.muted,
+                color: colors.text.primary,
+                flex: 1,
+                '&:hover': {
+                  borderColor: colors.secondary,
+                },
+              }}
+            >
+              Refaire le quiz
+            </Button>
+            <Button
+              variant='contained'
+              onClick={handleSubmitQuiz}
+              sx={{
+                bgcolor: isPassing ? colors.success : colors.secondary,
+                flex: 1,
+                '&:hover': {
+                  bgcolor: isPassing ? colors.success : colors.primary,
+                },
+              }}
+            >
+              {isPassing ? 'Terminer le quiz' : 'Continuer quand même'}
+            </Button>
+          </Stack>
+        </Box>
+      </Box>
+    );
+  }
+
+  return (
+    <Box
+      sx={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        bgcolor: colors.surface,
+        borderRadius: '20px',
+        border: `1px solid ${colors.text.muted}30`,
+        color: 'white',
+        overflow: 'hidden',
+      }}
+    >
+      <Box
+        sx={{
+          p: 3,
+          borderBottom: `1px solid ${colors.text.muted}20`,
+          bgcolor: colors.background,
+        }}
+      >
+        <Stack direction='row' justifyContent='space-between' alignItems='center' sx={{ mb: 2 }}>
+          <Chip
+            label={`Question ${currentQuestion + 1}/${validQuestions.length}`}
+            sx={{
+              bgcolor: colors.secondary,
+              color: 'white',
+              fontWeight: 700,
+            }}
+          />
+          <Typography color={colors.text.muted}>
+            Score:{' '}
+            {
+              Object.values(answers).filter(
+                (ans, idx) => ans === validQuestions[idx]?.correctAnswer
+              ).length
+            }
+            /{validQuestions.length}
+          </Typography>
+        </Stack>
+
+        <Typography variant='h5' sx={{ fontWeight: 700, lineHeight: 1.4 }}>
+          {currentQ?.question}
+        </Typography>
+
+        {currentQ?.description && (
+          <Typography color={colors.text.secondary} sx={{ mt: 1 }}>
+            {currentQ.description}
+          </Typography>
+        )}
+      </Box>
+
+      <Box sx={{ flex: 1, overflow: 'auto', p: 3 }}>
+        {currentQ?.options?.map((option, optionIndex) => (
+          <Card
+            key={optionIndex}
+            sx={{
+              p: 3,
+              mb: 2,
+              cursor: 'pointer',
+              bgcolor:
+                answers[currentQuestion] === optionIndex
+                  ? `${colors.secondary}20`
+                  : colors.background,
+              border: `2px solid ${
+                answers[currentQuestion] === optionIndex ? colors.secondary : colors.text.muted
+              }`,
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                bgcolor: `${colors.secondary}15`,
+                borderColor: colors.secondary,
+                transform: 'translateY(-2px)',
+              },
+            }}
+            onClick={() => handleAnswerSelect(currentQuestion, optionIndex)}
+          >
+            <Stack direction='row' alignItems='center' spacing={3}>
+              <Box
+                sx={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: '50%',
+                  border: `2px solid ${
+                    answers[currentQuestion] === optionIndex ? colors.secondary : colors.text.muted
+                  }`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  bgcolor:
+                    answers[currentQuestion] === optionIndex ? colors.secondary : 'transparent',
+                  flexShrink: 0,
+                }}
+              >
+                {answers[currentQuestion] === optionIndex && (
+                  <CheckCircleIcon sx={{ fontSize: 20, color: 'white' }} />
+                )}
+              </Box>
+              <Typography sx={{ fontSize: '1.1rem', lineHeight: 1.4 }}>{option}</Typography>
+            </Stack>
+          </Card>
+        ))}
+      </Box>
+
+      <Box sx={{ p: 3, borderTop: `1px solid ${colors.text.muted}20` }}>
+        <Stack direction={isMobile ? 'column' : 'row'} spacing={2}>
+          <Button
+            variant='outlined'
+            onClick={handlePrevious}
+            disabled={currentQuestion === 0}
+            startIcon={<ArrowLeftIcon />}
+            sx={{
+              borderColor: colors.text.muted,
+              color: colors.text.primary,
+              flex: 1,
+              '&:hover': {
+                borderColor: colors.secondary,
+              },
+            }}
+          >
+            Précédent
+          </Button>
+          <Button
+            variant='contained'
+            onClick={handleNext}
+            disabled={answers[currentQuestion] === undefined}
+            endIcon={
+              currentQuestion === validQuestions.length - 1 ? <AwardIcon /> : <ArrowRightIcon />
+            }
+            sx={{
+              bgcolor: colors.secondary,
+              flex: 1,
+              '&:hover': {
+                bgcolor: colors.primary,
+              },
+            }}
+          >
+            {currentQuestion === validQuestions.length - 1
+              ? 'Terminer le quiz'
+              : 'Question suivante'}
+          </Button>
+        </Stack>
+      </Box>
+    </Box>
+  );
+});
+
+// === COMPOSANT PRINCIPAL COURSE PLAYER COMPLET ===
 const CoursePlayer = () => {
   const { courseId, contenuId } = useParams();
   const navigate = useNavigate();
@@ -999,33 +2151,42 @@ const CoursePlayer = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const isSmallMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  // Gestionnaire d'authentification
   const headers = useMemo(() => {
-    const token = localStorage.getItem('token');
-    return token
-      ? {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        }
-      : null;
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+
+      if (!token) {
+        logger.warn("Aucun token d'authentification trouvé");
+        return null;
+      }
+
+      if (typeof token !== 'string' || token.length < 10) {
+        logger.error("Token d'authentification invalide");
+        return null;
+      }
+
+      return {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      };
+    } catch (error) {
+      logger.error('Erreur lors de la récupération du token', error);
+      return null;
+    }
   }, []);
 
-  // État global avec notre hook personnalisé
   const courseData = useCourseData(courseId, contenuId, headers);
   const { course, contenu, contenus, progress, loading, error, isCompleted } = courseData;
 
-  // États d'interface
   const [uiState, setUiState] = useState({
     snackbar: { open: false, message: '', severity: 'info' },
     completing: false,
-    sidebarOpen: false,
-    confirmDialog: { open: false, action: null, title: '', message: '' },
+    sidebarOpen: !isMobile,
+    mobileSidebarOpen: false,
   });
 
-  // Références
   const completionTimeoutsRef = useRef();
 
-  // Nettoyage des timeouts
   useEffect(() => {
     return () => {
       if (completionTimeoutsRef.current) {
@@ -1034,27 +2195,49 @@ const CoursePlayer = () => {
     };
   }, []);
 
-  // Gestionnaire de complétion avancé
   const handleComplete = useCallback(async () => {
-    if (uiState.completing || isCompleted || !headers || !contenuId) return;
+    if (uiState.completing || !headers || !contenuId) {
+      logger.warn('Conditions de complétion non remplies', {
+        completing: uiState.completing,
+        hasHeaders: !!headers,
+        contenuId,
+      });
+      return;
+    }
+
+    const currentContent = contenus.find((c) => c._id === contenuId);
+    if (!currentContent) {
+      logger.error('Contenu à compléter non trouvé', contenuId);
+      setUiState((prev) => ({
+        ...prev,
+        snackbar: {
+          open: true,
+          message: 'Erreur: contenu non trouvé',
+          severity: 'error',
+        },
+      }));
+      return;
+    }
 
     setUiState((prev) => ({ ...prev, completing: true }));
 
     try {
-      logger.info(`Début de la complétion du contenu: ${contenuId}`);
+      logger.info(`🚀 Début de la complétion du contenu: ${contenuId}`, {
+        titre: currentContent.titre,
+        type: currentContent.type,
+      });
 
-      // Essayer plusieurs endpoints de complétion
       const endpoints = [
-        {
-          url: `${API_BASE_URL}/courses/contenu/${contenuId}/complete`,
+    /*    {
+          url: `${API_BASE_URL}/learning/contenus/${contenuId}/complete`,
           method: 'PUT',
         },
         {
           url: `${API_BASE_URL}/contenus/${contenuId}/complete`,
           method: 'PUT',
-        },
+        },*/
         {
-          url: `${API_BASE_URL}/learning/complete`,
+          url: `${API_BASE_URL}/learning/progress/complete`,
           method: 'POST',
           data: { contenuId, courseId },
         },
@@ -1063,6 +2246,8 @@ const CoursePlayer = () => {
       let success = false;
       for (const endpoint of endpoints) {
         try {
+          logger.info(`🔄 Tentative de complétion via: ${endpoint.url}`);
+
           const response = await axios({
             method: endpoint.method,
             url: endpoint.url,
@@ -1073,20 +2258,28 @@ const CoursePlayer = () => {
 
           if (response.status === 200 || response.status === 201) {
             success = true;
-            logger.info(`Complétion réussie via: ${endpoint.url}`);
+            logger.info(`✅ Complétion réussie via: ${endpoint.url}`);
             break;
           }
         } catch (err) {
+          logger.warn(`❌ Échec endpoint: ${endpoint.url}`, err.message);
           continue;
         }
       }
 
       if (!success) {
-        logger.warn('Aucun endpoint de complétion disponible, mise à jour locale uniquement');
+        logger.warn('⚠️ Aucun endpoint de complétion disponible, mise à jour locale uniquement');
       }
 
-      // Mise à jour optimiste de l'interface
-      courseData.contenu.isCompleted = true;
+      const updatedContenus = contenus.map((c) =>
+        c._id === contenuId ? { ...c, isCompleted: true } : c
+      );
+
+      const completedCount = updatedContenus.filter((c) => c.isCompleted).length;
+      const newProgress =
+        updatedContenus.length > 0
+          ? Math.round((completedCount / updatedContenus.length) * 100)
+          : 0;
 
       setUiState((prev) => ({
         ...prev,
@@ -1098,15 +2291,26 @@ const CoursePlayer = () => {
         completing: false,
       }));
 
-      // Navigation automatique après délai
       const currentIndex = contenus.findIndex((c) => c._id === contenuId);
       if (currentIndex < contenus.length - 1) {
-        completionTimeoutsRef.current = setTimeout(() => {
-          navigate(`/student/learn/${courseId}/contenu/${contenus[currentIndex + 1]._id}`);
-        }, 2000);
+        const nextContent = contenus[currentIndex + 1];
+        if (nextContent && nextContent._id) {
+          completionTimeoutsRef.current = setTimeout(() => {
+            navigate(`/student/learn/${courseId}/contenu/${nextContent._id}`);
+          }, 2000);
+        }
+      } else {
+        setUiState((prev) => ({
+          ...prev,
+          snackbar: {
+            open: true,
+            message: '🎊 Félicitations ! Vous avez terminé ce cours !',
+            severity: 'success',
+          },
+        }));
       }
     } catch (error) {
-      logger.error('Erreur lors de la complétion', error);
+      logger.error('❌ Erreur lors de la complétion', error);
       setUiState((prev) => ({
         ...prev,
         snackbar: {
@@ -1117,16 +2321,15 @@ const CoursePlayer = () => {
         completing: false,
       }));
     }
-  }, [contenuId, contenus, courseId, navigate, headers, uiState.completing, isCompleted]);
+  }, [contenuId, contenus, courseId, navigate, headers, uiState.completing]);
 
-  // Gestionnaire de fin de vidéo
   const handleVideoEnd = useCallback(() => {
     if (!isCompleted && contenu?.type === 'video') {
+      logger.info('🎬 Fin de vidéo détectée, marquage automatique');
       handleComplete();
     }
   }, [isCompleted, contenu?.type, handleComplete]);
 
-  // Navigation entre contenus
   const currentIndex = useMemo(
     () => contenus.findIndex((c) => c._id === contenuId),
     [contenus, contenuId]
@@ -1135,29 +2338,45 @@ const CoursePlayer = () => {
   const navigateToContent = useCallback(
     (direction) => {
       const newIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
+
       if (newIndex >= 0 && newIndex < contenus.length) {
-        navigate(`/student/learn/${courseId}/contenu/${contenus[newIndex]._id}`);
+        const targetContent = contenus[newIndex];
+        if (targetContent && targetContent._id) {
+          navigate(`/student/learn/${courseId}/contenu/${targetContent._id}`);
+        } else {
+          logger.error('Contenu cible invalide pour la navigation', targetContent);
+        }
+      } else {
+        logger.warn(`Navigation ${direction} impossible: index ${newIndex} hors limites`);
       }
     },
     [currentIndex, contenus, courseId, navigate]
   );
 
-  // Statistiques calculées
   const stats = useMemo(() => {
-    const completed = contenus.filter((c) => c.isCompleted).length;
-    const total = contenus.length;
+    const validContenus = contenus.filter((c) => c.isValid !== false);
+    const completed = validContenus.filter((c) => c.isCompleted).length;
+    const total = validContenus.length;
     const remaining = total - completed;
-    const estimatedTime = remaining * 10; // 10 minutes estimées par contenu
+    const estimatedTime = remaining * 10;
 
-    return { completed, total, remaining, estimatedTime };
+    return {
+      completed,
+      total,
+      remaining,
+      estimatedTime,
+      completionPercentage: total > 0 ? Math.round((completed / total) * 100) : 0,
+    };
   }, [contenus]);
 
-  // Gestionnaire de sidebar mobile
   const toggleSidebar = useCallback(() => {
-    setUiState((prev) => ({ ...prev, sidebarOpen: !prev.sidebarOpen }));
-  }, []);
+    if (isMobile) {
+      setUiState((prev) => ({ ...prev, mobileSidebarOpen: !prev.mobileSidebarOpen }));
+    } else {
+      setUiState((prev) => ({ ...prev, sidebarOpen: !prev.sidebarOpen }));
+    }
+  }, [isMobile]);
 
-  // Fermeture des notifications
   const handleSnackbarClose = useCallback(() => {
     setUiState((prev) => ({
       ...prev,
@@ -1165,7 +2384,117 @@ const CoursePlayer = () => {
     }));
   }, []);
 
-  // Rendu du chargement
+  // ✅ FONCTION RENDER CONTENT CORRIGÉE POUR TOUS LES TYPES
+  const renderContent = () => {
+    if (!contenu) {
+      return (
+        <Box
+          sx={{
+            height: 400,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            bgcolor: colors.surface,
+            borderRadius: '20px',
+            border: `1px solid ${colors.warning}30`,
+            color: 'white',
+            textAlign: 'center',
+            p: 4,
+          }}
+        >
+          <HelpCircleIcon sx={{ fontSize: 64, color: colors.warning, mb: 3 }} />
+          <Typography variant='h4' sx={{ mb: 2, fontWeight: 600 }}>
+            Contenu non disponible
+          </Typography>
+          <Typography color={colors.text.muted}>
+            Le contenu demandé n'est pas disponible ou a été supprimé.
+          </Typography>
+        </Box>
+      );
+    }
+
+    // ✅ GESTION DE TOUS LES TYPES DE CONTENU
+    switch (contenu.type) {
+      case 'video':
+        return (
+          <Box sx={{ height: { xs: 300, sm: 400, md: 500, lg: 600 } }}>
+            <VideoPlayer videoUrl={contenu.url} onEnded={handleVideoEnd} autoComplete={true} />
+          </Box>
+        );
+
+      case 'document':
+        return (
+          <Box sx={{ height: { xs: 500, sm: 600, md: 700, lg: 800 } }}>
+            <DocumentViewer documentUrl={contenu.url} onComplete={handleComplete} />
+          </Box>
+        );
+
+      case 'texte':
+        return (
+          <Box sx={{ height: { xs: 500, sm: 600, md: 700, lg: 800 } }}>
+            <TextViewer
+              content={contenu.contenu || contenu.url}
+              title={contenu.titre}
+              onComplete={handleComplete}
+            />
+          </Box>
+        );
+
+      case 'quiz':
+        return (
+          <Box sx={{ height: { xs: 500, sm: 600, md: 700, lg: 800 } }}>
+            <QuizComponent
+              questions={contenu.questions}
+              title={contenu.titre}
+              onComplete={handleComplete}
+            />
+          </Box>
+        );
+
+      default:
+        return (
+          <Box
+            sx={{
+              height: 400,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: colors.surface,
+              borderRadius: '20px',
+              border: `1px solid ${colors.warning}30`,
+              color: 'white',
+              textAlign: 'center',
+              p: 4,
+            }}
+          >
+            <WarningIcon sx={{ fontSize: 64, color: colors.warning, mb: 3 }} />
+            <Typography variant='h4' sx={{ mb: 2, fontWeight: 600 }}>
+              Type de contenu non supporté
+            </Typography>
+            <Typography color={colors.text.muted} sx={{ mb: 3 }}>
+              Le type "{contenu.type}" n'est pas encore supporté par le lecteur.
+            </Typography>
+            <Typography variant='body2' color={colors.text.muted} sx={{ mb: 3 }}>
+              Type original: {contenu.originalType} - URL: {contenu.url}
+            </Typography>
+            <Button
+              variant='contained'
+              onClick={handleComplete}
+              disabled={uiState.completing}
+              sx={{
+                bgcolor: colors.secondary,
+                '&:hover': { bgcolor: colors.primary },
+              }}
+            >
+              {uiState.completing ? 'Marquage...' : 'Marquer comme terminé'}
+            </Button>
+          </Box>
+        );
+    }
+  };
+
   if (loading) {
     return (
       <Box
@@ -1176,7 +2505,7 @@ const CoursePlayer = () => {
           alignItems: 'center',
           minHeight: '100vh',
           width: '100vw',
-          background: `linear-gradient(135deg, ${colors.navy}, ${colors.darkNavy})`,
+          background: `linear-gradient(135deg, ${colors.background}, ${colors.surface})`,
           color: colors.text.primary,
           gap: 4,
           p: 3,
@@ -1187,25 +2516,9 @@ const CoursePlayer = () => {
             size={isSmallMobile ? 80 : 120}
             thickness={3}
             sx={{
-              color: colors.red,
-              animation: `${pulse} 2s infinite`,
+              color: colors.secondary,
             }}
           />
-          <Box
-            sx={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-            }}
-          >
-            <BookIcon
-              sx={{
-                fontSize: isSmallMobile ? 32 : 48,
-                color: colors.red,
-              }}
-            />
-          </Box>
         </Box>
         <Box textAlign='center'>
           <Typography variant={isSmallMobile ? 'h5' : 'h4'} fontWeight={700} sx={{ mb: 2 }}>
@@ -1219,7 +2532,6 @@ const CoursePlayer = () => {
     );
   }
 
-  // Rendu des erreurs
   if (error) {
     return (
       <Box
@@ -1230,7 +2542,7 @@ const CoursePlayer = () => {
           alignItems: 'center',
           minHeight: '100vh',
           width: '100vw',
-          background: `linear-gradient(135deg, ${colors.navy}, ${colors.darkNavy})`,
+          background: `linear-gradient(135deg, ${colors.background}, ${colors.surface})`,
           color: colors.text.primary,
           textAlign: 'center',
           p: 3,
@@ -1267,59 +2579,41 @@ const CoursePlayer = () => {
             variant='contained'
             size='large'
             sx={{
-              bgcolor: colors.red,
+              bgcolor: colors.secondary,
               px: 4,
-              '&:hover': { bgcolor: colors.redLight },
+              '&:hover': { bgcolor: colors.primary },
             }}
           >
             Actualiser la page
           </Button>
           <Button
-            onClick={() => navigate('/student/dashboard')}
+            onClick={() => navigate('/student/courses')}
             variant='outlined'
             size='large'
             sx={{
-              borderColor: colors.border,
+              borderColor: colors.text.muted,
               color: colors.text.primary,
               px: 4,
-              '&:hover': { borderColor: colors.red },
+              '&:hover': { borderColor: colors.secondary },
             }}
           >
-            Tableau de bord
+            Mes cours
           </Button>
         </Stack>
       </Box>
     );
   }
 
-  // Rendu principal
   return (
     <Box
       sx={{
         minHeight: '100vh',
         width: '100vw',
-        background: `linear-gradient(135deg, ${colors.navy}, ${colors.darkNavy})`,
+        background: `linear-gradient(135deg, ${colors.background}, ${colors.surface})`,
         position: 'relative',
         overflow: 'hidden',
       }}
     >
-      {/* Arrière-plan animé */}
-      <Box
-        sx={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: `
-            radial-gradient(circle at 20% 30%, ${colors.red}08, transparent 50%),
-            radial-gradient(circle at 80% 70%, ${colors.purple}08, transparent 50%)
-          `,
-          pointerEvents: 'none',
-          zIndex: 0,
-        }}
-      />
-
       <Container
         maxWidth={false}
         sx={{
@@ -1331,17 +2625,15 @@ const CoursePlayer = () => {
       >
         <Fade in timeout={1000}>
           <Box>
-            {/* HEADER PROFESSIONNEL */}
             <Box
               sx={{
                 position: 'sticky',
                 top: 0,
-                background: `linear-gradient(135deg, ${colors.glassDark}, ${colors.navy}ee)`,
-                backdropFilter: 'blur(30px)',
-                borderBottom: `1px solid ${colors.border}`,
+                background: `linear-gradient(135deg, ${colors.surface}ee, ${colors.background}ee)`,
+                backdropFilter: 'blur(20px)',
+                borderBottom: `1px solid ${colors.text.muted}20`,
                 p: { xs: 2, sm: 3 },
                 zIndex: 1000,
-                boxShadow: `0 8px 32px ${colors.navy}40`,
               }}
             >
               <Stack
@@ -1350,34 +2642,36 @@ const CoursePlayer = () => {
                 alignItems='center'
                 spacing={3}
               >
-                {/* Navigation et menu */}
                 <Stack direction='row' spacing={2} alignItems='center'>
-                  <NavButton
+                  <Button
                     startIcon={<ArrowLeftIcon />}
                     onClick={() => navigate(`/student/course/${courseId}`)}
+                    sx={{
+                      color: colors.text.primary,
+                      border: `1px solid ${colors.text.muted}30`,
+                      borderRadius: '12px',
+                      px: 3,
+                      py: 1,
+                      fontWeight: 600,
+                    }}
                   >
                     Retour au cours
-                  </NavButton>
+                  </Button>
 
                   {isMobile && (
                     <IconButton
                       onClick={toggleSidebar}
                       sx={{
                         color: colors.text.primary,
-                        bgcolor: colors.glass,
-                        border: `1px solid ${colors.border}`,
-                        '&:hover': {
-                          bgcolor: `${colors.red}20`,
-                          borderColor: colors.red,
-                        },
+                        bgcolor: colors.surface,
+                        border: `1px solid ${colors.text.muted}30`,
                       }}
                     >
-                      {uiState.sidebarOpen ? <CloseIcon /> : <MenuIcon />}
+                      {uiState.mobileSidebarOpen ? <CloseIcon /> : <MenuIcon />}
                     </IconButton>
                   )}
                 </Stack>
 
-                {/* Titre et progression */}
                 <Box
                   sx={{
                     textAlign: 'center',
@@ -1413,23 +2707,31 @@ const CoursePlayer = () => {
                       variant='determinate'
                       value={progress}
                       sx={{
-                        height: 10,
-                        borderRadius: 5,
-                        backgroundColor: `${colors.red}15`,
+                        height: 8,
+                        borderRadius: 4,
+                        backgroundColor: `${colors.text.muted}20`,
                         '& .MuiLinearProgress-bar': {
-                          background: `linear-gradient(90deg, ${colors.red}, ${colors.purple})`,
-                          borderRadius: 5,
-                          transition: 'transform 0.4s ease',
+                          background: `linear-gradient(90deg, ${colors.secondary}, ${colors.primary})`,
+                          borderRadius: 4,
                         },
                       }}
                     />
                   </Box>
                 </Box>
 
-                {/* Statistiques rapides */}
                 {!isMobile && (
                   <Stack direction='row' spacing={2}>
-                    <StatsCard>
+                    <Paper
+                      sx={{
+                        p: 2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 2,
+                        background: colors.surface,
+                        border: `1px solid ${colors.text.muted}20`,
+                        borderRadius: '12px',
+                      }}
+                    >
                       <BarChart3Icon sx={{ fontSize: 24, color: colors.success }} />
                       <Box>
                         <Typography variant='caption' color={colors.text.muted}>
@@ -1439,25 +2741,12 @@ const CoursePlayer = () => {
                           {stats.completed}/{stats.total}
                         </Typography>
                       </Box>
-                    </StatsCard>
-
-                    <StatsCard>
-                      <ClockIcon sx={{ fontSize: 24, color: colors.info }} />
-                      <Box>
-                        <Typography variant='caption' color={colors.text.muted}>
-                          Restant
-                        </Typography>
-                        <Typography variant='h6' color={colors.text.primary} fontWeight={700}>
-                          {stats.estimatedTime}min
-                        </Typography>
-                      </Box>
-                    </StatsCard>
+                    </Paper>
                   </Stack>
                 )}
               </Stack>
             </Box>
 
-            {/* CONTENU PRINCIPAL */}
             <Box
               sx={{
                 display: 'flex',
@@ -1467,29 +2756,34 @@ const CoursePlayer = () => {
                 minHeight: 'calc(100vh - 140px)',
               }}
             >
-              {/* SIDEBAR - Navigation des contenus */}
-              {(!isMobile || uiState.sidebarOpen) && (
+              {((!isMobile && uiState.sidebarOpen) || (isMobile && uiState.mobileSidebarOpen)) && (
                 <Box
                   sx={{
                     width: { xs: '100%', lg: 400 },
                     flexShrink: 0,
-                    position: isMobile && uiState.sidebarOpen ? 'fixed' : 'relative',
-                    top: isMobile && uiState.sidebarOpen ? 0 : 'auto',
-                    left: isMobile && uiState.sidebarOpen ? 0 : 'auto',
-                    zIndex: isMobile && uiState.sidebarOpen ? 1200 : 1,
+                    position: isMobile && uiState.mobileSidebarOpen ? 'fixed' : 'relative',
+                    top: isMobile && uiState.mobileSidebarOpen ? 0 : 'auto',
+                    left: isMobile && uiState.mobileSidebarOpen ? 0 : 'auto',
+                    zIndex: isMobile && uiState.mobileSidebarOpen ? 1200 : 1,
+                    height: isMobile && uiState.mobileSidebarOpen ? '100vh' : 'auto',
+                    background:
+                      isMobile && uiState.mobileSidebarOpen ? colors.background : 'transparent',
                   }}
                 >
-                  <SidebarCard mobileopen={uiState.sidebarOpen}>
+                  <Card
+                    sx={{
+                      background: colors.surface,
+                      border: `1px solid ${colors.text.muted}20`,
+                      borderRadius: '16px',
+                      maxHeight:
+                        isMobile && uiState.mobileSidebarOpen ? '100vh' : 'calc(100vh - 200px)',
+                      overflow: 'hidden',
+                    }}
+                  >
                     <CardContent
-                      sx={{
-                        p: { xs: 2, sm: 3 },
-                        display: 'flex',
-                        flexDirection: 'column',
-                        height: '100%',
-                      }}
+                      sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}
                     >
-                      {/* En-tête sidebar */}
-                      {isMobile && uiState.sidebarOpen && (
+                      {isMobile && uiState.mobileSidebarOpen && (
                         <>
                           <Stack
                             direction='row'
@@ -1500,14 +2794,8 @@ const CoursePlayer = () => {
                             <Typography
                               variant='h6'
                               color={colors.text.primary}
-                              sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1.5,
-                                fontWeight: 700,
-                              }}
+                              sx={{ fontWeight: 700 }}
                             >
-                              <BookIcon sx={{ color: colors.red }} />
                               Parcours d'apprentissage
                             </Typography>
                             <Chip
@@ -1520,80 +2808,56 @@ const CoursePlayer = () => {
                               }}
                             />
                           </Stack>
-                          <Divider sx={{ mb: 3, borderColor: colors.borderLight }} />
+                          <Divider sx={{ mb: 3, borderColor: colors.text.muted }} />
                         </>
                       )}
 
-                      {/* Liste des contenus */}
-                      <List
-                        sx={{
-                          overflow: 'auto',
-                          flex: 1,
-                          '&::-webkit-scrollbar': {
-                            width: '6px',
-                          },
-                          '&::-webkit-scrollbar-track': {
-                            background: 'rgba(255,255,255,0.05)',
-                            borderRadius: '3px',
-                          },
-                          '&::-webkit-scrollbar-thumb': {
-                            background: colors.red,
-                            borderRadius: '3px',
-                          },
-                        }}
-                      >
+                      <List sx={{ overflow: 'auto', flex: 1 }}>
                         {contenus.map((content, index) => (
-                          <ContentListItem
+                          <ListItem
                             key={content._id}
-                            selected={content._id === contenuId}
-                            completed={content.isCompleted}
+                            sx={{
+                              p: 2,
+                              mb: 1,
+                              borderRadius: '12px',
+                              background:
+                                content._id === contenuId ? `${colors.secondary}15` : 'transparent',
+                              border: `1px solid ${
+                                content._id === contenuId ? colors.secondary : colors.text.muted
+                              }30`,
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease',
+                              '&:hover': {
+                                background: `${colors.secondary}10`,
+                                transform: 'translateX(4px)',
+                              },
+                            }}
                             onClick={() => {
                               navigate(`/student/learn/${courseId}/contenu/${content._id}`);
                               if (isMobile) {
-                                setUiState((prev) => ({ ...prev, sidebarOpen: false }));
+                                setUiState((prev) => ({ ...prev, mobileSidebarOpen: false }));
                               }
                             }}
                           >
-                            <ListItemIcon sx={{ minWidth: 52 }}>
+                            <ListItemIcon sx={{ minWidth: 40 }}>
                               {content.isCompleted ? (
-                                <Box
-                                  sx={{
-                                    width: 36,
-                                    height: 36,
-                                    borderRadius: '50%',
-                                    bgcolor: `${colors.success}20`,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    border: `1px solid ${colors.success}30`,
-                                  }}
-                                >
-                                  <CheckCircleIcon
-                                    sx={{
-                                      color: colors.success,
-                                      fontSize: 20,
-                                    }}
-                                  />
-                                </Box>
+                                <CheckCircleIcon sx={{ color: colors.success }} />
                               ) : (
                                 <Box
                                   sx={{
-                                    width: 36,
-                                    height: 36,
+                                    width: 24,
+                                    height: 24,
                                     borderRadius: '50%',
                                     bgcolor:
-                                      content._id === contenuId ? `${colors.red}20` : colors.glass,
+                                      content._id === contenuId
+                                        ? colors.secondary
+                                        : colors.text.muted,
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    color:
-                                      content._id === contenuId ? colors.red : colors.text.muted,
+                                    color: 'white',
                                     fontWeight: 700,
-                                    fontSize: '0.9rem',
-                                    border: `1px solid ${
-                                      content._id === contenuId ? colors.red : colors.borderLight
-                                    }`,
-                                    transition: 'all 0.3s ease',
+                                    fontSize: '0.8rem',
                                   }}
                                 >
                                   {index + 1}
@@ -1609,149 +2873,112 @@ const CoursePlayer = () => {
                                       : colors.text.secondary
                                   }
                                   fontWeight={content._id === contenuId ? 600 : 500}
-                                  sx={{
-                                    mb: 0.5,
-                                    lineHeight: 1.3,
-                                  }}
                                 >
                                   {content.titre}
                                 </Typography>
                               }
                               secondary={
-                                <Stack direction='row' spacing={1} alignItems='center'>
+                                <Stack
+                                  direction='row'
+                                  spacing={1}
+                                  alignItems='center'
+                                  sx={{ mt: 0.5 }}
+                                >
                                   <Chip
-                                    label={
-                                      content.type === 'video'
-                                        ? 'VIDÉO'
-                                        : content.type === 'quiz'
-                                          ? 'QUIZ'
-                                          : 'DOCUMENT'
-                                    }
+                                    label={content.type.toUpperCase()}
                                     size='small'
                                     sx={{
-                                      height: 22,
+                                      height: 20,
                                       fontSize: '0.7rem',
-                                      fontWeight: 600,
                                       bgcolor:
                                         content.type === 'video'
-                                          ? `${colors.purple}20`
+                                          ? `${colors.secondary}20`
                                           : content.type === 'quiz'
                                             ? `${colors.warning}20`
-                                            : `${colors.info}20`,
+                                            : content.type === 'texte'
+                                              ? `${colors.info}20`
+                                              : `${colors.primary}20`,
                                       color:
                                         content.type === 'video'
-                                          ? colors.purple
+                                          ? colors.secondary
                                           : content.type === 'quiz'
                                             ? colors.warning
-                                            : colors.info,
+                                            : content.type === 'texte'
+                                              ? colors.info
+                                              : colors.primary,
                                     }}
                                   />
-                                  {content.duration && (
-                                    <Typography
-                                      variant='caption'
-                                      color={colors.text.muted}
-                                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-                                    >
-                                      <ClockIcon sx={{ fontSize: 12 }} />
-                                      {content.duration}
-                                    </Typography>
-                                  )}
+                                  {process.env.NODE_ENV === 'development' &&
+                                    content.originalType && (
+                                      <Chip
+                                        label={content.originalType}
+                                        size='small'
+                                        variant='outlined'
+                                        sx={{
+                                          height: 20,
+                                          fontSize: '0.6rem',
+                                        }}
+                                      />
+                                    )}
                                 </Stack>
                               }
                             />
-                          </ContentListItem>
+                          </ListItem>
                         ))}
                       </List>
-
-                      {/* Résumé de progression */}
-                      <Box
-                        sx={{
-                          mt: 3,
-                          p: 2.5,
-                          borderRadius: '14px',
-                          bgcolor: `${colors.success}10`,
-                          border: `1px solid ${colors.success}25`,
-                        }}
-                      >
-                        <Stack direction='row' alignItems='center' spacing={2}>
-                          <TargetIcon sx={{ color: colors.success }} />
-                          <Box flex={1}>
-                            <Typography
-                              variant='body2'
-                              color={colors.text.primary}
-                              fontWeight={600}
-                              sx={{ mb: 0.5 }}
-                            >
-                              Objectif: {stats.remaining} contenu{stats.remaining > 1 ? 's' : ''}{' '}
-                              restant{stats.remaining > 1 ? 's' : ''}
-                            </Typography>
-                            <Typography variant='caption' color={colors.text.muted}>
-                              {stats.remaining === 0
-                                ? '🎉 Félicitations ! Vous avez terminé !'
-                                : 'Continuez vos efforts ! 💪'}
-                            </Typography>
-                          </Box>
-                        </Stack>
-                      </Box>
                     </CardContent>
-                  </SidebarCard>
+                  </Card>
                 </Box>
               )}
 
-              {/* ZONE DE CONTENU PRINCIPAL */}
-              <GlassCard
+              <Card
                 sx={{
                   flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
+                  background: colors.surface,
+                  border: `1px solid ${colors.text.muted}20`,
+                  borderRadius: '16px',
+                  p: 4,
                 }}
               >
                 <Stack spacing={4} sx={{ height: '100%' }}>
-                  {/* En-tête du contenu */}
                   <Box>
-                    <Stack direction='row' spacing={2} alignItems='center' sx={{ mb: 2.5 }}>
+                    <Stack direction='row' spacing={2} alignItems='center' sx={{ mb: 2 }}>
                       <Chip
                         label={contenu?.type?.toUpperCase() || 'CONTENU'}
                         sx={{
-                          bgcolor: colors.red,
-                          color: colors.text.primary,
+                          bgcolor: colors.secondary,
+                          color: 'white',
                           fontWeight: 700,
-                          fontSize: '0.8rem',
-                          px: 1,
-                          height: 28,
                         }}
                       />
                       {isCompleted && (
                         <Chip
-                          icon={<CheckCircleIcon sx={{ fontSize: 16 }} />}
+                          icon={<CheckCircleIcon />}
                           label='TERMINÉ'
                           sx={{
                             bgcolor: `${colors.success}20`,
                             color: colors.success,
                             fontWeight: 700,
-                            border: `1px solid ${colors.success}40`,
+                          }}
+                        />
+                      )}
+                      {process.env.NODE_ENV === 'development' && contenu?.originalType && (
+                        <Chip
+                          label={`Original: ${contenu.originalType}`}
+                          size='small'
+                          variant='outlined'
+                          sx={{
+                            color: colors.text.muted,
                           }}
                         />
                       )}
                     </Stack>
 
                     <Typography
-                      variant={isSmallMobile ? 'h4' : 'h3'}
+                      variant='h4'
                       color={colors.text.primary}
                       fontWeight={800}
-                      sx={{
-                        mb: 2,
-                        fontSize: {
-                          xs: '1.75rem',
-                          sm: '2.5rem',
-                          md: '3rem',
-                        },
-                        lineHeight: 1.2,
-                        background: `linear-gradient(135deg, ${colors.text.primary}, ${colors.text.secondary})`,
-                        backgroundClip: 'text',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                      }}
+                      sx={{ mb: 2 }}
                     >
                       {contenu?.titre}
                     </Typography>
@@ -1760,49 +2987,27 @@ const CoursePlayer = () => {
                       <Typography
                         variant='body1'
                         color={colors.text.secondary}
-                        sx={{
-                          lineHeight: 1.7,
-                          fontSize: '1.1rem',
-                        }}
+                        sx={{ lineHeight: 1.6 }}
                       >
                         {contenu.description}
                       </Typography>
                     )}
-                  </Box>
 
-                  <Divider sx={{ borderColor: colors.borderLight }} />
-
-                  {/* Conteneur du média principal */}
-                  <Box sx={{ flex: 1, minHeight: 0 }}>
-                    {contenu?.type === 'video' && (
-                      <VideoPlayer
-                        videoUrl={contenu.url}
-                        onEnded={handleVideoEnd}
-                        autoComplete={true}
-                      />
-                    )}
-
-                    {contenu?.type === 'document' && (
-                      <Box
-                        sx={{
-                          height: { xs: 400, sm: 500, md: 600 },
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
+                    {process.env.NODE_ENV === 'development' && contenu?.url && (
+                      <Typography
+                        variant='caption'
+                        color={colors.text.muted}
+                        sx={{ display: 'block', mt: 1, wordBreak: 'break-all' }}
                       >
-                        <DocumentViewer pdfUrl={contenu.url} />
-                      </Box>
-                    )}
-
-                    {contenu?.type === 'quiz' && (
-                      <Box sx={{ height: '100%', minHeight: 500 }}>
-                        <QuizComponent questions={contenu.questions} onSubmit={handleComplete} />
-                      </Box>
+                        URL: {contenu.url}
+                      </Typography>
                     )}
                   </Box>
 
-                  {/* Barre de navigation et actions */}
+                  <Divider sx={{ borderColor: colors.text.muted }} />
+
+                  <Box sx={{ flex: 1, minHeight: 0 }}>{renderContent()}</Box>
+
                   <Stack
                     direction={{ xs: 'column', sm: 'row' }}
                     justifyContent='space-between'
@@ -1810,39 +3015,32 @@ const CoursePlayer = () => {
                     spacing={3}
                     sx={{
                       p: 3,
-                      borderRadius: '18px',
-                      bgcolor: colors.glass,
-                      border: `1px solid ${colors.borderLight}`,
+                      borderRadius: '12px',
+                      bgcolor: colors.background,
+                      border: `1px solid ${colors.text.muted}20`,
                       mt: 'auto',
                     }}
                   >
-                    <NavButton
+                    <Button
                       startIcon={<ArrowLeftIcon />}
                       onClick={() => navigateToContent('prev')}
                       disabled={currentIndex === 0}
                       sx={{
+                        color: colors.text.primary,
+                        border: `1px solid ${colors.text.muted}30`,
+                        borderRadius: '8px',
+                        px: 3,
                         minWidth: { xs: '100%', sm: 140 },
-                        order: { xs: 2, sm: 1 },
                       }}
                     >
                       Précédent
-                    </NavButton>
+                    </Button>
 
-                    <Box
-                      sx={{
-                        flex: 1,
-                        display: 'flex',
-                        justifyContent: 'center',
-                        order: { xs: 1, sm: 2 },
-                        width: { xs: '100%', sm: 'auto' },
-                        mb: { xs: 2, sm: 0 },
-                      }}
-                    >
+                    <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
                       {!isCompleted && contenu?.type !== 'quiz' && (
-                        <CompleteButton
+                        <Button
                           onClick={handleComplete}
                           disabled={uiState.completing}
-                          completed={false}
                           startIcon={
                             uiState.completing ? (
                               <CircularProgress size={20} sx={{ color: 'white' }} />
@@ -1850,152 +3048,58 @@ const CoursePlayer = () => {
                               <CheckCircleIcon />
                             )
                           }
-                          sx={{ width: { xs: '100%', sm: 'auto' } }}
+                          sx={{
+                            bgcolor: colors.secondary,
+                            color: 'white',
+                            borderRadius: '8px',
+                            px: 4,
+                            py: 1.5,
+                            fontWeight: 600,
+                            '&:hover': {
+                              bgcolor: colors.primary,
+                            },
+                            width: { xs: '100%', sm: 'auto' },
+                          }}
                         >
                           {uiState.completing ? 'Marquage...' : 'Marquer comme terminé'}
-                        </CompleteButton>
-                      )}
-
-                      {isCompleted && (
-                        <CompleteButton
-                          completed={true}
-                          disabled
-                          startIcon={<AwardIcon />}
-                          sx={{ width: { xs: '100%', sm: 'auto' } }}
-                        >
-                          Contenu terminé
-                        </CompleteButton>
+                        </Button>
                       )}
                     </Box>
 
-                    <NavButton
+                    <Button
                       endIcon={<ArrowRightIcon />}
                       onClick={() => navigateToContent('next')}
                       disabled={currentIndex === contenus.length - 1}
                       sx={{
+                        color: colors.text.primary,
+                        border: `1px solid ${colors.text.muted}30`,
+                        borderRadius: '8px',
+                        px: 3,
                         minWidth: { xs: '100%', sm: 140 },
-                        order: { xs: 3, sm: 3 },
                       }}
                     >
                       Suivant
-                    </NavButton>
+                    </Button>
                   </Stack>
                 </Stack>
-              </GlassCard>
+              </Card>
             </Box>
           </Box>
         </Fade>
       </Container>
 
-      {/* Système de notification */}
       <Snackbar
         open={uiState.snackbar.open}
         autoHideDuration={6000}
         onClose={handleSnackbarClose}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        TransitionComponent={Fade}
       >
-        <Alert
-          severity={uiState.snackbar.severity}
-          variant='filled'
-          sx={{
-            borderRadius: '14px',
-            boxShadow: `0 12px 40px ${colors.navy}60`,
-            fontWeight: 600,
-            backdropFilter: 'blur(10px)',
-            '& .MuiAlert-icon': {
-              fontSize: 28,
-            },
-          }}
-        >
+        <Alert severity={uiState.snackbar.severity} variant='filled' sx={{ borderRadius: '8px' }}>
           {uiState.snackbar.message}
         </Alert>
       </Snackbar>
     </Box>
   );
 };
-
-// Composants manquants à implémenter (versions simplifiées pour l'exemple)
-const DocumentViewer = ({ pdfUrl }) => (
-  <Box
-    sx={{
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      bgcolor: colors.glassDark,
-      borderRadius: '20px',
-      border: `1px solid ${colors.borderLight}`,
-      color: 'white',
-      textAlign: 'center',
-      p: 4,
-    }}
-  >
-    <FileTextIcon sx={{ fontSize: 80, color: colors.red, mb: 3 }} />
-    <Typography variant='h4' sx={{ mb: 2, fontWeight: 700 }}>
-      Document PDF
-    </Typography>
-    <Typography color={colors.text.secondary} sx={{ mb: 4, maxWidth: 400 }}>
-      Ce document est disponible en téléchargement
-    </Typography>
-    <Button
-      variant='contained'
-      size='large'
-      startIcon={<DownloadIcon />}
-      sx={{
-        bgcolor: colors.red,
-        px: 4,
-        py: 1.5,
-        fontSize: '1rem',
-        fontWeight: 600,
-        '&:hover': {
-          bgcolor: colors.redLight,
-        },
-      }}
-      onClick={() => window.open(pdfUrl, '_blank')}
-    >
-      Télécharger le document
-    </Button>
-  </Box>
-);
-
-const QuizComponent = ({ questions, onSubmit }) => (
-  <Box
-    sx={{
-      p: 4,
-      bgcolor: colors.glassDark,
-      borderRadius: '20px',
-      border: `1px solid ${colors.borderLight}`,
-      color: 'white',
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-    }}
-  >
-    <Typography variant='h4' sx={{ mb: 3, fontWeight: 700, textAlign: 'center' }}>
-      Quiz de validation
-    </Typography>
-    <Typography color={colors.text.secondary} sx={{ mb: 4, textAlign: 'center' }}>
-      Répondez aux questions pour valider vos connaissances
-    </Typography>
-    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <Button
-        variant='contained'
-        size='large'
-        onClick={onSubmit}
-        sx={{
-          bgcolor: colors.red,
-          px: 6,
-          py: 2,
-          fontSize: '1.1rem',
-          fontWeight: 600,
-        }}
-      >
-        Commencer le quiz
-      </Button>
-    </Box>
-  </Box>
-);
 
 export default React.memo(CoursePlayer);

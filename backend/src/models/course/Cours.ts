@@ -1,9 +1,8 @@
 // src/models/course/Cours.ts
 import { Schema, model, Document, Types, Model } from 'mongoose';
-
 export interface IModule {
   titre: string;
-  type: 'VIDEO' | 'TEXTE' | 'QUIZ';
+  type: 'VIDEO' | 'TEXTE' | 'QUIZ' | 'DOCUMENT';
   contenu: string; // URL ou ID du quiz
   duree: number; // en minutes
   ordre: number;
@@ -54,7 +53,7 @@ const moduleSchema = new Schema<IModule>({
   titre: { type: String, required: true, trim: true },
   type: {
     type: String,
-    enum: ['VIDEO', 'TEXTE', 'QUIZ'],
+    enum: ['VIDEO', 'TEXTE', 'QUIZ', 'DOCUMENT'],
     required: true,
   },
   contenu: { type: String, required: true },

@@ -51,30 +51,32 @@ class CertificatController {
   static download = async (req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.user || !req.user._id) {
+        logger.error('❌ Utilisateur non authentifié pour téléchargement');
         throw createError(401, 'Utilisateur non authentifié');
       }
 
       const certificatId = req.params.id;
 
       if (!mongoose.Types.ObjectId.isValid(certificatId)) {
+        logger.error('❌ ID de certificat invalide', { certificatId });
         throw createError(400, 'Identifiant de certificat invalide');
       }
 
       logger.info(`📥 Téléchargement certificat: ${certificatId} pour utilisateur: ${req.user._id}`);
 
-      // Option 1: Générer un nouveau PDF à la volée
-      const pdfBuffer = await CertificationService.generatePDF(req.user._id, certificatId);
+      // Génération du PDF
+      const pdfBuffer = await CertificationService.generatePDF(req.user._id.toString(), certificatId);
       
-      // Option 2: Télécharger depuis le système de fichiers (décommentez si préféré)
-      // const { buffer: pdfBuffer, filename } = await CertificationService.downloadCertificate(certificatId);
-
       // Configuration de la réponse
+      const filename = `certificat_youth_computing_${certificatId}.pdf`;
+      
       res.set({
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="certificat_${certificatId}.pdf"`,
+        'Content-Disposition': `attachment; filename="${filename}"`,
         'Content-Length': pdfBuffer.length.toString(),
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
       });
 
       res.send(pdfBuffer);
@@ -100,6 +102,123 @@ class CertificatController {
   };
 
   /**
+   * Affiche un certificat dans le navigateur (au lieu de le télécharger)
+   */
+  static view = async (req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user || !req.user._id) {
+        throw createError(401, 'Utilisateur non authentifié');
+      }
+
+      const certificatId = req.params.id;
+
+      if (!mongoose.Types.ObjectId.isValid(certificatId)) {
+        throw createError(400, 'Identifiant de certificat invalide');
+      }
+
+      logger.info(`👁️ Affichage certificat: ${certificatId} pour utilisateur: ${req.user._id}`);
+
+      const pdfBuffer = await CertificationService.generatePDF(req.user._id.toString(), certificatId);
+      
+      const filename = `certificat_youth_computing_${certificatId}.pdf`;
+      
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="${filename}"`,
+        'Content-Length': pdfBuffer.length.toString(),
+        'Cache-Control': 'public, max-age=3600'
+      });
+
+      res.send(pdfBuffer);
+      logger.info(`✅ Certificat ${certificatId} affiché avec succès`);
+
+    } catch (err: unknown) {
+      const error = err as Error;
+      logger.error('❌ Erreur view:', {
+        message: error.message,
+        stack: error.stack,
+        certificatId: req.params.id,
+        userId: req.user?._id
+      });
+      next(createError(500, 'Erreur lors de l\'affichage du certificat'));
+    }
+  };
+
+  /**
+   * Vérifie l'éligibilité pour un certificat
+   */
+  static checkEligibility = async (req: Request<{ courseId: string }>, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user || !req.user._id) {
+        throw createError(401, 'Utilisateur non authentifié');
+      }
+
+      const courseId = req.params.courseId;
+
+      if (!mongoose.Types.ObjectId.isValid(courseId)) {
+        throw createError(400, 'Identifiant de cours invalide');
+      }
+
+      // Conversion de l'ObjectId en string pour résoudre l'erreur TypeScript
+      const userId = req.user._id.toString();
+
+      // Logique de vérification d'éligibilité simplifiée
+      const isEligible = await this.checkCourseCompletion(userId, courseId);
+      
+      res.json({
+        success: true,
+        data: { 
+          isEligible,
+          courseId,
+          userId
+        },
+        message: isEligible 
+          ? 'Félicitations ! Vous êtes éligible pour un certificat.' 
+          : 'Vous n\'êtes pas encore éligible pour un certificat. Terminez le cours à 100%.'
+      });
+
+    } catch (err: unknown) {
+      const error = err as Error;
+      logger.error('❌ Erreur checkEligibility:', {
+        message: error.message,
+        stack: error.stack,
+        courseId: req.params.courseId,
+        userId: req.user?._id
+      });
+      next(createError(500, 'Erreur lors de la vérification d\'éligibilité'));
+    }
+  };
+
+  /**
+   * Méthode utilitaire pour vérifier la complétion du cours
+   */
+  private static async checkCourseCompletion(userId: string, courseId: string): Promise<boolean> {
+    try {
+      // Implémentez votre logique de vérification ici
+      // Par exemple, vérifier la progression dans la table des progressions
+      // Pour l'instant, retourne true pour les tests
+      
+      logger.info(`🔍 Vérification éligibilité certificat - utilisateur: ${userId}, cours: ${courseId}`);
+      
+      // TODO: Implémenter la logique réelle de vérification
+      // Exemple de logique à implémenter :
+      // 1. Vérifier si l'utilisateur est inscrit au cours
+      // 2. Vérifier si la progression est à 100%
+      // 3. Vérifier si le cours est marqué comme terminé
+      // 4. Vérifier si un certificat n'existe pas déjà
+      
+      return true; // Temporaire pour les tests
+    } catch (error) {
+      logger.error('Erreur lors de la vérification de complétion du cours', {
+        userId,
+        courseId,
+        error
+      });
+      return false;
+    }
+  }
+
+  /**
    * Génère un certificat pour un apprenant et un cours (utilitaire)
    */
   static generateCertificate = async (apprenantId: string, coursId: string): Promise<CertificatDocument | null> => {
@@ -114,7 +233,7 @@ class CertificatController {
         throw new Error('Identifiant de cours invalide');
       }
 
-      // Construction de l'objet progression
+      // Construction de l'objet progression simulé
       const progression = {
         apprenant: new mongoose.Types.ObjectId(apprenantId),
         cours: new mongoose.Types.ObjectId(coursId),
@@ -141,42 +260,6 @@ class CertificatController {
         coursId
       });
       throw error;
-    }
-  };
-
-  /**
-   * Vérifie l'éligibilité pour un certificat
-   */
-  static checkEligibility = async (req: Request<{ courseId: string }>, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      if (!req.user || !req.user._id) {
-        throw createError(401, 'Utilisateur non authentifié');
-      }
-
-      const courseId = req.params.courseId;
-
-      if (!mongoose.Types.ObjectId.isValid(courseId)) {
-        throw createError(400, 'Identifiant de cours invalide');
-      }
-
-      // Logique de vérification d'éligibilité
-      const isEligible = true; // À implémenter selon votre logique métier
-      
-      res.json({
-        success: true,
-        data: { isEligible },
-        message: isEligible 
-          ? 'Éligible pour un certificat' 
-          : 'Non éligible pour un certificat'
-      });
-
-    } catch (err: unknown) {
-      const error = err as Error;
-      logger.error('❌ Erreur checkEligibility:', {
-        message: error.message,
-        stack: error.stack
-      });
-      next(createError(500, 'Erreur lors de la vérification d\'éligibilité'));
     }
   };
 }

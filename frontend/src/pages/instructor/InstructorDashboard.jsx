@@ -1,4 +1,4 @@
-// src/components/instructor/InstructorDashboard.jsx
+// src/components/instructor/InstructorDashboard.jsx - VERSION COMPLÈTEMENT CORRIGÉE
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import {
   Box,
@@ -192,7 +192,6 @@ const InstructorDashboard = () => {
       coursesInProgress: 0,
       totalStudents: 0,
       approvalRate: 0,
-     // totalRevenue: 0,
       completionRate: 0,
     },
     courses: [],
@@ -231,7 +230,7 @@ const InstructorDashboard = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // === RÉCUPÉRATION DES DONNÉES ===
+  // === RÉCUPÉRATION DES DONNÉES - VERSION COMPLÈTEMENT CORRIGÉE ===
   const fetchDashboardData = useCallback(
     async (isRefresh = false, page = 1) => {
       try {
@@ -249,37 +248,56 @@ const InstructorDashboard = () => {
 
         const headers = getAuthHeaders();
 
-        // Récupération des données de l'instructeur
-        const [profileResponse, coursesResponse] = await Promise.all([
+        // Récupération des données de l'instructeur - VERSION CORRIGÉE
+        const [profileResponse, coursesResponse, studentsStatsResponse, instructorStatsResponse] = await Promise.all([
+          // Profil de l'instructeur
           axios
             .get(`${API_BASE_URL}/instructeurs/${user?.id}/profile`, { headers })
             .catch((err) => {
               console.warn('Erreur récupération profil:', err.message);
               return { data: { data: {} } };
             }),
+          // Cours de l'instructeur
           axios
             .get(`${API_BASE_URL}/instructeurs/${user?.id}/courses`, { headers })
             .catch((err) => {
               console.warn('Erreur récupération cours:', err.message);
               return { data: { data: [] } };
             }),
+          // NOUVEAU: Statistiques étudiants depuis l'API inscriptions
+          axios
+            .get(`${API_BASE_URL}/learning/instructor/stats`, { headers })
+            .catch((err) => {
+              console.warn('Erreur récupération statistiques étudiants:', err.message);
+              return { data: { data: { totalStudents: 0 } } };
+            }),
+          // NOUVEAU: Statistiques détaillées instructeur
+          axios
+            .get(`${API_BASE_URL}/learning/instructor/students`, { headers })
+            .catch((err) => {
+              console.warn('Erreur récupération étudiants instructeur:', err.message);
+              return { data: { data: { students: [], totalStudents: 0 } } };
+            })
         ]);
 
         const profile = profileResponse.data.data || {};
         const courses = Array.isArray(coursesResponse.data?.data) ? coursesResponse.data.data : [];
+        const studentsStats = studentsStatsResponse.data?.data || { totalStudents: 0 };
+        const instructorStats = instructorStatsResponse.data?.data || { students: [], totalStudents: 0 };
 
-        // Calcul des statistiques
+        console.log('📊 Données reçues:', {
+          profile,
+          coursesCount: courses.length,
+          studentsStats,
+          instructorStats
+        });
+
+        // CALCUL DES STATISTIQUES - VERSION CORRIGÉE
         const totalCourses = profile.coursCrees?.length || 0;
         const coursesInProgress = profile.coursEnCoursEdition?.length || 0;
 
-        // Calcul du nombre total d'étudiants uniques
-        const allStudents = new Set();
-        profile.coursCrees?.forEach((course) => {
-          course.etudiantsInscrits?.forEach((student) => {
-            if (student._id) allStudents.add(student._id);
-          });
-        });
-        const totalStudents = allStudents.size;
+        // Utiliser le comptage d'étudiants depuis l'API inscriptions (plus fiable)
+        const totalStudents = studentsStats.totalStudents || instructorStats.totalStudents || 0;
 
         const approvedCourses =
           profile.coursCrees?.filter((course) => course.statutApprobation === 'APPROVED').length ||
@@ -302,50 +320,63 @@ const InstructorDashboard = () => {
         const endIndex = startIndex + itemsPerPage;
         const paginatedCourses = courses.slice(startIndex, endIndex);
 
-        // Étudiants récents (derniers inscrits)
-        const recentStudents = [];
-        profile.coursCrees?.forEach((course) => {
-          course.etudiantsInscrits?.forEach((student) => {
-            if (student.dateInscription) {
-              recentStudents.push({
-                ...student,
-                courseTitle: course.titre,
-                inscriptionDate: student.dateInscription,
+        // ÉTUDIANTS RÉCENTS - VERSION CORRIGÉE
+        let recentStudents = [];
+
+        // Méthode 1: Utiliser les étudiants de l'API inscriptions
+        if (instructorStats.students && Array.isArray(instructorStats.students)) {
+          recentStudents = instructorStats.students.slice(0, 5).map(student => ({
+            _id: student._id,
+            nom: student.nom,
+            prenom: student.prenom,
+            email: student.email,
+            dateInscription: student.dateInscription,
+            courseTitle: 'Multiple courses', // L'étudiant peut être dans plusieurs cours
+            inscriptionDate: student.dateInscription,
+          }));
+        } else {
+          // Méthode de fallback: Extraire des cours
+          const allStudents = [];
+          profile.coursCrees?.forEach((course) => {
+            if (course.etudiantsInscrits && Array.isArray(course.etudiantsInscrits)) {
+              course.etudiantsInscrits.forEach((student) => {
+                if (student && student.dateInscription) {
+                  allStudents.push({
+                    ...student,
+                    courseTitle: course.titre,
+                    inscriptionDate: student.dateInscription,
+                  });
+                }
               });
             }
           });
-        });
 
-        // Trier par date d'inscription et prendre les 5 plus récents
-        recentStudents.sort((a, b) => new Date(b.inscriptionDate) - new Date(a.inscriptionDate));
-        const topRecentStudents = recentStudents.slice(0, 5);
+          // Trier par date d'inscription et prendre les 5 plus récents
+          allStudents.sort((a, b) => new Date(b.inscriptionDate) - new Date(a.inscriptionDate));
+          recentStudents = allStudents.slice(0, 5);
+        }
 
         setDashboardData({
           stats: {
             totalCourses,
             coursesInProgress,
-            totalStudents,
+            totalStudents, // ← VALEUR CORRECTE
             approvalRate,
-         //   totalRevenue: totalStudents * 29.99, // Estimation du revenu
             completionRate,
           },
           courses: paginatedCourses,
-          recentStudents: topRecentStudents,
+          recentStudents: recentStudents,
         });
 
         setTotalPages(Math.ceil(courses.length / itemsPerPage));
         setCurrentPage(page);
 
-        console.log('✅ Dashboard instructeur chargé:', {
-          stats: {
-            totalCourses,
-            coursesInProgress,
-            totalStudents,
-            approvalRate,
-            completionRate,
-          },
-          cours: paginatedCourses.length,
-          étudiants: topRecentStudents.length,
+        console.log('✅ Dashboard instructeur chargé avec succès:', {
+          totalStudents: totalStudents,
+          totalCourses: totalCourses,
+          approvalRate: approvalRate,
+          completionRate: completionRate,
+          recentStudents: recentStudents.length
         });
       } catch (err) {
         console.error('❌ Erreur chargement dashboard instructeur:', err);
@@ -576,7 +607,7 @@ const InstructorDashboard = () => {
           </StatCard>
         </Grid>
 
-        {/* Étudiants Inscrits */}
+        {/* Étudiants Inscrits - CORRIGÉ */}
         <Grid item xs={6} sm={4} md={3}>
           <StatCard color={colors.purple}>
             <Users size={36} color={colors.purple} style={{ marginBottom: '16px' }} />
@@ -629,6 +660,7 @@ const InstructorDashboard = () => {
         </Grid>
 
         {/* Cours en Édition */}
+        {/*
         <Grid item xs={6} sm={4} md={3}>
           <StatCard color={colors.pink}>
             <Clock size={36} color={colors.pink} style={{ marginBottom: '16px' }} />
@@ -653,33 +685,7 @@ const InstructorDashboard = () => {
             </Typography>
           </StatCard>
         </Grid>
-
-    { /*   
-        <Grid item xs={6} sm={4} md={3}>
-          <StatCard color={colors.info}>
-            <TrendingUp size={36} color={colors.info} style={{ marginBottom: '16px' }} />
-            <Typography
-              sx={{
-                color: colors.info,
-                fontWeight: 800,
-                fontSize: { xs: '1.8rem', sm: '2.2rem' },
-                mb: 0.5,
-              }}
-            >
-              ${dashboardData.stats.totalRevenue.toFixed(2)}
-            </Typography>
-            <Typography
-              sx={{
-                color: 'rgba(255, 255, 255, 0.8)',
-                fontSize: { xs: '0.85rem', sm: '0.9rem' },
-                fontWeight: 600,
-              }}
-            >
-              Revenu Total
-            </Typography>
-          </StatCard>
-        </Grid>*/}
-
+*/}
         {/* Taux de Complétion */}
         <Grid item xs={6} sm={4} md={3}>
           <StatCard color={colors.warning}>
@@ -786,21 +792,11 @@ const InstructorDashboard = () => {
                   Complétion
                 </Typography>
               </Box>
-       {/**
-        *        <Box sx={{ textAlign: 'center', flex: 1 }}>
-                <Typography sx={{ color: colors.info, fontSize: '1.2rem', fontWeight: 800 }}>
-                  ${dashboardData.stats.totalRevenue.toFixed(0)}
-                </Typography>
-                <Typography sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.8rem' }}>
-                  Revenus
-                </Typography>
-              </Box>
-        */}
             </Box>
           </DashboardCard>
         </Grid>
 
-        {/* ÉTUDIANTS RÉCENTS */}
+        {/* ÉTUDIANTS RÉCENTS - VERSION CORRIGÉE */}
         <Grid item xs={12} lg={6}>
           <DashboardCard elevation={0}>
             <Typography
@@ -823,7 +819,7 @@ const InstructorDashboard = () => {
               {dashboardData.recentStudents.length > 0 ? (
                 dashboardData.recentStudents.map((student, index) => (
                   <Box
-                    key={student._id}
+                    key={student._id || `student-${index}`}
                     sx={{
                       background: `linear-gradient(135deg, ${colors.glass}, ${colors.glassDark})`,
                       borderRadius: '12px',
@@ -849,7 +845,7 @@ const InstructorDashboard = () => {
                           mb: 0.5,
                         }}
                       >
-                        {student.nom} {student.prenom}
+                        {student.prenom} {student.nom}
                       </Typography>
                       <Typography
                         sx={{
@@ -857,7 +853,7 @@ const InstructorDashboard = () => {
                           fontSize: { xs: '0.8rem', sm: '0.85rem' },
                         }}
                       >
-                        Inscrit à {student.courseTitle}
+                        {student.email}
                       </Typography>
                       <Typography
                         sx={{
@@ -957,7 +953,7 @@ const InstructorDashboard = () => {
                     </TableHead>
                     <TableBody>
                       {dashboardData.courses.map((course, index) => (
-                        <StyledTableRow key={course._id}>
+                        <StyledTableRow key={course._id || `course-${index}`}>
                           <TableCell>
                             <Typography sx={{ color: '#ffffff', fontWeight: 600 }}>
                               {course.titre}

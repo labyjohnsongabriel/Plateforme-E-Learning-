@@ -32,6 +32,15 @@ import {
   DialogContent,
   DialogActions,
   Tooltip,
+  LinearProgress,
+  FormHelperText,
+  Radio,
+  RadioGroup,
+  FormControlLabel,
+  FormLabel,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -53,6 +62,11 @@ import {
   Edit as EditIcon,
   Preview as PreviewIcon,
   CloudUpload as UploadIcon,
+  CheckCircle as CheckCircleIcon,
+  InsertDriveFile as FileIcon,
+  ExpandMore as ExpandMoreIcon,
+  Close as CloseIcon,
+  RadioButtonChecked as RadioButtonCheckedIcon,
 } from '@mui/icons-material';
 
 const instructorTheme = createTheme({
@@ -184,8 +198,177 @@ const instructorTheme = createTheme({
         },
       },
     },
+    MuiAccordion: {
+      styleOverrides: {
+        root: {
+          backgroundColor: `${colors.navy || '#010b40'}cc`,
+          color: colors.white || '#ffffff',
+          border: `1px solid ${colors.lightNavy || '#1a237e'}`,
+          '&:before': { display: 'none' },
+        },
+      },
+    },
   },
 });
+
+// Composant QuizBuilder séparé pour une meilleure organisation
+const QuizBuilder = ({
+  quiz,
+  onQuizChange,
+  onAddQuestion,
+  onUpdateQuestion,
+  onRemoveQuestion,
+  onAddOption,
+  onUpdateOption,
+  onRemoveOption,
+}) => {
+  return (
+    <Box>
+      <TextField
+        label='Titre du Quiz *'
+        value={quiz.titre || ''}
+        onChange={(e) => onQuizChange('titre', e.target.value)}
+        fullWidth
+        sx={{ mb: 3 }}
+        placeholder="Ex: Quiz d'évaluation - Concepts de base"
+      />
+
+      <TextField
+        label='Description du Quiz'
+        value={quiz.description || ''}
+        onChange={(e) => onQuizChange('description', e.target.value)}
+        fullWidth
+        multiline
+        rows={2}
+        sx={{ mb: 3 }}
+        placeholder="Décrivez l'objectif de ce quiz..."
+      />
+
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant='h6' sx={{ color: colors.lightFuchsia }}>
+          Questions ({quiz.questions?.length || 0})
+        </Typography>
+        <Button
+          variant='outlined'
+          startIcon={<AddIcon />}
+          onClick={onAddQuestion}
+          sx={{ borderColor: colors.fuchsia, color: colors.white }}
+        >
+          Ajouter une Question
+        </Button>
+      </Box>
+
+      {quiz.questions?.map((question, qIndex) => (
+        <Accordion key={qIndex} defaultExpanded sx={{ mb: 2 }}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: colors.fuchsia }} />}>
+            <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+              <RadioButtonCheckedIcon sx={{ color: colors.fuchsia, mr: 1 }} />
+              <Typography sx={{ flex: 1 }}>
+                {question.question || `Question ${qIndex + 1}`}
+              </Typography>
+              <Chip
+                label={`${question.options?.length || 0} options`}
+                size='small'
+                sx={{ bgcolor: colors.lightNavy, mr: 1 }}
+              />
+            </Box>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Box sx={{ mb: 2 }}>
+              <TextField
+                label='Question *'
+                value={question.question || ''}
+                onChange={(e) => onUpdateQuestion(qIndex, 'question', e.target.value)}
+                fullWidth
+                sx={{ mb: 2 }}
+                placeholder='Posez votre question ici...'
+              />
+
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <FormLabel sx={{ color: colors.lightFuchsia, mb: 1 }}>Réponse Correcte *</FormLabel>
+                <RadioGroup
+                  value={question.correctAnswer?.toString() || ''}
+                  onChange={(e) =>
+                    onUpdateQuestion(qIndex, 'correctAnswer', parseInt(e.target.value))
+                  }
+                >
+                  {question.options?.map((option, oIndex) => (
+                    <Box key={oIndex} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                      <FormControlLabel
+                        value={oIndex.toString()}
+                        control={<Radio sx={{ color: colors.fuchsia }} />}
+                        label={
+                          <TextField
+                            value={option}
+                            onChange={(e) => onUpdateOption(qIndex, oIndex, e.target.value)}
+                            placeholder={`Option ${oIndex + 1}`}
+                            fullWidth
+                            size='small'
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                backgroundColor: `${colors.navy}aa`,
+                                color: colors.white,
+                              },
+                            }}
+                          />
+                        }
+                        sx={{ flex: 1, mr: 0 }}
+                      />
+                      <IconButton
+                        onClick={() => onRemoveOption(qIndex, oIndex)}
+                        sx={{ color: colors.fuchsia, ml: 1 }}
+                        disabled={question.options.length <= 2}
+                      >
+                        <CloseIcon />
+                      </IconButton>
+                    </Box>
+                  ))}
+                </RadioGroup>
+              </FormControl>
+
+              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                <Button
+                  variant='outlined'
+                  startIcon={<AddIcon />}
+                  onClick={() => onAddOption(qIndex)}
+                  disabled={question.options?.length >= 6}
+                  sx={{ borderColor: colors.lightNavy, color: colors.white }}
+                >
+                  Ajouter Option
+                </Button>
+                <Button
+                  variant='outlined'
+                  startIcon={<DeleteIcon />}
+                  onClick={() => onRemoveQuestion(qIndex)}
+                  sx={{ borderColor: colors.fuchsia, color: colors.fuchsia }}
+                >
+                  Supprimer Question
+                </Button>
+              </Box>
+
+              <TextField
+                label='Explication (Optionnel)'
+                value={question.explanation || ''}
+                onChange={(e) => onUpdateQuestion(qIndex, 'explanation', e.target.value)}
+                fullWidth
+                multiline
+                rows={2}
+                placeholder='Expliquez pourquoi cette réponse est correcte...'
+              />
+            </Box>
+          </AccordionDetails>
+        </Accordion>
+      ))}
+
+      {(!quiz.questions || quiz.questions.length === 0) && (
+        <Alert severity='info' sx={{ borderRadius: 2 }}>
+          Commencez par ajouter des questions à votre quiz. Chaque question doit avoir au moins 2
+          options.
+        </Alert>
+      )}
+    </Box>
+  );
+};
 
 const CreateCourse = () => {
   const { user, isLoading: authLoading } = useContext(AuthContext);
@@ -219,6 +402,16 @@ const CreateCourse = () => {
     contenu: '',
     duree: '',
     ordre: 1,
+    file: null,
+    fileName: '',
+    fileSize: 0,
+  });
+
+  // État pour le quiz en cours de création
+  const [currentQuiz, setCurrentQuiz] = useState({
+    titre: '',
+    description: '',
+    questions: [],
   });
 
   // États d'édition
@@ -231,6 +424,8 @@ const CreateCourse = () => {
   const [domaines, setDomaines] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingDomaines, setIsLoadingDomaines] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [domaineError, setDomaineError] = useState(false);
@@ -271,16 +466,55 @@ const CreateCourse = () => {
       value: 'VIDEO',
       label: 'Vidéo',
       icon: <VideoIcon />,
-      description: 'Contenu vidéo (URL YouTube, Vimeo, etc.)',
+      description: 'Contenu vidéo (fichier ou URL YouTube, Vimeo, etc.)',
+      accept: 'video/mp4,video/webm,video/ogg,video/quicktime',
+      acceptText: 'MP4, WebM, MOV (max 200 Mo)',
+    },
+    {
+      value: 'DOCUMENT',
+      label: 'Document',
+      icon: <ArticleIcon />,
+      description: 'Document PDF, DOCX, PPT, TXT',
+      accept: '.pdf,.doc,.docx,.ppt,.pptx,.txt',
+      acceptText: 'PDF, DOCX, PPT, TXT (max 200 Mo)',
     },
     {
       value: 'TEXTE',
-      label: 'Article/Texte',
+      label: 'Texte',
       icon: <ArticleIcon />,
-      description: 'Contenu textuel ou document',
+      description: 'Contenu textuel direct',
+      accept: null,
+      acceptText: 'Saisissez le texte directement',
     },
-    { value: 'QUIZ', label: 'Quiz', icon: <QuizIcon />, description: 'Évaluation interactive' },
+    {
+      value: 'QUIZ',
+      label: 'Quiz Interactif',
+      icon: <QuizIcon />,
+      description: 'Évaluation interactive avec questions/réponses',
+      accept: null,
+      acceptText: 'Créez un quiz interactif',
+    },
   ];
+
+  // ✅ NOUVELLE FONCTION: Test de connexion à l'API upload
+  const testUploadConnection = async () => {
+    if (!user?.token) return false;
+
+    try {
+      const response = await axios.get(`${API_BASE_URL}/upload/debug`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+        timeout: 5000,
+      });
+      console.log('✅ Test connexion upload réussi:', response.data);
+      return true;
+    } catch (error) {
+      console.error('❌ Test connexion upload échoué:', error);
+      setError(
+        "Impossible de se connecter au service d'upload. Vérifiez que le serveur est démarré."
+      );
+      return false;
+    }
+  };
 
   // Chargement des domaines
   useEffect(() => {
@@ -323,8 +557,105 @@ const CreateCourse = () => {
 
     if (user) {
       fetchDomaines();
+      testUploadConnection(); // Tester la connexion upload
     }
   }, [user, API_BASE_URL, navigate]);
+
+  // ✅ CORRECTION : Fonction uploadFile améliorée avec la bonne route
+  const uploadFile = async (file) => {
+    if (!file) {
+      throw new Error('Aucun fichier sélectionné');
+    }
+
+    // Vérifier la taille (200 Mo max)
+    if (file.size > 200 * 1024 * 1024) {
+      throw new Error('Fichier trop volumineux. Taille maximale: 200 Mo');
+    }
+
+    setIsUploading(true);
+    setUploadProgress(0);
+    setError('');
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      // ✅ CORRECTION : Utilisation de la bonne route "/upload" au lieu de "/upload/single"
+      const response = await axios.post(`${API_BASE_URL}/upload`, formData, {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadProgress(percentCompleted);
+          }
+        },
+        timeout: 300000, // 5 minutes timeout
+      });
+
+      console.log('✅ Réponse upload complète:', response.data);
+
+      if (!response.data) {
+        throw new Error('Réponse vide du serveur');
+      }
+
+      // CORRECTION : Gestion robuste de la réponse
+      let fileData;
+      if (response.data.success && response.data.file) {
+        fileData = response.data.file;
+      } else if (response.data.url) {
+        fileData = response.data;
+      } else if (response.data.filename) {
+        fileData = response.data;
+      } else {
+        fileData = response.data;
+      }
+
+      // ✅ CORRECTION : Vérification que nous avons bien les données du fichier
+      if (!fileData.filename && !fileData.url) {
+        console.warn('⚠️ Données fichier incomplètes:', fileData);
+        throw new Error('Données du fichier incomplètes après upload');
+      }
+
+      setSuccess('Fichier uploadé avec succès !');
+      setTimeout(() => setSuccess(''), 3000);
+
+      return fileData;
+    } catch (err) {
+      console.error('❌ Erreur upload détaillée:', err);
+
+      let errorMsg = "Erreur lors de l'upload du fichier";
+
+      if (err.code === 'ERR_NETWORK') {
+        errorMsg = 'Erreur de connexion au serveur. Vérifiez votre connexion internet.';
+      } else if (err.code === 'ECONNABORTED') {
+        errorMsg = "Timeout - l'upload a pris trop de temps.";
+      } else if (err.response) {
+        if (err.response.status === 413) {
+          errorMsg = 'Fichier trop volumineux pour le serveur.';
+        } else if (err.response.status === 401) {
+          errorMsg = 'Session expirée. Veuillez vous reconnecter.';
+          navigate('/login');
+        } else if (err.response.status === 404) {
+          errorMsg = "Route d'upload non trouvée. Vérifiez la configuration du serveur.";
+        } else if (err.response.data?.error) {
+          errorMsg = err.response.data.error;
+        } else if (err.response.data?.message) {
+          errorMsg = err.response.data.message;
+        }
+      } else if (err.message) {
+        errorMsg = err.message;
+      }
+
+      setError(errorMsg);
+      throw new Error(errorMsg);
+    } finally {
+      setIsUploading(false);
+      setTimeout(() => setUploadProgress(0), 1000);
+    }
+  };
 
   // Handlers de formulaire
   const handleChange = (e) => {
@@ -344,24 +675,244 @@ const CreateCourse = () => {
     setCurrentModule((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Gestion du changement de type de module
+  const handleModuleTypeChange = (e) => {
+    const newType = e.target.value;
+    setCurrentModule((prev) => ({
+      ...prev,
+      type: newType,
+      contenu: '',
+      file: null,
+      fileName: '',
+      fileSize: 0,
+    }));
+
+    // Réinitialiser le quiz si on change de type
+    if (newType !== 'QUIZ') {
+      setCurrentQuiz({
+        titre: '',
+        description: '',
+        questions: [],
+      });
+    }
+  };
+
+  // ✅ CORRECTION : Fonction handleFileChange améliorée avec meilleure gestion d'erreurs
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const selectedType = typesModule.find((t) => t.value === currentModule.type);
+
+    // Vérifier le type de fichier
+    if (selectedType?.accept) {
+      const acceptedTypes = selectedType.accept.split(',');
+      const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+      const isTypeValid =
+        acceptedTypes.some((type) => type.trim() === fileExtension) ||
+        acceptedTypes.some((type) => file.type.startsWith(type.split('/')[0]));
+
+      if (!isTypeValid) {
+        setError(`Type de fichier invalide. Formats acceptés: ${selectedType.acceptText}`);
+        return;
+      }
+    }
+
+    try {
+      // Mettre à jour l'état immédiatement pour l'UI
+      setCurrentModule((prev) => ({
+        ...prev,
+        file,
+        fileName: file.name,
+        fileSize: file.size,
+        contenu: '', // Réinitialiser le contenu pendant l'upload
+      }));
+
+      console.log('📤 Début upload fichier:', file.name, file.size);
+
+      const uploadedFile = await uploadFile(file);
+
+      console.log('✅ Upload réussi, données reçues:', uploadedFile);
+
+      // ✅ CORRECTION : Utilisation robuste de l'URL
+      const fileUrl = uploadedFile.url || uploadedFile.path || `/uploads/${uploadedFile.filename}`;
+
+      if (!fileUrl) {
+        console.error('❌ URL du fichier non reçue après upload');
+        throw new Error('URL du fichier non reçue du serveur');
+      }
+
+      // ✅ CORRECTION : Construction correcte de l'URL
+      let finalUrl;
+      if (fileUrl.startsWith('http')) {
+        finalUrl = fileUrl;
+      } else if (fileUrl.startsWith('/uploads/')) {
+        finalUrl = `http://localhost:3001${fileUrl}`;
+      } else if (fileUrl.startsWith('/')) {
+        finalUrl = `http://localhost:3001${fileUrl}`;
+      } else {
+        finalUrl = `http://localhost:3001/uploads/${fileUrl}`;
+      }
+
+      console.log('🔗 URL finale du fichier:', finalUrl);
+
+      setCurrentModule((prev) => ({
+        ...prev,
+        contenu: finalUrl,
+      }));
+
+      setSuccess(`Fichier "${file.name}" uploadé avec succès !`);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error("❌ Erreur lors de l'upload:", err);
+      setCurrentModule((prev) => ({
+        ...prev,
+        file: null,
+        fileName: '',
+        fileSize: 0,
+        contenu: '',
+      }));
+      setError(`Échec de l'upload: ${err.message}`);
+
+      // Réinitialiser le champ de fichier
+      if (e.target) {
+        e.target.value = '';
+      }
+    }
+  };
+
+  // Gestion des quiz - Fonctions modernes et professionnelles
+  const handleQuizChange = (field, value) => {
+    setCurrentQuiz((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleAddQuestion = () => {
+    const newQuestion = {
+      question: '',
+      options: ['', ''],
+      correctAnswer: 0,
+      explanation: '',
+    };
+    setCurrentQuiz((prev) => ({
+      ...prev,
+      questions: [...(prev.questions || []), newQuestion],
+    }));
+  };
+
+  const handleUpdateQuestion = (questionIndex, field, value) => {
+    setCurrentQuiz((prev) => {
+      const questions = [...(prev.questions || [])];
+      questions[questionIndex] = { ...questions[questionIndex], [field]: value };
+      return { ...prev, questions };
+    });
+  };
+
+  const handleRemoveQuestion = (questionIndex) => {
+    setCurrentQuiz((prev) => ({
+      ...prev,
+      questions: (prev.questions || []).filter((_, index) => index !== questionIndex),
+    }));
+  };
+
+  const handleAddOption = (questionIndex) => {
+    setCurrentQuiz((prev) => {
+      const questions = [...(prev.questions || [])];
+      if (questions[questionIndex].options.length < 6) {
+        questions[questionIndex].options.push('');
+      }
+      return { ...prev, questions };
+    });
+  };
+
+  const handleUpdateOption = (questionIndex, optionIndex, value) => {
+    setCurrentQuiz((prev) => {
+      const questions = [...(prev.questions || [])];
+      questions[questionIndex].options[optionIndex] = value;
+      return { ...prev, questions };
+    });
+  };
+
+  const handleRemoveOption = (questionIndex, optionIndex) => {
+    setCurrentQuiz((prev) => {
+      const questions = [...(prev.questions || [])];
+      if (questions[questionIndex].options.length > 2) {
+        questions[questionIndex].options.splice(optionIndex, 1);
+        // Ajuster la réponse correcte si nécessaire
+        if (questions[questionIndex].correctAnswer >= optionIndex) {
+          questions[questionIndex].correctAnswer = Math.max(
+            0,
+            questions[questionIndex].correctAnswer - 1
+          );
+        }
+      }
+      return { ...prev, questions };
+    });
+  };
+
+  // Validation du quiz
+  const validateQuiz = () => {
+    if (!currentQuiz.titre?.trim()) {
+      return 'Le titre du quiz est requis';
+    }
+    if (!currentQuiz.questions || currentQuiz.questions.length === 0) {
+      return 'Ajoutez au moins une question au quiz';
+    }
+
+    for (let i = 0; i < currentQuiz.questions.length; i++) {
+      const question = currentQuiz.questions[i];
+      if (!question.question?.trim()) {
+        return `La question ${i + 1} est vide`;
+      }
+      if (question.options.length < 2) {
+        return `La question ${i + 1} doit avoir au moins 2 options`;
+      }
+      if (question.options.some((opt) => !opt.trim())) {
+        return `Toutes les options de la question ${i + 1} doivent être remplies`;
+      }
+      if (question.correctAnswer === undefined || question.correctAnswer === null) {
+        return `Sélectionnez une réponse correcte pour la question ${i + 1}`;
+      }
+    }
+
+    return null;
+  };
+
   // Gestion des modules
   const addModule = () => {
     if (!currentModule.titre.trim()) {
       setError('Le titre du module est requis');
       return;
     }
-    if (!currentModule.contenu.trim()) {
-      setError('Le contenu du module est requis');
+
+    // Validation spécifique selon le type
+    if (currentModule.type === 'QUIZ') {
+      const quizError = validateQuiz();
+      if (quizError) {
+        setError(quizError);
+        return;
+      }
+      // Pour les quiz, le contenu est l'objet quiz sérialisé
+      currentModule.contenu = JSON.stringify(currentQuiz);
+    } else if (!currentModule.contenu.trim()) {
+      setError('Le contenu du module est requis (fichier uploadé ou URL/texte saisi)');
       return;
     }
 
     const newModule = {
-      ...currentModule,
+      titre: currentModule.titre.trim(),
+      type: currentModule.type,
+      contenu: currentModule.contenu.trim(),
+      duree: currentModule.duree ? parseInt(currentModule.duree) : null,
       ordre: currentSection.modules.length + 1,
+      metadata: currentModule.fileName
+        ? {
+            fileName: currentModule.fileName,
+            fileSize: currentModule.fileSize,
+          }
+        : null,
     };
 
     if (editingModuleIndex !== null) {
-      // Mode édition
       const updatedModules = [...currentSection.modules];
       updatedModules[editingModuleIndex] = newModule;
       setCurrentSection((prev) => ({
@@ -369,13 +920,16 @@ const CreateCourse = () => {
         modules: updatedModules,
       }));
       setEditingModuleIndex(null);
+      setSuccess('Module mis à jour avec succès !');
     } else {
-      // Mode ajout
       setCurrentSection((prev) => ({
         ...prev,
         modules: [...prev.modules, newModule],
       }));
+      setSuccess('Module ajouté avec succès !');
     }
+
+    setTimeout(() => setSuccess(''), 3000);
 
     // Réinitialiser le formulaire
     setCurrentModule({
@@ -384,13 +938,47 @@ const CreateCourse = () => {
       contenu: '',
       duree: '',
       ordre: currentSection.modules.length + 2,
+      file: null,
+      fileName: '',
+      fileSize: 0,
     });
+
+    // Réinitialiser le quiz si c'était un quiz
+    if (currentModule.type === 'QUIZ') {
+      setCurrentQuiz({
+        titre: '',
+        description: '',
+        questions: [],
+      });
+    }
+
     setError('');
   };
 
   const editModule = (index) => {
     const module = currentSection.modules[index];
-    setCurrentModule(module);
+    setCurrentModule({
+      ...module,
+      file: null,
+      fileName: module.metadata?.fileName || '',
+      fileSize: module.metadata?.fileSize || 0,
+    });
+
+    // Si c'est un quiz, parser le contenu
+    if (module.type === 'QUIZ') {
+      try {
+        const quizData = JSON.parse(module.contenu);
+        setCurrentQuiz(quizData);
+      } catch (err) {
+        console.error('Erreur parsing quiz:', err);
+        setCurrentQuiz({
+          titre: '',
+          description: '',
+          questions: [],
+        });
+      }
+    }
+
     setEditingModuleIndex(index);
   };
 
@@ -400,15 +988,10 @@ const CreateCourse = () => {
       modules: prev.modules.filter((_, i) => i !== index),
     }));
     if (editingModuleIndex === index) {
-      setEditingModuleIndex(null);
-      setCurrentModule({
-        titre: '',
-        type: 'VIDEO',
-        contenu: '',
-        duree: '',
-        ordre: 1,
-      });
+      cancelEditModule();
     }
+    setSuccess('Module supprimé');
+    setTimeout(() => setSuccess(''), 2000);
   };
 
   const cancelEditModule = () => {
@@ -419,10 +1002,18 @@ const CreateCourse = () => {
       contenu: '',
       duree: '',
       ordre: currentSection.modules.length + 1,
+      file: null,
+      fileName: '',
+      fileSize: 0,
+    });
+    setCurrentQuiz({
+      titre: '',
+      description: '',
+      questions: [],
     });
   };
 
-  // Gestion des sections
+  // Gestion des sections (reste identique)
   const addSection = () => {
     if (!currentSection.titre.trim()) {
       setError('Le titre de la section est requis');
@@ -435,22 +1026,26 @@ const CreateCourse = () => {
     }
 
     const newSection = {
-      ...currentSection,
+      titre: currentSection.titre.trim(),
+      description: currentSection.description.trim(),
       ordre: contenu.sections.length + 1,
+      modules: currentSection.modules,
     };
 
     if (editingSectionIndex !== null) {
-      // Mode édition
       const updatedSections = [...contenu.sections];
       updatedSections[editingSectionIndex] = newSection;
       setContenu({ sections: updatedSections });
       setEditingSectionIndex(null);
+      setSuccess('Section mise à jour avec succès !');
     } else {
-      // Mode ajout
       setContenu((prev) => ({
         sections: [...prev.sections, newSection],
       }));
+      setSuccess('Section ajoutée avec succès !');
     }
+
+    setTimeout(() => setSuccess(''), 3000);
 
     // Réinitialiser le formulaire
     setCurrentSection({
@@ -473,14 +1068,10 @@ const CreateCourse = () => {
       sections: prev.sections.filter((_, i) => i !== index),
     }));
     if (editingSectionIndex === index) {
-      setEditingSectionIndex(null);
-      setCurrentSection({
-        titre: '',
-        description: '',
-        ordre: 1,
-        modules: [],
-      });
+      cancelEditSection();
     }
+    setSuccess('Section supprimée');
+    setTimeout(() => setSuccess(''), 2000);
   };
 
   const cancelEditSection = () => {
@@ -498,7 +1089,7 @@ const CreateCourse = () => {
     setPreviewDialogOpen(true);
   };
 
-  // Validation des étapes
+  // Validation des étapes (reste identique)
   const validateStep = (step) => {
     switch (step) {
       case 0:
@@ -517,7 +1108,6 @@ const CreateCourse = () => {
         if (duree > 1000) return 'La durée maximale autorisée est de 1000 heures';
         return '';
       case 2:
-        // Le contenu est optionnel lors de la création initiale
         return '';
       case 3:
         if (!formData.domaineId) {
@@ -550,6 +1140,15 @@ const CreateCourse = () => {
     setActiveStep((prev) => prev - 1);
     setError('');
     setDomaineError(false);
+  };
+
+  // Formater la taille de fichier
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   };
 
   // Soumission du formulaire
@@ -662,6 +1261,137 @@ const CreateCourse = () => {
       </Box>
     );
   }
+
+  const selectedModuleType = typesModule.find((t) => t.value === currentModule.type);
+  const requiresFileUpload = ['VIDEO', 'DOCUMENT'].includes(currentModule.type);
+
+  // Rendu du formulaire de module selon le type
+  const renderModuleForm = () => {
+    if (currentModule.type === 'QUIZ') {
+      return (
+        <QuizBuilder
+          quiz={currentQuiz}
+          onQuizChange={handleQuizChange}
+          onAddQuestion={handleAddQuestion}
+          onUpdateQuestion={handleUpdateQuestion}
+          onRemoveQuestion={handleRemoveQuestion}
+          onAddOption={handleAddOption}
+          onUpdateOption={handleUpdateOption}
+          onRemoveOption={handleRemoveOption}
+        />
+      );
+    }
+
+    if (requiresFileUpload) {
+      return (
+        <Box>
+          <input
+            accept={selectedModuleType?.accept}
+            style={{ display: 'none' }}
+            id='file-upload'
+            type='file'
+            onChange={handleFileChange}
+            disabled={isUploading}
+          />
+          <label htmlFor='file-upload'>
+            <Button
+              variant='outlined'
+              component='span'
+              fullWidth
+              disabled={isUploading}
+              startIcon={
+                isUploading ? (
+                  <CircularProgress size={20} />
+                ) : currentModule.contenu ? (
+                  <CheckCircleIcon />
+                ) : (
+                  <UploadIcon />
+                )
+              }
+              sx={{
+                py: 2,
+                borderStyle: 'dashed',
+                borderWidth: 2,
+                borderColor: currentModule.contenu ? colors.fuchsia : colors.lightNavy,
+                color: colors.white,
+                '&:hover': {
+                  borderColor: colors.fuchsia,
+                  backgroundColor: `${colors.lightNavy}33`,
+                },
+              }}
+            >
+              {isUploading
+                ? 'Upload en cours...'
+                : currentModule.contenu
+                  ? '✓ Fichier uploadé - Cliquez pour changer'
+                  : `Uploader un fichier ${currentModule.type === 'VIDEO' ? 'vidéo' : 'document'}`}
+            </Button>
+          </label>
+          {isUploading && (
+            <Box sx={{ mt: 2 }}>
+              <LinearProgress
+                variant='determinate'
+                value={uploadProgress}
+                sx={{
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: colors.lightNavy,
+                  '& .MuiLinearProgress-bar': {
+                    backgroundColor: colors.fuchsia,
+                  },
+                }}
+              />
+              <Typography variant='caption' sx={{ color: colors.white, mt: 1, display: 'block' }}>
+                {uploadProgress}% - Veuillez patienter...
+              </Typography>
+            </Box>
+          )}
+          {currentModule.fileName && (
+            <Alert severity='success' icon={<FileIcon />} sx={{ mt: 2, borderRadius: 2 }}>
+              <Typography variant='body2' sx={{ fontWeight: 'bold' }}>
+                {currentModule.fileName}
+              </Typography>
+              <Typography variant='caption'>
+                Taille: {formatFileSize(currentModule.fileSize)}
+              </Typography>
+            </Alert>
+          )}
+          <FormHelperText sx={{ color: colors.white, opacity: 0.7, mt: 1 }}>
+            {selectedModuleType?.acceptText} - Ou saisissez une URL ci-dessous
+          </FormHelperText>
+          <TextField
+            label='Ou saisissez une URL'
+            name='contenu'
+            value={currentModule.contenu}
+            onChange={handleModuleChange}
+            fullWidth
+            placeholder='https://www.youtube.com/watch?v=... ou https://vimeo.com/...'
+            sx={{ mt: 2 }}
+            disabled={isUploading}
+          />
+        </Box>
+      );
+    }
+
+    if (currentModule.type === 'TEXTE') {
+      return (
+        <TextField
+          label='Contenu Textuel *'
+          name='contenu'
+          value={currentModule.contenu}
+          onChange={handleModuleChange}
+          fullWidth
+          required
+          multiline
+          rows={6}
+          placeholder='Saisissez le contenu textuel du module...'
+          helperText='Contenu qui sera affiché directement aux étudiants'
+        />
+      );
+    }
+
+    return null;
+  };
 
   // Rendu du contenu de chaque étape
   const renderStepContent = (step) => {
@@ -974,13 +1704,41 @@ const CreateCourse = () => {
                             </Typography>
                           }
                           secondary={
-                            <Typography
-                              variant='caption'
-                              sx={{ color: colors.white, opacity: 0.7 }}
-                            >
-                              Type: {module.type} | Durée: {module.duree || 'N/A'} min | Contenu:{' '}
-                              {module.contenu.substring(0, 50)}...
-                            </Typography>
+                            <Box>
+                              <Typography
+                                variant='caption'
+                                sx={{ color: colors.white, opacity: 0.7, display: 'block' }}
+                              >
+                                Type: {module.type} | Durée: {module.duree || 'N/A'} min
+                              </Typography>
+                              {module.metadata?.fileName && (
+                                <Typography
+                                  variant='caption'
+                                  sx={{ color: colors.white, opacity: 0.6, display: 'block' }}
+                                >
+                                  📎 {module.metadata.fileName} (
+                                  {formatFileSize(module.metadata.fileSize)})
+                                </Typography>
+                              )}
+                              {module.type === 'QUIZ' && (
+                                <Typography
+                                  variant='caption'
+                                  sx={{
+                                    color: colors.fuchsia,
+                                    display: 'block',
+                                    fontWeight: 'bold',
+                                  }}
+                                >
+                                  🎯 Quiz interactif
+                                </Typography>
+                              )}
+                              <Typography
+                                variant='caption'
+                                sx={{ color: colors.white, opacity: 0.5 }}
+                              >
+                                {module.contenu.substring(0, 50)}...
+                              </Typography>
+                            </Box>
                           }
                         />
                         <ListItemSecondaryAction>
@@ -1029,7 +1787,11 @@ const CreateCourse = () => {
                       onChange={handleModuleChange}
                       fullWidth
                       required
-                      placeholder='Ex: Introduction aux Composants React'
+                      placeholder={
+                        currentModule.type === 'QUIZ'
+                          ? "Ex: Quiz d'évaluation - Concepts de base"
+                          : 'Ex: Introduction aux Composants React'
+                      }
                     />
                   </Grid>
                   <Grid item xs={12} md={4}>
@@ -1038,7 +1800,7 @@ const CreateCourse = () => {
                       <Select
                         name='type'
                         value={currentModule.type}
-                        onChange={handleModuleChange}
+                        onChange={handleModuleTypeChange}
                         label='Type de Module *'
                       >
                         {typesModule.map((type) => (
@@ -1052,26 +1814,12 @@ const CreateCourse = () => {
                       </Select>
                     </FormControl>
                   </Grid>
+
+                  {/* Contenu selon le type de module */}
                   <Grid item xs={12}>
-                    <TextField
-                      label='Contenu/URL du Module *'
-                      name='contenu'
-                      value={currentModule.contenu}
-                      onChange={handleModuleChange}
-                      fullWidth
-                      required
-                      multiline
-                      rows={3}
-                      placeholder='URL vidéo YouTube/Vimeo, texte du cours, ou identifiant du quiz'
-                      helperText={
-                        currentModule.type === 'VIDEO'
-                          ? 'Exemple: https://www.youtube.com/watch?v=...'
-                          : currentModule.type === 'TEXTE'
-                            ? "Saisissez le contenu textuel ou l'URL d'un document"
-                            : 'Identifiant du quiz associé'
-                      }
-                    />
+                    {renderModuleForm()}
                   </Grid>
+
                   <Grid item xs={12} md={6}>
                     <TextField
                       label='Durée (minutes)'
@@ -1085,13 +1833,18 @@ const CreateCourse = () => {
                       helperText='Durée estimée en minutes'
                     />
                   </Grid>
+
                   <Grid item xs={12}>
                     <Box sx={{ display: 'flex', gap: 2 }}>
                       <Button
                         variant='contained'
                         startIcon={editingModuleIndex !== null ? <EditIcon /> : <AddIcon />}
                         onClick={addModule}
-                        disabled={!currentModule.titre || !currentModule.contenu}
+                        disabled={
+                          !currentModule.titre ||
+                          (currentModule.type !== 'QUIZ' && !currentModule.contenu) ||
+                          isUploading
+                        }
                       >
                         {editingModuleIndex !== null
                           ? 'Mettre à jour le Module'
@@ -1183,9 +1936,7 @@ const CreateCourse = () => {
                   ))}
                 </Select>
                 {domaineError && (
-                  <Typography variant='caption' color='error' sx={{ mt: 1 }}>
-                    Veuillez sélectionner un domaine
-                  </Typography>
+                  <FormHelperText error>Veuillez sélectionner un domaine</FormHelperText>
                 )}
               </FormControl>
             )}
@@ -1628,11 +2379,30 @@ const CreateCourse = () => {
                             <Typography variant='h6' sx={{ color: colors.white, mb: 1 }}>
                               {module.titre}
                             </Typography>
+                            {module.metadata?.fileName && (
+                              <Typography
+                                variant='body2'
+                                sx={{ color: colors.lightFuchsia, mb: 1 }}
+                              >
+                                📎 {module.metadata.fileName} (
+                                {formatFileSize(module.metadata.fileSize)})
+                              </Typography>
+                            )}
+                            {module.type === 'QUIZ' && (
+                              <Typography
+                                variant='body2'
+                                sx={{ color: colors.fuchsia, mb: 1, fontWeight: 'bold' }}
+                              >
+                                🎯 Quiz interactif
+                              </Typography>
+                            )}
                             <Typography
                               variant='body2'
                               sx={{ color: colors.white, opacity: 0.7, mb: 1 }}
                             >
-                              {module.contenu}
+                              {module.contenu.length > 100
+                                ? `${module.contenu.substring(0, 100)}...`
+                                : module.contenu}
                             </Typography>
                             <Box sx={{ display: 'flex', gap: 1 }}>
                               <Chip

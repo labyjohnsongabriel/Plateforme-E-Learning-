@@ -8,13 +8,13 @@ import authMiddleware from '../middleware/auth';
 import authorize from '../middleware/authorization';
 import validate from '../middleware/validation';
 import * as courseValidator from '../validators/courseValidator';
-import upload from '../middleware/upload';
+import { uploadFile } from '../middleware/uploadFile'; // <-- Utilisation du middleware corrigé
 import { RoleUtilisateur } from '../types';
 import createError from 'http-errors';
 
 const router: Router = Router();
 
-// Routes pour Domaine
+// === DOMAINES ===
 router.post(
   '/domaine',
   authMiddleware,
@@ -42,7 +42,7 @@ router.delete(
   DomaineController.delete
 );
 
-// Route for domain statistics
+// Statistiques du domaine
 router.get(
   '/domaine/:id/stats',
   authMiddleware,
@@ -51,6 +51,7 @@ router.get(
     try {
       const domaine = await Domaine.findById(req.params.id);
       if (!domaine) throw createError(404, 'Domaine non trouvé');
+
       const stats = await domaine.getStatistiques();
       res.json(stats);
     } catch (err) {
@@ -59,7 +60,7 @@ router.get(
   }
 );
 
-
+// === COURS ===
 router.post(
   '/',
   authMiddleware,
@@ -87,8 +88,26 @@ router.delete(
   CoursController.delete
 );
 
-// Routes pour Contenu
+// === CONTENU (avec upload de fichier) ===
+router.post(
+  '/contenu',
+  authMiddleware,
+  authorize([RoleUtilisateur.ADMIN]),
+  uploadFile, // <-- Upload vidéo/document/image
+  validate(courseValidator.createContenu),
+  ContenuController.create
+);
+
 router.get('/contenu/:id', authMiddleware, ContenuController.getById);
+
+router.put(
+  '/contenu/:id',
+  authMiddleware,
+  authorize([RoleUtilisateur.ADMIN]),
+  uploadFile, // <-- Optionnel : si mise à jour avec nouveau fichier
+  validate(courseValidator.updateContenu),
+  ContenuController.update
+);
 
 router.delete(
   '/contenu/:id',
@@ -97,7 +116,7 @@ router.delete(
   ContenuController.delete
 );
 
-// Routes pour Quiz
+// === QUIZ ===
 router.post(
   '/quiz',
   authMiddleware,
@@ -123,11 +142,12 @@ router.delete(
   QuizController.delete
 );
 
-// Route for learners to submit quiz answers
+// Soumission de quiz par étudiant
 router.post(
   '/quiz/:id/soumettre',
   authMiddleware,
   authorize([RoleUtilisateur.ETUDIANT]),
+  validate(courseValidator.submitQuiz),
   QuizController.soumettre
 );
 

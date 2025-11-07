@@ -1,4 +1,3 @@
-// src/services/learning/ProgressionService.ts
 import { Types } from 'mongoose';
 import Progression, { IProgression } from '../../models/learning/Progression';
 import Cours, { ICours } from '../../models/course/Cours';
@@ -14,7 +13,7 @@ export enum StatutProgression {
 /**
  * Interface for the default progression object to avoid type mismatches.
  */
-interface IProgressionDefault {
+export interface IProgressionDefault {
   apprenant: string;
   cours: string;
   pourcentage: number;
@@ -53,7 +52,6 @@ export class ProgressionService {
         apprenant: apprenantId,
         cours: coursId,
         dateDebut: new Date(),
-        dateDerniereActivite: new Date(),
         statut: StatutProgression.EN_COURS,
         pourcentage: 0,
       });
@@ -61,13 +59,13 @@ export class ProgressionService {
       await progression.save();
       return progression;
     } catch (err) {
-      console.error('❌ Erreur lors de l’initialisation de la progression :', err);
+      console.error("❌ Erreur lors de l'initialisation de la progression :", err);
       throw err;
     }
   }
 
   /**
-   * 🔹 Met à jour la progression d’un apprenant pour un cours donné.
+   * 🔹 Met à jour la progression d'un apprenant pour un cours donné.
    */
   static async update(
     apprenantId: string | Types.ObjectId,
@@ -83,34 +81,33 @@ export class ProgressionService {
         throw new Error('Pourcentage invalide (doit être entre 0 et 100)');
       }
 
+      // Tentative de trouver une progression existante
       let progression = await Progression.findOne({ apprenant: apprenantId, cours: coursId });
-      if (!progression) {
-        const cours = await Cours.findById(coursId);
-        if (!cours) {
-          throw new Error('Cours non trouvé');
+
+      if (progression) {
+        // Mise à jour de la progression existante
+        progression.pourcentage = pourcentage;
+        if (pourcentage === 100) {
+          progression.dateFin = new Date();
+          progression.statut = StatutProgression.COMPLETE;
+        } else {
+          progression.statut = StatutProgression.EN_COURS;
         }
-        progression = new Progression({
+        await progression.save();
+        return progression;
+      } else {
+        // Création d'une nouvelle progression
+        const nouvelleProgression = new Progression({
           apprenant: apprenantId,
           cours: coursId,
+          pourcentage,
           dateDebut: new Date(),
-          dateDerniereActivite: new Date(),
-          statut: StatutProgression.EN_COURS,
-          pourcentage: 0,
+          statut: pourcentage === 100 ? StatutProgression.COMPLETE : StatutProgression.EN_COURS,
+          ...(pourcentage === 100 && { dateFin: new Date() })
         });
+        await nouvelleProgression.save();
+        return nouvelleProgression;
       }
-
-      progression.pourcentage = pourcentage;
-    //  progression.dateDerniereActivite = new Date();
-
-      if (pourcentage === 100) {
-        progression.dateFin = new Date();
-        progression.statut = StatutProgression.COMPLETE;
-      } else {
-        progression.statut = StatutProgression.EN_COURS;
-      }
-
-      await progression.save();
-      return progression;
     } catch (err) {
       console.error('❌ Erreur lors de la mise à jour de la progression :', err);
       throw err;
@@ -118,7 +115,7 @@ export class ProgressionService {
   }
 
   /**
-   * 🔹 Récupère une progression spécifique d’un apprenant dans un cours.
+   * 🔹 Récupère une progression spécifique d'un apprenant dans un cours.
    */
   static async getByUserAndCourse(
     apprenantId: string | Types.ObjectId,
@@ -127,15 +124,7 @@ export class ProgressionService {
     try {
       if (!Types.ObjectId.isValid(apprenantId) || !Types.ObjectId.isValid(coursId)) {
         console.warn(`Identifiant invalide: apprenantId=${apprenantId}, coursId=${coursId}`);
-        return {
-          apprenant: apprenantId.toString(),
-          cours: coursId.toString(),
-          pourcentage: 0,
-          dateDebut: null,
-          dateDerniereActivite: null,
-          dateFin: null,
-          statut: StatutProgression.EN_COURS,
-        };
+        return this.createDefaultProgression(apprenantId, coursId);
       }
 
       const progression = await Progression.findOne({
@@ -144,34 +133,44 @@ export class ProgressionService {
       }).populate('cours', 'titre niveau');
 
       if (!progression) {
-        console.log(`Aucune progression trouvée pour apprenant ${apprenantId} et cours ${coursId}, retour de la progression par défaut`);
-        return {
-          apprenant: apprenantId.toString(),
-          cours: coursId.toString(),
-          pourcentage: 0,
-          dateDebut: null,
-          dateDerniereActivite: null,
-          dateFin: null,
-          statut: StatutProgression.EN_COURS,
-        };
+        console.log(`Aucune progression trouvée pour apprenant ${apprenantId} et cours ${coursId}, création d'une progression par défaut`);
+        return this.createDefaultProgression(apprenantId, coursId);
       }
 
       return progression;
     } catch (err) {
       console.error('❌ Erreur dans getByUserAndCourse :', err);
-      throw err;
+      return this.createDefaultProgression(apprenantId, coursId);
     }
   }
 
   /**
-   * 🔹 Récupère toutes les progressions d’un apprenant.
+   * 🔹 Crée une progression par défaut
+   */
+  private static createDefaultProgression(
+    apprenantId: string | Types.ObjectId,
+    coursId: string | Types.ObjectId
+  ): IProgressionDefault {
+    return {
+      apprenant: apprenantId.toString(),
+      cours: coursId.toString(),
+      pourcentage: 0,
+      dateDebut: null,
+      dateDerniereActivite: null,
+      dateFin: null,
+      statut: StatutProgression.EN_COURS,
+    };
+  }
+
+  /**
+   * 🔹 Récupère toutes les progressions d'un apprenant.
    */
   static async getUserProgressions(
     apprenantId: string | Types.ObjectId
   ): Promise<IProgression[]> {
     try {
       if (!Types.ObjectId.isValid(apprenantId)) {
-        throw new Error('Identifiant d’apprenant invalide');
+        throw new Error("Identifiant d'apprenant invalide");
       }
 
       const progressions = await Progression.find({ apprenant: apprenantId }).populate(
@@ -201,7 +200,7 @@ export class ProgressionService {
   }
 
   /**
-   * 🔹 Récupère la progression globale d’un apprenant :
+   * 🔹 Récupère la progression globale d'un apprenant :
    *    - Moyenne de pourcentage sur tous ses cours
    *    - Nombre total de cours
    *    - Détails par cours
@@ -215,7 +214,7 @@ export class ProgressionService {
   }> {
     try {
       if (!Types.ObjectId.isValid(apprenantId)) {
-        throw new Error('Identifiant d’apprenant invalide');
+        throw new Error("Identifiant d'apprenant invalide");
       }
 
       const progressions = await Progression.find({ apprenant: apprenantId }).populate(

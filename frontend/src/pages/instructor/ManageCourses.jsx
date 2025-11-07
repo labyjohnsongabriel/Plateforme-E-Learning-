@@ -2,14 +2,12 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import {
   Box,
-  Container,
   Typography,
   Grid,
   Card,
   Button,
   CircularProgress,
   Alert,
-  ThemeProvider,
   Chip,
   Table,
   TableBody,
@@ -24,224 +22,162 @@ import {
   Select,
   FormControl,
   InputLabel,
-  Paper,
   Dialog,
   DialogActions,
   DialogContent,
   DialogContentText,
   DialogTitle,
-  createTheme,
   Tooltip,
   IconButton,
   Stack,
-  Avatar,
+  Fade,
 } from '@mui/material';
 import { styled, keyframes } from '@mui/material/styles';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../../context/AuthContext';
-import { colors } from '../../utils/colors';
 import {
-  School as SchoolIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Search as SearchIcon,
-  CheckCircle as ApprovedIcon,
-  Pending as PendingIcon,
-  Cancel as RejectedIcon,
-  FilterList as FilterIcon,
-  Visibility as VisibilityIcon,
-  TrendingUp as TrendingUpIcon,
-  People as PeopleIcon,
-  Add as AddIcon,
-  MoreVert as MoreIcon,
-} from '@mui/icons-material';
+  BookOpen,
+  Users,
+  TrendingUp,
+  Edit,
+  Trash2,
+  Search,
+  Plus,
+  Filter,
+  Eye,
+  AlertCircle,
+} from 'lucide-react';
 
-// Thème professionnel
-const instructorTheme = createTheme({
-  palette: {
-    primary: {
-      main: colors.fuschia || colors.fuchsia || '#f13544',
-      light: colors.lightFuschia || colors.lightFuchsia || '#ff6b74',
-    },
-    secondary: {
-      main: colors.navy || '#010b40',
-      light: colors.lightNavy || '#1a237e',
-    },
-    background: {
-      default: colors.navy || '#010b40',
-      paper: colors.navy || '#010b40',
-    },
-    text: {
-      primary: colors.white || '#ffffff',
-      secondary: 'rgba(255, 255, 255, 0.7)',
-    },
-  },
-  typography: {
-    fontFamily: '"Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif',
-    h3: { fontWeight: 700, letterSpacing: '-0.02em' },
-    h5: { fontWeight: 600 },
-    h6: { fontWeight: 600 },
-  },
-});
-
-// Animations
+// === ANIMATIONS ===
 const fadeInUp = keyframes`
-  from { opacity: 0; transform: translateY(30px); }
+  from { opacity: 0; transform: translateY(40px); }
   to { opacity: 1; transform: translateY(0); }
 `;
 
-const scaleIn = keyframes`
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+const slideIn = keyframes`
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
 `;
 
-const shimmer = keyframes`
-  0% { background-position: -1000px 0; }
-  100% { background-position: 1000px 0; }
+const pulseGlow = keyframes`
+  0%, 100% { box-shadow: 0 0 20px rgba(241, 53, 68, 0.3); }
+  50% { box-shadow: 0 0 30px rgba(241, 53, 68, 0.6); }
 `;
 
-const float = keyframes`
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-20px) rotate(3deg); }
-`;
+// === COULEURS ===
+const colors = {
+  navy: '#010b40',
+  lightNavy: '#1a237e',
+  darkNavy: '#00072d',
+  red: '#f13544',
+  pink: '#ff6b74',
+  purple: '#8b5cf6',
+  success: '#10b981',
+  warning: '#f59e0b',
+  info: '#3b82f6',
+  glass: 'rgba(255, 255, 255, 0.08)',
+  glassDark: 'rgba(1, 11, 64, 0.6)',
+  border: 'rgba(241, 53, 68, 0.2)',
+};
 
-const gradientShift = keyframes`
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-`;
-
-// Composants stylisés
-const DashboardContainer = styled(Box)(({ theme }) => ({
-  minHeight: '100vh',
-  width: '100vw',
-  background: `linear-gradient(135deg, ${colors.navy || '#010b40'} 0%, ${colors.lightNavy || '#1a237e'} 100%)`,
-  position: 'relative',
-  overflow: 'auto',
-  '&::before': {
-    content: '""',
-    position: 'absolute',
-    inset: 0,
-    backgroundImage: `
-      radial-gradient(circle at 20% 50%, ${colors.fuschia || '#f13544'}15 0%, transparent 50%),
-      radial-gradient(circle at 80% 80%, ${colors.lightFuschia || '#ff6b74'}10 0%, transparent 50%)
-    `,
-    pointerEvents: 'none',
-  },
-}));
-
-const StatsCard = styled(Card)(({ theme }) => ({
-  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)',
-  backdropFilter: 'blur(20px) saturate(180%)',
-  border: '1px solid rgba(255, 255, 255, 0.1)',
-  borderRadius: '24px',
-  padding: theme.spacing(3),
-  position: 'relative',
-  overflow: 'hidden',
+const DashboardCard = styled(Card)(({ theme }) => ({
+  background: `linear-gradient(135deg, ${colors.glass}, ${colors.glassDark})`,
+  backdropFilter: 'blur(20px)',
+  borderRadius: '20px',
+  border: `1px solid ${colors.border}`,
+  padding: theme.spacing(3.5),
   transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-  animation: `${fadeInUp} 0.6s ease-out`,
-  '&::before': {
-    content: '""',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '3px',
-    background: `linear-gradient(90deg, ${colors.fuschia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`,
-    backgroundSize: '200% 100%',
-    animation: `${gradientShift} 3s ease infinite`,
-  },
+  animation: `${fadeInUp} 0.8s ease-out forwards`,
   '&:hover': {
     transform: 'translateY(-8px)',
-    boxShadow: `0 20px 40px rgba(0, 0, 0, 0.3), 0 0 60px ${colors.fuschia || '#f13544'}20`,
-    border: `1px solid ${colors.fuschia || '#f13544'}40`,
+    boxShadow: `0 20px 50px ${colors.navy}80`,
+    borderColor: `${colors.red}66`,
   },
 }));
 
-const TableCard = styled(Paper)(({ theme }) => ({
-  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
-  backdropFilter: 'blur(30px) saturate(180%)',
-  border: '1px solid rgba(255, 255, 255, 0.1)',
-  borderRadius: '24px',
-  padding: theme.spacing(4),
-  animation: `${fadeInUp} 0.8s ease-out`,
-  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
-  [theme.breakpoints.down('sm')]: { padding: theme.spacing(2), borderRadius: '20px' },
-}));
-
-const ModernButton = styled(Button)(({ theme }) => ({
-  background: `linear-gradient(135deg, ${colors.fuschia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`,
-  color: colors.white || '#ffffff',
+const StatCard = styled(Box)(({ theme, color = colors.red }) => ({
+  background: `linear-gradient(135deg, ${color}15, ${color}08)`,
   borderRadius: '16px',
-  padding: '14px 32px',
-  fontWeight: 600,
-  fontSize: '0.95rem',
-  textTransform: 'none',
-  boxShadow: `0 8px 24px ${colors.fuschia || '#f13544'}40`,
-  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-  position: 'relative',
-  overflow: 'hidden',
-  '&::before': {
-    content: '""',
-    position: 'absolute',
-    top: 0,
-    left: '-100%',
-    width: '100%',
-    height: '100%',
-    background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent)',
-    transition: 'left 0.5s ease',
+  padding: theme.spacing(3),
+  border: `1px solid ${color}33`,
+  textAlign: 'center',
+  transition: 'all 0.3s ease',
+  animation: `${fadeInUp} 0.6s ease-out forwards`,
+  '&:hover': {
+    transform: 'translateY(-4px)',
+    borderColor: `${color}66`,
+    boxShadow: `0 12px 30px ${color}33`,
   },
+}));
+
+const ActionButton = styled(Button)(({ theme }) => ({
+  background: `linear-gradient(135deg, ${colors.red}, ${colors.pink})`,
+  color: '#ffffff',
+  textTransform: 'none',
+  borderRadius: '12px',
+  padding: '10px 20px',
+  fontWeight: 600,
+  fontSize: '0.9rem',
+  transition: 'all 0.3s ease',
   '&:hover': {
     transform: 'translateY(-2px)',
-    boxShadow: `0 12px 32px ${colors.fuschia || '#f13544'}60`,
-    '&::before': {
-      left: '100%',
-    },
-  },
-  '&:active': {
-    transform: 'translateY(0)',
+    boxShadow: `0 10px 25px ${colors.red}4d`,
   },
 }));
 
-const StyledTableRow = styled(TableRow)(({ theme }) => ({
+const SecondaryButton = styled(Button)(({ theme }) => ({
+  background: 'transparent',
+  color: '#ffffff',
+  textTransform: 'none',
+  borderRadius: '12px',
+  padding: '10px 20px',
+  fontWeight: 600,
+  fontSize: '0.9rem',
+  border: `1px solid ${colors.border}`,
   transition: 'all 0.3s ease',
-  borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
   '&:hover': {
-    backgroundColor: `${colors.fuschia || '#f13544'}10`,
-    transform: 'scale(1.01)',
-    boxShadow: `0 4px 12px ${colors.fuschia || '#f13544'}20`,
-  },
-  '& td, & th': {
-    borderBottom: 'none',
-    padding: theme.spacing(2.5),
+    background: `${colors.red}1a`,
+    borderColor: colors.red,
+    transform: 'translateY(-2px)',
   },
 }));
 
 const SearchField = styled(TextField)(({ theme }) => ({
   '& .MuiOutlinedInput-root': {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: `${colors.glass}`,
     borderRadius: '16px',
-    backdropFilter: 'blur(10px)',
-    transition: 'all 0.3s ease',
+    color: '#ffffff',
     '& fieldset': {
-      borderColor: 'rgba(255, 255, 255, 0.1)',
+      borderColor: colors.border,
       borderWidth: '2px',
     },
     '&:hover fieldset': {
-      borderColor: `${colors.fuschia || '#f13544'}40`,
+      borderColor: `${colors.red}40`,
     },
     '&.Mui-focused fieldset': {
-      borderColor: colors.fuschia || '#f13544',
-      boxShadow: `0 0 20px ${colors.fuschia || '#f13544'}30`,
+      borderColor: colors.red,
+      boxShadow: `0 0 20px ${colors.red}30`,
     },
-  },
-  '& .MuiInputBase-input': {
-    color: colors.white || '#ffffff',
-    padding: '14px 16px',
-    fontSize: '0.95rem',
   },
   '& .MuiInputLabel-root': {
     color: 'rgba(255, 255, 255, 0.6)',
+  },
+  '& .MuiInputLabel-root.Mui-focused': {
+    color: colors.red,
+  },
+}));
+
+const StyledTableRow = styled(TableRow)(({ theme }) => ({
+  transition: 'all 0.3s ease',
+  '&:hover': {
+    backgroundColor: `${colors.red}10`,
+    transform: 'scale(1.01)',
+  },
+  '& td, & th': {
+    border: 'none',
+    padding: theme.spacing(2),
+    color: '#ffffff',
   },
 }));
 
@@ -306,11 +242,6 @@ const ManageCourses = () => {
     }
   }, [user, fetchCourses]);
 
-  const handleSearchChange = (e) => {
-    setSearchQuery(e.target.value);
-    setCurrentPage(1);
-  };
-
   useEffect(() => {
     if (user) {
       const timer = setTimeout(() => {
@@ -319,6 +250,11 @@ const ManageCourses = () => {
       return () => clearTimeout(timer);
     }
   }, [searchQuery, statusFilter]);
+
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+    setCurrentPage(1);
+  };
 
   const handleStatusFilterChange = (e) => {
     setStatusFilter(e.target.value);
@@ -363,41 +299,21 @@ const ManageCourses = () => {
 
   const getStatusChip = (status) => {
     const configs = {
-      APPROVED: {
-        icon: <ApprovedIcon sx={{ fontSize: 16 }} />,
-        gradient: 'linear-gradient(135deg, #10b981, #059669)',
-        label: 'Approuvé',
-      },
-      PENDING: {
-        icon: <PendingIcon sx={{ fontSize: 16 }} />,
-        gradient: 'linear-gradient(135deg, #f59e0b, #d97706)',
-        label: 'En attente',
-      },
-      REJECTED: {
-        icon: <RejectedIcon sx={{ fontSize: 16 }} />,
-        gradient: 'linear-gradient(135deg, #ef4444, #dc2626)',
-        label: 'Rejeté',
-      },
-      DRAFT: {
-        icon: null,
-        gradient: 'linear-gradient(135deg, #6b7280, #4b5563)',
-        label: 'Brouillon',
-      },
+      APPROVED: { color: colors.success, label: 'Approuvé' },
+      PENDING: { color: colors.warning, label: 'En attente' },
+      REJECTED: { color: colors.red, label: 'Rejeté' },
+      DRAFT: { color: colors.info, label: 'Brouillon' },
     };
     const config = configs[status] || configs.DRAFT;
     return (
       <Chip
-        icon={config.icon}
         label={config.label}
+        size="small"
         sx={{
-          background: config.gradient,
-          color: colors.white || '#ffffff',
+          backgroundColor: `${config.color}33`,
+          color: config.color,
           fontWeight: 600,
-          fontSize: '0.85rem',
-          padding: '4px 8px',
-          height: 'auto',
-          borderRadius: '10px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+          fontSize: '0.8rem',
         }}
       />
     );
@@ -413,18 +329,21 @@ const ManageCourses = () => {
     return (
       <Box
         sx={{
-          minHeight: '100vh',
-          width: '100vw',
-          background: `linear-gradient(135deg, ${colors.navy || '#010b40'}, ${colors.lightNavy || '#1a237e'})`,
           display: 'flex',
+          flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
-          flexDirection: 'column',
-          gap: 3,
+          height: '100vh',
+          width: '100vw',
+          background: `linear-gradient(135deg, ${colors.navy}, ${colors.darkNavy})`,
         }}
       >
-        <CircularProgress size={60} thickness={4} sx={{ color: colors.fuschia || '#f13544' }} />
-        <Typography sx={{ color: colors.white || '#ffffff', fontSize: '1.1rem', fontWeight: 500 }}>
+        <CircularProgress
+          size={70}
+          thickness={4}
+          sx={{ color: colors.red, animation: `${pulseGlow} 2s infinite` }}
+        />
+        <Typography sx={{ color: '#ffffff', fontSize: '1.3rem', fontWeight: 600, mt: 3 }}>
           Chargement des cours...
         </Typography>
       </Box>
@@ -432,624 +351,345 @@ const ManageCourses = () => {
   }
 
   return (
-    <ThemeProvider theme={instructorTheme}>
-      <DashboardContainer>
-        {/* Éléments de fond décoratifs */}
+    <Box
+      sx={{
+        minHeight: '100vh',
+        width: '100vw',
+        background: `linear-gradient(135deg, ${colors.navy}, ${colors.darkNavy})`,
+        p: { xs: 2, sm: 3, md: 4 },
+        overflow: 'auto',
+      }}
+    >
+      {/* En-tête */}
+      <Fade in timeout={800}>
         <Box
           sx={{
-            position: 'absolute',
-            top: -100,
-            right: -100,
-            width: 400,
-            height: 400,
-            background: `radial-gradient(circle, ${colors.fuschia || '#f13544'}15, transparent 70%)`,
-            borderRadius: '50%',
-            filter: 'blur(80px)',
-            animation: `${float} 10s ease-in-out infinite`,
-            pointerEvents: 'none',
-          }}
-        />
-        <Box
-          sx={{
-            position: 'absolute',
-            bottom: -150,
-            left: -150,
-            width: 500,
-            height: 500,
-            background: `radial-gradient(circle, ${colors.lightFuschia || '#ff6b74'}10, transparent 70%)`,
-            borderRadius: '50%',
-            filter: 'blur(100px)',
-            animation: `${float} 12s ease-in-out infinite`,
-            pointerEvents: 'none',
-          }}
-        />
-
-        <Container maxWidth='xl' sx={{ py: 5, position: 'relative', zIndex: 1 }}>
-          {/* En-tête moderne */}
-          <Box sx={{ mb: 6, animation: `${scaleIn} 0.5s ease-out` }}>
-            <Stack direction='row' spacing={3} alignItems='center' flexWrap='wrap' mb={2}>
-              <Avatar
-                sx={{
-                  width: 80,
-                  height: 80,
-                  background: `linear-gradient(135deg, ${colors.fuschia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`,
-                  boxShadow: `0 8px 24px ${colors.fuschia || '#f13544'}40`,
-                }}
-              >
-                <SchoolIcon sx={{ fontSize: 40 }} />
-              </Avatar>
-              <Box sx={{ flex: 1 }}>
-                <Typography
-                  variant='h3'
-                  sx={{
-                    color: colors.white || '#ffffff',
-                    fontSize: { xs: '1.75rem', sm: '2.25rem', md: '2.75rem' },
-                    mb: 1,
-                    fontWeight: 700,
-                  }}
-                >
-                  Gestion des Cours
-                </Typography>
-                <Typography
-                  sx={{
-                    color: 'rgba(255, 255, 255, 0.7)',
-                    fontSize: '1.1rem',
-                    fontWeight: 400,
-                  }}
-                >
-                  Gérez vos cours et suivez leur performance
-                </Typography>
-              </Box>
-              <ModernButton
-                component={Link}
-                to='/instructor/courses/create'
-                startIcon={<AddIcon />}
-                sx={{ height: 'fit-content' }}
-              >
-                Créer un Cours
-              </ModernButton>
-            </Stack>
-          </Box>
-
-          {/* Statistiques */}
-          <Grid container spacing={3} sx={{ mb: 5 }}>
-            <Grid item xs={12} sm={6} md={4}>
-              <StatsCard sx={{ animationDelay: '0.1s' }}>
-                <Stack spacing={2}>
-                  <Stack direction='row' spacing={2} alignItems='center'>
-                    <Box
-                      sx={{
-                        p: 2,
-                        borderRadius: '16px',
-                        background: `${colors.fuschia || '#f13544'}20`,
-                      }}
-                    >
-                      <SchoolIcon sx={{ fontSize: 32, color: colors.fuschia || '#f13544' }} />
-                    </Box>
-                    <Box>
-                      <Typography
-                        sx={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.9rem', mb: 0.5 }}
-                      >
-                        Total Cours
-                      </Typography>
-                      <Typography variant='h4' sx={{ color: colors.white || '#ffffff', fontWeight: 700 }}>
-                        {stats.total}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </Stack>
-              </StatsCard>
-            </Grid>
-            <Grid item xs={12} sm={6} md={4}>
-              <StatsCard sx={{ animationDelay: '0.2s' }}>
-                <Stack spacing={2}>
-                  <Stack direction='row' spacing={2} alignItems='center'>
-                    <Box
-                      sx={{
-                        p: 2,
-                        borderRadius: '16px',
-                        background: `${colors.fuschia || '#f13544'}20`,
-                      }}
-                    >
-                      <PeopleIcon sx={{ fontSize: 32, color: colors.fuschia || '#f13544' }} />
-                    </Box>
-                    <Box>
-                      <Typography
-                        sx={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.9rem', mb: 0.5 }}
-                      >
-                        Étudiants
-                      </Typography>
-                      <Typography variant='h4' sx={{ color: colors.white || '#ffffff', fontWeight: 700 }}>
-                        {stats.students}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </Stack>
-              </StatsCard>
-            </Grid>
-            <Grid item xs={12} sm={6} md={4}>
-              <StatsCard sx={{ animationDelay: '0.3s' }}>
-                <Stack spacing={2}>
-                  <Stack direction='row' spacing={2} alignItems='center'>
-                    <Box
-                      sx={{
-                        p: 2,
-                        borderRadius: '16px',
-                        background: `${colors.fuschia || '#f13544'}20`,
-                      }}
-                    >
-                      <TrendingUpIcon sx={{ fontSize: 32, color: colors.fuschia || '#f13544' }} />
-                    </Box>
-                    <Box>
-                      <Typography
-                        sx={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.9rem', mb: 0.5 }}
-                      >
-                        Approuvés
-                      </Typography>
-                      <Typography variant='h4' sx={{ color: colors.white || '#ffffff', fontWeight: 700 }}>
-                        {stats.approved}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </Stack>
-              </StatsCard>
-            </Grid>
-          </Grid>
-
-          {/* Recherche et Filtres */}
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 4 }}>
-            <SearchField
-              placeholder='Rechercher un cours...'
-              value={searchQuery}
-              onChange={handleSearchChange}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position='start'>
-                    <SearchIcon sx={{ color: 'rgba(255, 255, 255, 0.5)' }} />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{ flex: 1 }}
-            />
-            <FormControl sx={{ minWidth: 200 }}>
-              <InputLabel
-                sx={{
-                  color: 'rgba(255, 255, 255, 0.6)',
-                  '&.Mui-focused': { color: colors.fuschia || '#f13544' },
-                }}
-              >
-                Filtrer par statut
-              </InputLabel>
-              <Select
-                value={statusFilter}
-                onChange={handleStatusFilterChange}
-                label='Filtrer par statut'
-                sx={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                  color: colors.white || '#ffffff',
-                  borderRadius: '16px',
-                  '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: 'rgba(255, 255, 255, 0.1)',
-                    borderWidth: '2px',
-                  },
-                  '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: `${colors.fuschia || '#f13544'}40`,
-                  },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: colors.fuschia || '#f13544',
-                  },
-                }}
-              >
-                <MenuItem value=''>Tous</MenuItem>
-                <MenuItem value='APPROVED'>Approuvé</MenuItem>
-                <MenuItem value='PENDING'>En attente</MenuItem>
-                <MenuItem value='REJECTED'>Rejeté</MenuItem>
-                <MenuItem value='DRAFT'>Brouillon</MenuItem>
-              </Select>
-            </FormControl>
-          </Stack>
-
-          {/* Message de succès */}
-          {success && (
-            <Alert
-              severity='success'
-              sx={{
-                mb: 4,
-                background: 'rgba(16, 185, 129, 0.1)',
-                backdropFilter: 'blur(10px)',
-                color: colors.white || '#ffffff',
-                borderRadius: '16px',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                '& .MuiAlert-icon': { color: '#10b981' },
-              }}
-              onClose={() => setSuccess('')}
-            >
-              {success}
-            </Alert>
-          )}
-
-          {/* Message d'erreur */}
-          {error && (
-            <Alert
-              severity='error'
-              sx={{
-                mb: 4,
-                background: 'rgba(239, 68, 68, 0.1)',
-                backdropFilter: 'blur(10px)',
-                color: colors.white || '#ffffff',
-                borderRadius: '16px',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                '& .MuiAlert-icon': { color: '#ef4444' },
-              }}
-              onClose={() => setError('')}
-            >
-              {error}
-            </Alert>
-          )}
-
-          {/* Tableau des cours */}
-          <TableCard elevation={0}>
-            <Typography
-              variant='h5'
-              sx={{
-                color: colors.white || '#ffffff',
-                mb: 4,
-                fontWeight: 600,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2,
-              }}
-            >
-              <FilterIcon sx={{ color: colors.fuschia || '#f13544' }} />
-              Liste des Cours ({filteredCourses.length})
-            </Typography>
-            {filteredCourses.length > 0 ? (
-              <TableContainer sx={{ borderRadius: '16px', overflow: 'hidden' }}>
-                <Table>
-                  <TableHead>
-                    <TableRow
-                      sx={{
-                        background: 'rgba(255, 255, 255, 0.05)',
-                      }}
-                    >
-                      <TableCell
-                        sx={{
-                          color: 'rgba(255, 255, 255, 0.7)',
-                          fontWeight: 700,
-                          fontSize: '0.95rem',
-                          py: 2.5,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px',
-                        }}
-                      >
-                        Titre
-                      </TableCell>
-                      <TableCell
-                        sx={{
-                          color: 'rgba(255, 255, 255, 0.7)',
-                          fontWeight: 700,
-                          fontSize: '0.95rem',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px',
-                        }}
-                      >
-                        Niveau
-                      </TableCell>
-                      <TableCell
-                        sx={{
-                          color: 'rgba(255, 255, 255, 0.7)',
-                          fontWeight: 700,
-                          fontSize: '0.95rem',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px',
-                        }}
-                      >
-                        Statut
-                      </TableCell>
-                      <TableCell
-                        sx={{
-                          color: 'rgba(255, 255, 255, 0.7)',
-                          fontWeight: 700,
-                          fontSize: '0.95rem',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px',
-                        }}
-                      >
-                        Étudiants
-                      </TableCell>
-                      <TableCell
-                        sx={{
-                          color: 'rgba(255, 255, 255, 0.7)',
-                          fontWeight: 700,
-                          fontSize: '0.95rem',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px',
-                        }}
-                      >
-                        Actions
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {filteredCourses.map((course, index) => (
-                      <StyledTableRow
-                        key={course._id}
-                        sx={{
-                          animation: `${fadeInUp} ${0.3 + index * 0.1}s ease-out`,
-                        }}
-                      >
-                        <TableCell>
-                          <Stack direction='row' spacing={1.5} alignItems='center'>
-                            <Avatar
-                              sx={{
-                                width: 40,
-                                height: 40,
-                                background: `${colors.fuschia || '#f13544'}20`,
-                                color: colors.fuschia || '#f13544',
-                              }}
-                            >
-                              <SchoolIcon sx={{ fontSize: 20 }} />
-                            </Avatar>
-                            <Typography sx={{ color: colors.white || '#ffffff', fontWeight: 500 }}>
-                              {course.titre}
-                            </Typography>
-                          </Stack>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={course.niveau}
-                            size='small'
-                            sx={{
-                              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                              color: colors.white || '#ffffff',
-                              fontWeight: 500,
-                              border: '1px solid rgba(255, 255, 255, 0.2)',
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell>{getStatusChip(course.statutApprobation)}</TableCell>
-                        <TableCell>
-                          <Stack direction='row' spacing={1} alignItems='center'>
-                            <PeopleIcon sx={{ fontSize: 18, color: colors.fuschia || '#f13544' }} />
-                            <Typography sx={{ color: colors.white || '#ffffff', fontWeight: 500 }}>
-                              {course.etudiantsInscrits?.length || 0}
-                            </Typography>
-                          </Stack>
-                        </TableCell>
-                        <TableCell>
-                          <Stack direction='row' spacing={1}>
-                            <Tooltip title='Modifier' arrow>
-                              <IconButton
-                                component={Link}
-                                to={`/instructor/courses/edit/${course._id}`}
-                                size='small'
-                                sx={{
-                                  background: 'rgba(255, 255, 255, 0.1)',
-                                  color: colors.white || '#ffffff',
-                                  '&:hover': {
-                                    background: `${colors.fuschia || '#f13544'}30`,
-                                    transform: 'scale(1.1)',
-                                  },
-                                }}
-                              >
-                                <EditIcon sx={{ fontSize: 18 }} />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title='Supprimer' arrow>
-                              <IconButton
-                                size='small'
-                                onClick={() => handleDeleteClick(course)}
-                                sx={{
-                                  background: 'rgba(239, 68, 68, 0.1)',
-                                  color: '#ef4444',
-                                  '&:hover': {
-                                    background: 'rgba(239, 68, 68, 0.3)',
-                                    transform: 'scale(1.1)',
-                                  },
-                                }}
-                              >
-                                <DeleteIcon sx={{ fontSize: 18 }} />
-                              </IconButton>
-                            </Tooltip>
-                          </Stack>
-                        </TableCell>
-                      </StyledTableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            ) : (
-              <Box
-                sx={{
-                  minHeight: 400,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 3,
-                }}
-              >
-                <Avatar
-                  sx={{
-                    width: 120,
-                    height: 120,
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: `2px dashed rgba(255, 255, 255, 0.2)`,
-                  }}
-                >
-                  <SchoolIcon sx={{ fontSize: 60, color: 'rgba(255, 255, 255, 0.3)' }} />
-                </Avatar>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography
-                    variant='h6'
-                    sx={{
-                      color: 'rgba(255, 255, 255, 0.7)',
-                      mb: 1,
-                      fontWeight: 600,
-                    }}
-                  >
-                    Aucun cours trouvé
-                  </Typography>
-                  <Typography
-                    sx={{
-                      color: 'rgba(255, 255, 255, 0.5)',
-                      fontSize: '0.95rem',
-                    }}
-                  >
-                    Créez un nouveau cours pour commencer
-                  </Typography>
-                </Box>
-                <ModernButton
-                  component={Link}
-                  to='/instructor/courses/create'
-                  startIcon={<AddIcon />}
-                  sx={{ mt: 2 }}
-                >
-                  Créer mon premier cours
-                </ModernButton>
-              </Box>
-            )}
-          </TableCard>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 5 }}>
-              <Pagination
-                count={totalPages}
-                page={currentPage}
-                onChange={handlePageChange}
-                size='large'
-                sx={{
-                  '& .MuiPaginationItem-root': {
-                    color: colors.white || '#ffffff',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    backdropFilter: 'blur(10px)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    fontSize: '1rem',
-                    fontWeight: 500,
-                    minWidth: '40px',
-                    height: '40px',
-                    '&:hover': {
-                      background: `${colors.fuschia || '#f13544'}30`,
-                      borderColor: `${colors.fuschia || '#f13544'}60`,
-                      transform: 'scale(1.05)',
-                    },
-                  },
-                  '& .MuiPaginationItem-root.Mui-selected': {
-                    background: `linear-gradient(135deg, ${colors.fuschia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`,
-                    borderColor: colors.fuschia || '#f13544',
-                    boxShadow: `0 4px 16px ${colors.fuschia || '#f13544'}60`,
-                    fontWeight: 700,
-                    '&:hover': {
-                      background: `linear-gradient(135deg, ${colors.fuschia || '#f13544'}dd, ${colors.lightFuschia || '#ff6b74'}dd)`,
-                    },
-                  },
-                }}
-              />
-            </Box>
-          )}
-        </Container>
-
-        {/* Dialog de confirmation de suppression */}
-        <Dialog
-          open={deleteDialogOpen}
-          onClose={handleDeleteCancel}
-          PaperProps={{
-            sx: {
-              background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
-              backdropFilter: 'blur(30px) saturate(180%)',
-              color: colors.white || '#ffffff',
-              borderRadius: '24px',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              boxShadow: `0 20px 60px rgba(0, 0, 0, 0.5)`,
-              minWidth: '400px',
-            },
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            mb: { xs: 4, sm: 6 },
+            flexDirection: { xs: 'column', sm: 'row' },
+            gap: 2,
           }}
         >
-          <DialogTitle
+          <Box>
+            <Typography
+              variant="h3"
+              sx={{
+                color: '#ffffff',
+                fontWeight: 800,
+                mb: 1,
+                fontSize: { xs: '1.8rem', sm: '2.5rem', md: '3rem' },
+                background: 'linear-gradient(135deg, #ffffff, #ff6b74)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              Gestion des Cours
+            </Typography>
+            <Typography
+              sx={{
+                color: 'rgba(255, 255, 255, 0.7)',
+                fontSize: { xs: '1rem', sm: '1.1rem' },
+                fontWeight: 500,
+              }}
+            >
+              Gérez vos cours et suivez leur performance
+            </Typography>
+          </Box>
+          <ActionButton onClick={() => navigate('/instructor/courses/create')} startIcon={<Plus size={18} />}>
+            Créer un Cours
+          </ActionButton>
+        </Box>
+      </Fade>
+
+      {/* Alertes */}
+      {success && (
+        <Alert
+          severity="success"
+          sx={{
+            mb: 3,
+            bgcolor: `${colors.success}15`,
+            color: colors.success,
+            borderRadius: '12px',
+            border: `1px solid ${colors.success}33`,
+          }}
+          onClose={() => setSuccess('')}
+        >
+          {success}
+        </Alert>
+      )}
+      {error && (
+        <Alert
+          severity="error"
+          sx={{
+            mb: 3,
+            bgcolor: `${colors.red}15`,
+            color: colors.red,
+            borderRadius: '12px',
+            border: `1px solid ${colors.red}33`,
+          }}
+          onClose={() => setError('')}
+        >
+          {error}
+        </Alert>
+      )}
+
+      {/* Statistiques */}
+      <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mb: { xs: 4, sm: 6 } }}>
+        <Grid item xs={12} sm={4}>
+          <StatCard color={colors.red}>
+            <BookOpen size={36} color={colors.red} style={{ marginBottom: '16px' }} />
+            <Typography sx={{ color: colors.red, fontWeight: 800, fontSize: '2.2rem', mb: 0.5 }}>
+              {stats.total}
+            </Typography>
+            <Typography sx={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.9rem', fontWeight: 600 }}>
+              Total Cours
+            </Typography>
+          </StatCard>
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <StatCard color={colors.purple}>
+            <Users size={36} color={colors.purple} style={{ marginBottom: '16px' }} />
+            <Typography sx={{ color: colors.purple, fontWeight: 800, fontSize: '2.2rem', mb: 0.5 }}>
+              {stats.students}
+            </Typography>
+            <Typography sx={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.9rem', fontWeight: 600 }}>
+              Étudiants
+            </Typography>
+          </StatCard>
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <StatCard color={colors.success}>
+            <TrendingUp size={36} color={colors.success} style={{ marginBottom: '16px' }} />
+            <Typography sx={{ color: colors.success, fontWeight: 800, fontSize: '2.2rem', mb: 0.5 }}>
+              {stats.approved}
+            </Typography>
+            <Typography sx={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.9rem', fontWeight: 600 }}>
+              Approuvés
+            </Typography>
+          </StatCard>
+        </Grid>
+      </Grid>
+
+      {/* Recherche et Filtres */}
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 4 }}>
+        <SearchField
+          placeholder="Rechercher un cours..."
+          value={searchQuery}
+          onChange={handleSearchChange}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search size={20} color="rgba(255, 255, 255, 0.5)" />
+              </InputAdornment>
+            ),
+          }}
+          sx={{ flex: 1 }}
+        />
+        <FormControl sx={{ minWidth: 200 }}>
+          <InputLabel sx={{ color: 'rgba(255, 255, 255, 0.6)' }}>Filtrer par statut</InputLabel>
+          <Select
+            value={statusFilter}
+            onChange={handleStatusFilterChange}
+            label="Filtrer par statut"
             sx={{
-              fontSize: '1.5rem',
-              fontWeight: 700,
-              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-              pb: 2,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
+              backgroundColor: colors.glass,
+              color: '#ffffff',
+              borderRadius: '16px',
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: colors.border,
+                borderWidth: '2px',
+              },
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: `${colors.red}40`,
+              },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                borderColor: colors.red,
+              },
             }}
           >
-            <Avatar
-              sx={{
-                background: 'rgba(239, 68, 68, 0.2)',
-                color: '#ef4444',
-              }}
-            >
-              <DeleteIcon />
-            </Avatar>
-            Confirmer la Suppression
-          </DialogTitle>
-          <DialogContent sx={{ pt: 3 }}>
-            <DialogContentText sx={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '1rem', lineHeight: 1.6 }}>
-              Êtes-vous sûr de vouloir supprimer le cours{' '}
-              <Box
-                component='span'
-                sx={{
-                  color: colors.fuschia || '#f13544',
-                  fontWeight: 700,
-                  display: 'inline',
-                }}
-              >
-                "{courseToDelete?.titre}"
-              </Box>{' '}
-              ?
-              <br />
-              <br />
-              <Box component='span' sx={{ color: '#ef4444', fontWeight: 500 }}>
-                ⚠️ Cette action est irréversible
-              </Box>{' '}
-              et supprimera toutes les données associées (étudiants inscrits, progression, etc.).
-            </DialogContentText>
-          </DialogContent>
-          <DialogActions sx={{ p: 3, pt: 2, gap: 2 }}>
-            <Button
-              onClick={handleDeleteCancel}
-              sx={{
-                color: colors.white || '#ffffff',
-                borderRadius: '12px',
-                px: 3,
-                py: 1.5,
-                fontWeight: 600,
-                background: 'rgba(255, 255, 255, 0.1)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                '&:hover': {
-                  background: 'rgba(255, 255, 255, 0.15)',
-                },
-              }}
-            >
-              Annuler
-            </Button>
-            <Button
-              onClick={handleDeleteConfirm}
-              sx={{
-                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                color: colors.white || '#ffffff',
-                borderRadius: '12px',
-                px: 3,
-                py: 1.5,
-                fontWeight: 600,
-                boxShadow: '0 4px 16px rgba(239, 68, 68, 0.4)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
-                  boxShadow: '0 6px 20px rgba(239, 68, 68, 0.6)',
-                  transform: 'translateY(-2px)',
-                },
-              }}
-            >
-              Supprimer Définitivement
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </DashboardContainer>
-    </ThemeProvider>
+            <MenuItem value="">Tous</MenuItem>
+            <MenuItem value="APPROVED">Approuvé</MenuItem>
+            <MenuItem value="PENDING">En attente</MenuItem>
+            <MenuItem value="REJECTED">Rejeté</MenuItem>
+            <MenuItem value="DRAFT">Brouillon</MenuItem>
+          </Select>
+        </FormControl>
+      </Stack>
+
+      {/* Tableau */}
+      <DashboardCard elevation={0}>
+        <Typography
+          variant="h5"
+          sx={{
+            color: '#ffffff',
+            mb: 3,
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+          }}
+        >
+          <Filter size={28} color={colors.red} />
+          Liste des Cours ({filteredCourses.length})
+        </Typography>
+        {filteredCourses.length > 0 ? (
+          <>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow sx={{ background: 'rgba(255, 255, 255, 0.05)' }}>
+                    <TableCell sx={{ color: 'rgba(255, 255, 255, 0.7)', fontWeight: 600 }}>Titre</TableCell>
+                    <TableCell sx={{ color: 'rgba(255, 255, 255, 0.7)', fontWeight: 600 }}>Niveau</TableCell>
+                    <TableCell sx={{ color: 'rgba(255, 255, 255, 0.7)', fontWeight: 600 }}>Statut</TableCell>
+                    <TableCell sx={{ color: 'rgba(255, 255, 255, 0.7)', fontWeight: 600 }}>Étudiants</TableCell>
+                    <TableCell sx={{ color: 'rgba(255, 255, 255, 0.7)', fontWeight: 600 }}>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filteredCourses.map((course) => (
+                    <StyledTableRow key={course._id}>
+                      <TableCell>
+                        <Typography sx={{ color: '#ffffff', fontWeight: 600 }}>{course.titre}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={course.niveau}
+                          size="small"
+                          sx={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                            color: '#ffffff',
+                            fontWeight: 500,
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>{getStatusChip(course.statutApprobation)}</TableCell>
+                      <TableCell>
+                        <Typography sx={{ color: '#ffffff', fontWeight: 600 }}>
+                          {course.etudiantsInscrits?.length || 0}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Stack direction="row" spacing={1}>
+                          <Tooltip title="Modifier">
+                            <IconButton
+                              component={Link}
+                              to={`/instructor/courses/edit/${course._id}`}
+                              size="small"
+                              sx={{
+                                background: 'rgba(255, 255, 255, 0.1)',
+                                color: '#ffffff',
+                                '&:hover': { background: `${colors.red}30` },
+                              }}
+                            >
+                              <Edit size={18} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Supprimer">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDeleteClick(course)}
+                              sx={{
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                color: '#ef4444',
+                                '&:hover': { background: 'rgba(239, 68, 68, 0.3)' },
+                              }}
+                            >
+                              <Trash2 size={18} />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                      </TableCell>
+                    </StyledTableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            {totalPages > 1 && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                <Pagination
+                  count={totalPages}
+                  page={currentPage}
+                  onChange={handlePageChange}
+                  sx={{
+                    '& .MuiPaginationItem-root': {
+                      color: '#ffffff',
+                      '&.Mui-selected': {
+                        background: `linear-gradient(135deg, ${colors.red}, ${colors.pink})`,
+                        color: '#ffffff',
+                      },
+                    },
+                  }}
+                />
+              </Box>
+            )}
+          </>
+        ) : (
+          <Box sx={{ textAlign: 'center', py: 5, color: 'rgba(255, 255, 255, 0.5)' }}>
+            <BookOpen size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
+            <Typography sx={{ fontSize: '1.1rem', fontWeight: 600, mb: 1 }}>
+              Aucun cours trouvé
+            </Typography>
+            <Typography sx={{ fontSize: '0.95rem', mb: 3 }}>
+              Créez un nouveau cours pour commencer
+            </Typography>
+            <ActionButton onClick={() => navigate('/instructor/courses/create')} startIcon={<Plus size={18} />}>
+              Créer mon premier cours
+            </ActionButton>
+          </Box>
+        )}
+      </DashboardCard>
+
+      {/* Dialog de suppression */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+        PaperProps={{
+          sx: {
+            background: `linear-gradient(135deg, ${colors.glass}, ${colors.glassDark})`,
+            backdropFilter: 'blur(30px)',
+            color: '#ffffff',
+            borderRadius: '24px',
+            border: `1px solid ${colors.border}`,
+            minWidth: '400px',
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontSize: '1.5rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 2 }}>
+          <AlertCircle size={28} color={colors.red} />
+          Confirmer la Suppression
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '1rem' }}>
+            Êtes-vous sûr de vouloir supprimer le cours{' '}
+            <Box component="span" sx={{ color: colors.red, fontWeight: 700 }}>
+              "{courseToDelete?.titre}"
+            </Box>{' '}
+            ?<br /><br />
+            ⚠️ Cette action est irréversible.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, gap: 2 }}>
+          <SecondaryButton onClick={handleDeleteCancel}>Annuler</SecondaryButton>
+          <Button
+            onClick={handleDeleteConfirm}
+            sx={{
+              background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+              color: '#ffffff',
+              borderRadius: '12px',
+              px: 3,
+              py: 1.5,
+              fontWeight: 600,
+              '&:hover': { background: 'linear-gradient(135deg, #dc2626, #b91c1c)' },
+            }}
+          >
+            Supprimer
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 };
 

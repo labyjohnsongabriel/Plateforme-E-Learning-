@@ -198,6 +198,26 @@ const SecondaryButton = styled(Button)(({ theme }) => ({
   },
 }));
 
+// Composant stylisé pour le lien "Mot de passe oublié"
+const ForgotPasswordLink = styled(Link)(({ theme }) => ({
+  color: colors.accent,
+  fontSize: '14px',
+  fontWeight: 600,
+  textDecoration: 'none',
+  transition: 'all 0.2s ease',
+  display: 'inline-block',
+  position: 'relative',
+  cursor: 'pointer',
+  '&:hover': {
+    color: colors.accentHover,
+    textDecoration: 'underline',
+    transform: 'translateY(-1px)',
+  },
+  '&:active': {
+    transform: 'translateY(0)',
+  },
+}));
+
 const Login = () => {
   const { login, isLoading, error: authError } = useContext(AuthContext);
   const [email, setEmail] = useState('');
@@ -246,6 +266,13 @@ const Login = () => {
     if (e.key === 'Enter') {
       handleSubmit(e);
     }
+  };
+
+  // Fonction pour gérer le clic sur "Mot de passe oublié"
+  const handleForgotPassword = (e) => {
+    e.preventDefault();
+    // Redirection vers la page de réinitialisation de mot de passe
+    navigate('/forgot-password');
   };
 
   return (
@@ -539,23 +566,11 @@ const Login = () => {
                           </Typography>
                         }
                       />
-                      <Typography
-                        component={Link}
-                        to='/forgot-password'
-                        sx={{
-                          color: colors.accent,
-                          fontSize: '14px',
-                          fontWeight: 600,
-                          textDecoration: 'none',
-                          transition: 'all 0.2s ease',
-                          '&:hover': {
-                            color: colors.accentHover,
-                            textDecoration: 'underline',
-                          },
-                        }}
-                      >
+
+                      {/* Lien "Mot de passe oublié" CORRIGÉ et cliquable */}
+                      <ForgotPasswordLink to='/forgot-password' onClick={handleForgotPassword}>
                         Mot de passe oublié ?
-                      </Typography>
+                      </ForgotPasswordLink>
                     </Stack>
 
                     {/* Bouton de connexion */}

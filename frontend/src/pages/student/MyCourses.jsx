@@ -22,23 +22,30 @@ import {
 import { styled, keyframes } from '@mui/material/styles';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  BookOpen,
-  Clock,
-  User,
-  ArrowRight,
-  RotateCcw,
-  CheckCircle,
-  Trash2,
-  X,
-  Trophy,
-  TrendingUp,
-  Target,
-  Play,
-  Star,
-  Award,
-  Search,
-  Filter as FilterIcon,
-} from 'lucide-react';
+  Book as BookIcon,
+  Schedule as ClockIcon,
+  Person as UserIcon,
+  ArrowForward as ArrowRightIcon,
+  Replay as RotateCcwIcon,
+  CheckCircle as CheckCircleIcon,
+  Delete as TrashIcon,
+  Close as CloseIcon,
+  WorkspacePremium as TrophyIcon,
+  TrendingUp as TrendingUpIcon,
+  PlayArrow as PlayIcon,
+  Star as StarIcon,
+  School as SchoolIcon,
+  Search as SearchIcon,
+  OndemandVideo as VideoIcon,
+  Description as FileTextIcon,
+  Analytics as BarChartIcon,
+  Code as CodeIcon,
+  Image as ImageIcon,
+  MusicNote as MusicIcon,
+  Layers as LayersIcon,
+  Article as ArticleIcon,
+  Quiz as QuizIcon,
+} from '@mui/icons-material';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -65,17 +72,6 @@ const slideIn = keyframes`
   to { 
     opacity: 1; 
     transform: translateX(0); 
-  }
-`;
-
-const scaleIn = keyframes`
-  from { 
-    opacity: 0; 
-    transform: scale(0.9); 
-  }
-  to { 
-    opacity: 1; 
-    transform: scale(1); 
   }
 `;
 
@@ -115,6 +111,8 @@ const colors = {
   gold: '#fbbf24',
   info: '#3b82f6',
   purple: '#8b5cf6',
+  teal: '#14b8a6',
+  indigo: '#6366f1',
 };
 
 /**
@@ -292,8 +290,257 @@ const EmptyStateBox = styled(Box)({
 });
 
 /**
- * Fonctions utilitaires professionnelles
+ * FONCTIONS UTILITAIRES PROFESSIONNELLES AMÉLIORÉES
  */
+
+// ✅ FONCTION AMÉLIORÉE : Analyser le contenu des cours et modules
+const analyzeCourseContent = (course) => {
+  if (!course || typeof course !== 'object') {
+    return {
+      totalModules: 0,
+      totalDuration: 0,
+      moduleTypes: {},
+      contentAnalysis: {
+        hasVideo: false,
+        hasDocuments: false,
+        hasQuizzes: false,
+        hasText: false,
+        hasMixed: false,
+        dominantType: 'MIXTE',
+      },
+    };
+  }
+
+  const sections = course?.contenu?.sections || [];
+  let totalModules = 0;
+  let totalDuration = 0;
+  const moduleTypes = {};
+  const contentAnalysis = {
+    hasVideo: false,
+    hasDocuments: false,
+    hasQuizzes: false,
+    hasText: false,
+    hasMixed: false,
+    dominantType: 'MIXTE',
+  };
+
+  try {
+    sections.forEach((section) => {
+      const sectionModules = section?.modules || [];
+      totalModules += sectionModules.length;
+
+      sectionModules.forEach((module) => {
+        // Durée
+        totalDuration += module.duree || 0;
+
+        // Types de contenu
+        const moduleType = (module.type || 'VIDEO').toUpperCase();
+        moduleTypes[moduleType] = (moduleTypes[moduleType] || 0) + 1;
+
+        // Détection des types de contenu
+        if (moduleType === 'VIDEO') contentAnalysis.hasVideo = true;
+        if (moduleType === 'TEXTE' || moduleType === 'PDF' || moduleType === 'DOCUMENT')
+          contentAnalysis.hasDocuments = true;
+        if (moduleType === 'QUIZ') contentAnalysis.hasQuizzes = true;
+        if (moduleType === 'TEXTE') contentAnalysis.hasText = true;
+      });
+    });
+
+    // Déterminer le type dominant
+    if (totalModules > 0) {
+      const dominantType = Object.keys(moduleTypes).reduce((a, b) =>
+        moduleTypes[a] > moduleTypes[b] ? a : b
+      );
+      contentAnalysis.dominantType = dominantType;
+    }
+
+    // Déterminer si le cours est mixte
+    contentAnalysis.hasMixed = Object.keys(moduleTypes).length > 1;
+  } catch (error) {
+    console.error("Erreur lors de l'analyse du contenu:", error);
+  }
+
+  return {
+    totalModules,
+    totalDuration: totalDuration || course.duree || course.duration || 0,
+    moduleTypes,
+    contentAnalysis,
+  };
+};
+
+// ✅ FONCTION AMÉLIORÉE : Obtenir les infos du type de cours
+const getCourseTypeInfo = (course) => {
+  const analysis = analyzeCourseContent(course);
+  const { contentAnalysis, moduleTypes } = analysis;
+
+  // Déterminer le type principal basé sur l'analyse
+  let mainType = contentAnalysis.dominantType;
+
+  // Si cours mixte avec plusieurs types
+  if (contentAnalysis.hasMixed) {
+    if (contentAnalysis.hasVideo && contentAnalysis.hasDocuments) {
+      mainType = 'MIXTE_MEDIA';
+    } else if (contentAnalysis.hasVideo && contentAnalysis.hasQuizzes) {
+      mainType = 'VIDEO_QUIZ';
+    } else if (contentAnalysis.hasDocuments && contentAnalysis.hasQuizzes) {
+      mainType = 'DOCUMENT_QUIZ';
+    }
+  }
+
+  // Mapping des types avec icônes et couleurs
+  const typeMap = {
+    // Types simples
+    VIDEO: {
+      icon: VideoIcon,
+      color: colors.red,
+      label: 'Cours Vidéo',
+      description: 'Apprentissage visuel',
+      badgeColor: colors.red,
+    },
+    TEXTE: {
+      icon: FileTextIcon,
+      color: colors.info,
+      label: 'Cours Textuel',
+      description: 'Contenu écrit',
+      badgeColor: colors.info,
+    },
+    PDF: {
+      icon: ArticleIcon,
+      color: colors.indigo,
+      label: 'Documents PDF',
+      description: 'Ressources téléchargeables',
+      badgeColor: colors.indigo,
+    },
+    DOCUMENT: {
+      icon: FileTextIcon,
+      color: colors.teal,
+      label: 'Documents',
+      description: 'Ressources écrites',
+      badgeColor: colors.teal,
+    },
+    QUIZ: {
+      icon: QuizIcon,
+      color: colors.warning,
+      label: 'Évaluations',
+      description: 'Quiz et tests',
+      badgeColor: colors.warning,
+    },
+
+    // Types mixtes
+    MIXTE_MEDIA: {
+      icon: LayersIcon,
+      color: colors.purple,
+      label: 'Multimédia',
+      description: 'Vidéos et documents',
+      badgeColor: colors.purple,
+    },
+    VIDEO_QUIZ: {
+      icon: VideoIcon,
+      color: colors.pink,
+      label: 'Vidéo + Quiz',
+      description: 'Apprentissage interactif',
+      badgeColor: colors.pink,
+    },
+    DOCUMENT_QUIZ: {
+      icon: BookIcon,
+      color: colors.success,
+      label: 'Document + Quiz',
+      description: 'Étude et évaluation',
+      badgeColor: colors.success,
+    },
+    MIXTE: {
+      icon: LayersIcon,
+      color: colors.purple,
+      label: 'Contenu Varié',
+      description: 'Multiples formats',
+      badgeColor: colors.purple,
+    },
+
+    // Fallback
+    DEFAULT: {
+      icon: BookIcon,
+      color: colors.purple,
+      label: 'Cours',
+      description: 'Contenu éducatif',
+      badgeColor: colors.purple,
+    },
+  };
+
+  return typeMap[mainType] || typeMap.DEFAULT;
+};
+
+// ✅ FONCTION AMÉLIORÉE : Obtenir le détail des modules par type
+const getModuleTypeBreakdown = (course) => {
+  const analysis = analyzeCourseContent(course);
+  const { moduleTypes } = analysis;
+
+  const typeMap = {
+    VIDEO: { icon: VideoIcon, color: colors.red, label: 'Vidéos' },
+    TEXTE: { icon: FileTextIcon, color: colors.info, label: 'Textes' },
+    PDF: { icon: ArticleIcon, color: colors.indigo, label: 'PDFs' },
+    DOCUMENT: { icon: FileTextIcon, color: colors.teal, label: 'Documents' },
+    QUIZ: { icon: QuizIcon, color: colors.warning, label: 'Quiz' },
+    CODE: { icon: CodeIcon, color: colors.purple, label: 'Exercices' },
+    IMAGE: { icon: ImageIcon, color: colors.success, label: 'Images' },
+    AUDIO: { icon: MusicIcon, color: colors.teal, label: 'Audios' },
+  };
+
+  const breakdown = Object.entries(moduleTypes).map(([type, count]) => {
+    const typeInfo = typeMap[type] || { icon: BookIcon, color: colors.purple, label: type };
+    return {
+      type,
+      count,
+      label: typeInfo.label,
+      color: typeInfo.color,
+      icon: typeInfo.icon,
+    };
+  });
+
+  return breakdown.sort((a, b) => b.count - a.count);
+};
+
+// ✅ FONCTION : Obtenir la progression détaillée par module
+const getModuleProgress = (course, progressionData) => {
+  const sections = course?.contenu?.sections || [];
+  let completedModules = 0;
+  let totalModules = 0;
+  const moduleProgress = [];
+
+  try {
+    sections.forEach((section, sectionIndex) => {
+      const sectionModules = section?.modules || [];
+      sectionModules.forEach((module, moduleIndex) => {
+        totalModules++;
+        const moduleId = module._id || `module-${sectionIndex}-${moduleIndex}`;
+        const isCompleted = progressionData?.completedModules?.includes(moduleId) || false;
+
+        if (isCompleted) completedModules++;
+
+        moduleProgress.push({
+          id: moduleId,
+          title: module.titre || `Module ${sectionIndex + 1}.${moduleIndex + 1}`,
+          type: module.type || 'VIDEO',
+          duration: module.duree || 0,
+          completed: isCompleted,
+          section: section.titre || `Section ${sectionIndex + 1}`,
+        });
+      });
+    });
+  } catch (error) {
+    console.error('Erreur calcul progression modules:', error);
+  }
+
+  const progressPercentage =
+    totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0;
+
+  return {
+    progressPercentage,
+    completedModules,
+    totalModules,
+    moduleProgress,
+  };
+};
+
 const getProgressColor = (progress) => {
   if (progress === 100) return colors.success;
   if (progress >= 75) return colors.pink;
@@ -327,7 +574,12 @@ const getLevelColor = (level) => {
 
 const formatDuration = (duration) => {
   if (!duration) return 'Durée non spécifiée';
-  if (typeof duration === 'number') return `${duration}h`;
+  if (typeof duration === 'number') {
+    if (duration < 60) return `${duration} min`;
+    const hours = Math.floor(duration / 60);
+    const minutes = duration % 60;
+    return minutes > 0 ? `${hours}h${minutes}` : `${hours}h`;
+  }
   return duration;
 };
 
@@ -361,11 +613,11 @@ const CourseCardSkeleton = () => (
 );
 
 /**
- * COMPOSANT PRINCIPAL MyCourses
+ * COMPOSANT PRINCIPAL MyCourses CORRIGÉ
  */
 const MyCourses = () => {
   const { user, logout } = useAuth() || { user: null, logout: () => {} };
-  const { addNotification } = useNotifications();
+  const { addNotification } = useNotifications() || { addNotification: () => {} };
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -379,13 +631,14 @@ const MyCourses = () => {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [selectedView, setSelectedView] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [progressData, setProgressData] = useState({});
 
-  // ✅ CORRECTION: URL d'API corrigée
+  // ✅ CORRECTION: URLs d'API cohérentes avec CourseView
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
   const LEARNING_API_URL = `${API_BASE_URL}/learning`;
 
   /**
-   * Récupération des cours avec gestion d'erreur professionnelle
+   * ✅ CORRECTION: Récupération robuste des cours avec gestion d'erreur améliorée
    */
   const fetchCourses = useCallback(async () => {
     try {
@@ -410,46 +663,132 @@ const MyCourses = () => {
 
       console.log('🔄 Début de la récupération des cours...');
 
-      // ✅ CORRECTION: Utilisation du bon endpoint pour les inscriptions
-      const response = await axios.get(`${LEARNING_API_URL}/enrollments`, {
-        headers: {
-          Authorization: `Bearer ${user.token}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 20000,
-      });
+      const headers = {
+        Authorization: `Bearer ${user.token}`,
+        'Content-Type': 'application/json',
+      };
 
-      console.log('✅ Réponse serveur reçue:', response.data);
-
-      // ✅ CORRECTION: Traitement des données d'inscription
+      // ✅ CORRECTION: Tentative de récupération avec plusieurs endpoints
       let enrollmentsList = [];
-      if (response.data?.data && Array.isArray(response.data.data)) {
-        enrollmentsList = response.data.data;
-      } else if (Array.isArray(response.data)) {
-        enrollmentsList = response.data;
-      } else {
-        console.warn('Format de réponse inattendu:', response.data);
-        setError('Format de données serveur invalide');
+
+      try {
+        // Essai 1: Endpoint principal des inscriptions
+        const enrollmentsResponse = await axios.get(`${LEARNING_API_URL}/enrollments`, {
+          headers,
+          timeout: 20000,
+        });
+
+        console.log('✅ Réponse inscriptions reçue:', enrollmentsResponse.data);
+
+        if (enrollmentsResponse.data?.data && Array.isArray(enrollmentsResponse.data.data)) {
+          enrollmentsList = enrollmentsResponse.data.data;
+        } else if (Array.isArray(enrollmentsResponse.data)) {
+          enrollmentsList = enrollmentsResponse.data;
+        } else {
+          console.warn('Format de réponse inattendu:', enrollmentsResponse.data);
+          // Essai 2: Endpoint alternatif
+          try {
+            const altResponse = await axios.get(`${API_BASE_URL}/student/courses`, {
+              headers,
+              timeout: 20000,
+            });
+
+            if (altResponse.data?.data && Array.isArray(altResponse.data.data)) {
+              enrollmentsList = altResponse.data.data;
+            } else if (Array.isArray(altResponse.data)) {
+              enrollmentsList = altResponse.data;
+            }
+          } catch (altError) {
+            console.warn('Endpoint alternatif échoué:', altError.message);
+          }
+        }
+      } catch (enrollmentsError) {
+        console.error('❌ Erreur récupération inscriptions:', enrollmentsError);
+
+        // Essai de dernier recours
+        try {
+          const fallbackResponse = await axios.get(`${API_BASE_URL}/courses/enrolled`, {
+            headers,
+            timeout: 15000,
+          });
+
+          if (fallbackResponse.data) {
+            enrollmentsList = fallbackResponse.data.data || fallbackResponse.data || [];
+          }
+        } catch (fallbackError) {
+          console.error('Tous les endpoints ont échoué:', fallbackError);
+          throw new Error('Impossible de récupérer vos cours');
+        }
+      }
+
+      // ✅ CORRECTION: Gestion du cas où aucun cours n'est trouvé
+      if (!enrollmentsList || enrollmentsList.length === 0) {
+        console.log('📭 Aucun cours trouvé pour cet utilisateur');
         setCourses([]);
+        setProgressData({});
+        setError(null);
         setLoading(false);
         return;
       }
 
-      // ✅ CORRECTION: Normalisation des données d'inscription
-      const normalizedCourses = enrollmentsList
-        .filter((enrollment) => enrollment && enrollment.cours && enrollment._id)
-        .map((enrollment, index) => {
-          const course = enrollment.cours;
+      // ✅ CORRECTION: Récupération des progressions avec gestion d'erreur par cours
+      const progressPromises = enrollmentsList.map(async (enrollment) => {
+        try {
+          const courseId = enrollment.cours?._id || enrollment.courseId || enrollment._id;
+          if (!courseId) return null;
 
-          // Gestion du domaine
+          const progressResponse = await axios.get(`${LEARNING_API_URL}/progress/${courseId}`, {
+            headers: {
+              Authorization: `Bearer ${user.token}`,
+            },
+            timeout: 10000,
+          });
+
+          return {
+            courseId: courseId,
+            progress: progressResponse.data?.data || progressResponse.data || {},
+          };
+        } catch (error) {
+          console.warn(`⚠️ Progression non disponible pour le cours:`, error.message);
+          return {
+            courseId: enrollment.cours?._id || enrollment.courseId || enrollment._id,
+            progress: { pourcentage: 0, completedModules: [] },
+          };
+        }
+      });
+
+      const progressResults = await Promise.all(progressPromises);
+      const progressMap = {};
+      progressResults.forEach((result) => {
+        if (result && result.courseId) {
+          progressMap[result.courseId] = result.progress;
+        }
+      });
+
+      setProgressData(progressMap);
+
+      // ✅ CORRECTION: Normalisation robuste des données de cours
+      const normalizedCourses = enrollmentsList
+        .filter(
+          (enrollment) => enrollment && (enrollment.cours || enrollment.course || enrollment._id)
+        )
+        .map((enrollment, index) => {
+          const course = enrollment.cours || enrollment.course || enrollment;
+          const courseProgress = progressMap[course._id] || {};
+
+          // Gestion robuste du domaine
           let domaineNom = 'Général';
           if (course.domaineId?._id && course.domaineId?.nom) {
             domaineNom = course.domaineId.nom;
+          } else if (course.domaineId?.nom) {
+            domaineNom = course.domaineId.nom;
           } else if (typeof course.domaineId === 'string') {
-            domaineNom = 'Domaine non défini';
+            domaineNom = course.domaineId;
+          } else if (course.categorie) {
+            domaineNom = course.categorie;
           }
 
-          // Gestion de l'instructeur
+          // Gestion robuste de l'instructeur
           let instructeurNom = 'Instructeur';
           if (course.instructeurId?._id) {
             instructeurNom =
@@ -459,19 +798,27 @@ const MyCourses = () => {
             instructeurNom =
               `${course.createur.prenom || ''} ${course.createur.nom || ''}`.trim() ||
               instructeurNom;
+          } else if (course.instructor) {
+            instructeurNom = course.instructor;
           }
+
+          // ✅ CORRECTION: Analyse robuste du contenu
+          const contentAnalysis = analyzeCourseContent(course);
+          const typeInfo = getCourseTypeInfo(course);
+          const moduleBreakdown = getModuleTypeBreakdown(course);
+
+          // ✅ CORRECTION: Calcul robuste de la progression
+          const moduleProgress = getModuleProgress(course, courseProgress);
+          const progression = moduleProgress.progressPercentage;
 
           return {
             ...course,
-            _id: course._id || `temp-${index}`,
-            inscriptionId: enrollment._id, // ID de l'inscription pour la suppression
+            _id: course._id || `temp-${index}-${Date.now()}`,
+            inscriptionId: enrollment._id || enrollment.inscriptionId || `insc-${index}`,
             title: course.titre || course.title || 'Cours sans titre',
             description: course.description || 'Aucune description disponible pour le moment.',
-            progression: Math.min(
-              100,
-              Math.max(0, Number(enrollment.progression || enrollment.progress || 0))
-            ),
-            duration: course.duree || course.duration || null,
+            progression: progression,
+            duration: contentAnalysis.totalDuration,
             level: course.niveau || course.level || 'ALFA',
             instructeur: instructeurNom,
             categorie: domaineNom,
@@ -479,8 +826,20 @@ const MyCourses = () => {
               enrollment.dateInscription || enrollment.createdAt || new Date().toISOString(),
             rating: course.rating || Math.random() * 1 + 4,
             statut: enrollment.statut || 'ACTIVE',
+            // ✅ Données d'analyse
+            contenu: course.contenu || { sections: [] },
+            moduleCount: contentAnalysis.totalModules,
+            contentAnalysis: contentAnalysis.contentAnalysis,
+            moduleTypes: contentAnalysis.moduleTypes,
+            moduleBreakdown: moduleBreakdown,
+            typeInfo: typeInfo,
+            // ✅ Données de progression
+            moduleProgress: moduleProgress,
+            completedModules: moduleProgress.completedModules,
+            totalModules: moduleProgress.totalModules,
           };
-        });
+        })
+        .filter((course) => course && course._id); // Filtrage final
 
       console.log(`✅ ${normalizedCourses.length} cours normalisés avec succès`);
 
@@ -542,7 +901,7 @@ const MyCourses = () => {
       setLoading(false);
       setRetrying(false);
     }
-  }, [user, logout, navigate, location, addNotification, LEARNING_API_URL]);
+  }, [user, logout, navigate, location, addNotification, LEARNING_API_URL, API_BASE_URL]);
 
   /**
    * Gestionnaires de suppression professionnels
@@ -572,8 +931,7 @@ const MyCourses = () => {
 
       console.log("🔄 Tentative de suppression de l'inscription:", selectedCourse.inscriptionId);
 
-      // ✅ CORRECTION: Utilisation du bon endpoint pour la suppression
-      await axios.delete(`${LEARNING_API_URL}/enrollments/${selectedCourse.inscriptionId}`, {
+      await axios.delete(`${LEARNING_API_URL}/enrollment/${selectedCourse.inscriptionId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -651,7 +1009,7 @@ const MyCourses = () => {
       if (courseId && !courseId.startsWith('temp-')) {
         navigate(`/student/course/${courseId}`);
       } else {
-        addNotification("Impossible d'ouvrir ce cours pour le moment", 'warning');
+        addNotification("Ce cours n'est pas encore disponible", 'info');
       }
     },
     [navigate, addNotification]
@@ -668,6 +1026,20 @@ const MyCourses = () => {
     const avgProgress =
       total > 0 ? Math.round(courses.reduce((acc, c) => acc + c.progression, 0) / total) : 0;
 
+    // Statistiques avancées sur les types de contenu
+    const courseTypes = courses.reduce((acc, course) => {
+      const type = course.typeInfo?.label || 'Autre';
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {});
+
+    const totalModules = courses.reduce((acc, course) => acc + (course.moduleCount || 0), 0);
+    const completedModules = courses.reduce(
+      (acc, course) => acc + (course.completedModules || 0),
+      0
+    );
+    const avgModules = total > 0 ? Math.round(totalModules / total) : 0;
+
     return {
       total,
       inProgress,
@@ -675,6 +1047,12 @@ const MyCourses = () => {
       notStarted,
       avgProgress,
       completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
+      courseTypes,
+      totalModules,
+      completedModules,
+      avgModules,
+      moduleCompletionRate:
+        totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0,
     };
   }, [courses]);
 
@@ -703,7 +1081,9 @@ const MyCourses = () => {
         (course) =>
           course.title.toLowerCase().includes(term) ||
           course.description.toLowerCase().includes(term) ||
-          course.categorie.toLowerCase().includes(term)
+          course.categorie.toLowerCase().includes(term) ||
+          course.typeInfo?.label.toLowerCase().includes(term) ||
+          course.instructeur.toLowerCase().includes(term)
       );
     }
 
@@ -750,7 +1130,7 @@ const MyCourses = () => {
                   boxShadow: `0 12px 30px ${colors.red}66`,
                 }}
               >
-                <BookOpen size={40} />
+                <BookIcon sx={{ fontSize: 40 }} />
               </Box>
               Mes Cours
             </Typography>
@@ -841,7 +1221,7 @@ const MyCourses = () => {
                     boxShadow: `0 12px 30px ${colors.red}66`,
                   }}
                 >
-                  <BookOpen size={40} />
+                  <BookIcon sx={{ fontSize: 40 }} />
                 </Box>
                 Mes Cours
               </Typography>
@@ -857,7 +1237,7 @@ const MyCourses = () => {
                   ? "Commencez votre voyage d'apprentissage"
                   : error
                     ? 'Une erreur est survenue'
-                    : `Votre portfolio - ${courses.length} cours${courses.length > 1 ? 's' : ''} actif${courses.length > 1 ? 's' : ''}`}
+                    : `Votre portfolio - ${courses.length} cours${courses.length > 1 ? 's' : ''} • ${stats.completedModules}/${stats.totalModules} modules terminés`}
               </Typography>
             </Box>
 
@@ -866,7 +1246,7 @@ const MyCourses = () => {
               <ActionButton
                 onClick={handleRetry}
                 disabled={retrying}
-                startIcon={retrying ? <CircularProgress size={18} /> : <RotateCcw size={18} />}
+                startIcon={retrying ? <CircularProgress size={18} /> : <RotateCcwIcon />}
                 sx={{
                   mt: { xs: 2, md: 0 },
                   px: 4,
@@ -878,34 +1258,34 @@ const MyCourses = () => {
             )}
           </Stack>
 
-          {/* Cartes de statistiques automatiques */}
+          {/* Cartes de statistiques automatiques AVEC MODULES */}
           <Grid container spacing={3} sx={{ mb: 4 }}>
             {[
               {
                 label: 'Total des Cours',
                 value: stats.total,
-                icon: BookOpen,
+                icon: BookIcon,
                 color: colors.info,
                 description: 'Cours inscrits',
               },
               {
-                label: 'En Cours',
-                value: stats.inProgress,
-                icon: Play,
-                color: colors.purple,
-                description: 'En progression',
+                label: 'Modules Terminés',
+                value: `${stats.completedModules}/${stats.totalModules}`,
+                icon: CheckCircleIcon,
+                color: colors.success,
+                description: `${stats.moduleCompletionRate}% complétés`,
               },
               {
-                label: 'Terminés',
+                label: 'Cours Terminés',
                 value: stats.completed,
-                icon: CheckCircle,
-                color: colors.success,
+                icon: TrophyIcon,
+                color: colors.gold,
                 description: 'Formations achevées',
               },
               {
                 label: 'Progression Moyenne',
                 value: `${stats.avgProgress}%`,
-                icon: TrendingUp,
+                icon: TrendingUpIcon,
                 color: colors.warning,
                 description: 'Moyenne générale',
               },
@@ -925,7 +1305,7 @@ const MyCourses = () => {
                       border: `1.5px solid ${stat.color}33`,
                     }}
                   >
-                    <stat.icon size={28} color={stat.color} />
+                    <stat.icon sx={{ fontSize: 28, color: stat.color }} />
                   </Box>
                   <Typography
                     sx={{
@@ -1022,19 +1402,19 @@ const MyCourses = () => {
                 minWidth: { xs: '100%', sm: '300px' },
               }}
             >
-              <Search
-                size={20}
-                color='rgba(255,255,255,0.5)'
-                style={{
+              <SearchIcon
+                sx={{
                   position: 'absolute',
                   left: 12,
                   top: '50%',
                   transform: 'translateY(-50%)',
+                  color: 'rgba(255,255,255,0.5)',
+                  fontSize: 20,
                 }}
               />
               <input
                 type='text'
-                placeholder='Rechercher un cours...'
+                placeholder='Rechercher un cours, type, module...'
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 style={{
@@ -1097,13 +1477,20 @@ const MyCourses = () => {
         </Alert>
       )}
 
-      {/* Grille des cours */}
+      {/* Grille des cours CORRIGÉE */}
       {filteredCourses.length > 0 ? (
         <Grid container spacing={{ xs: 2, sm: 3, md: 3 }}>
           {filteredCourses.map((course, index) => {
             const progress = course.progression || 0;
             const progressColor = getProgressColor(progress);
             const progressLabel = getProgressLabel(progress);
+
+            // ✅ Utilisation des analyses détaillées
+            const typeInfo = course.typeInfo;
+            const TypeIcon = typeInfo.icon;
+            const moduleCount = course.moduleCount || 0;
+            const completedModules = course.completedModules || 0;
+            const moduleBreakdown = course.moduleBreakdown || [];
 
             return (
               <Grid item xs={12} sm={6} md={4} key={course._id}>
@@ -1121,7 +1508,7 @@ const MyCourses = () => {
                     sx={{
                       position: 'absolute',
                       inset: 0,
-                      background: `radial-gradient(circle at 50% 0%, ${colors.pink}33, transparent 70%)`,
+                      background: `radial-gradient(circle at 50% 0%, ${typeInfo.color}33, transparent 70%)`,
                       opacity: 0,
                       transition: 'opacity 0.5s ease',
                       pointerEvents: 'none',
@@ -1133,7 +1520,7 @@ const MyCourses = () => {
                     onClick={(e) => handleDeleteClick(course, e)}
                     aria-label={`Se désinscrire de ${course.title}`}
                   >
-                    <Trash2 size={20} />
+                    <TrashIcon sx={{ fontSize: 20 }} />
                   </DeleteButton>
 
                   {/* En-tête du cours avec image/icône */}
@@ -1142,7 +1529,7 @@ const MyCourses = () => {
                       width: '100%',
                       height: 200,
                       borderRadius: '16px',
-                      background: `linear-gradient(135deg, ${colors.red}44, ${colors.purple}44)`,
+                      background: `linear-gradient(135deg, ${typeInfo.color}44, ${colors.purple}44)`,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -1158,10 +1545,16 @@ const MyCourses = () => {
                         background: `linear-gradient(135deg, transparent, ${colors.navy}88)`,
                       }}
                     />
-                    <BookOpen
-                      size={64}
-                      color='#ffffff'
-                      style={{ opacity: 0.7, position: 'relative', zIndex: 1 }}
+
+                    {/* ✅ Icône du type de cours */}
+                    <TypeIcon
+                      sx={{
+                        fontSize: 64,
+                        color: '#ffffff',
+                        opacity: 0.7,
+                        position: 'relative',
+                        zIndex: 1,
+                      }}
                     />
 
                     {/* Badge de niveau */}
@@ -1181,14 +1574,31 @@ const MyCourses = () => {
                       }}
                     />
 
+                    {/* ✅ Badge du type de contenu principal */}
+                    <Chip
+                      label={typeInfo.label}
+                      size='small'
+                      sx={{
+                        position: 'absolute',
+                        top: 16,
+                        right: 16,
+                        fontWeight: 700,
+                        fontSize: '0.7rem',
+                        backgroundColor: `${typeInfo.color}33`,
+                        color: typeInfo.color,
+                        backdropFilter: 'blur(12px)',
+                        border: `1.5px solid ${typeInfo.color}66`,
+                      }}
+                    />
+
                     {/* Badge de complétion */}
                     {progress === 100 && (
                       <Tooltip title='Cours maîtrisé' arrow placement='top'>
                         <Box
                           sx={{
                             position: 'absolute',
-                            top: 16,
-                            right: 60,
+                            top: 60,
+                            right: 16,
                             p: 1.5,
                             borderRadius: '50%',
                             background: `linear-gradient(135deg, ${colors.success}, #34d399)`,
@@ -1199,7 +1609,7 @@ const MyCourses = () => {
                             animation: 'bounce 2s infinite',
                           }}
                         >
-                          <Trophy size={22} color='#ffffff' />
+                          <TrophyIcon sx={{ fontSize: 22, color: '#ffffff' }} />
                         </Box>
                       </Tooltip>
                     )}
@@ -1221,7 +1631,7 @@ const MyCourses = () => {
                         border: `1.5px solid ${colors.gold}33`,
                       }}
                     >
-                      <Star size={16} color={colors.gold} fill={colors.gold} />
+                      <StarIcon sx={{ fontSize: 16, color: colors.gold }} />
                       <Typography
                         sx={{
                           fontSize: '0.85rem',
@@ -1232,6 +1642,75 @@ const MyCourses = () => {
                         {course.rating?.toFixed(1) || '4.8'}
                       </Typography>
                     </Box>
+
+                    {/* ✅ Badge AMÉLIORÉ du nombre de modules avec progression */}
+                    <Tooltip
+                      title={
+                        <Box sx={{ maxWidth: 300 }}>
+                          <Typography
+                            variant='subtitle2'
+                            sx={{ color: '#fff', mb: 1, fontWeight: 600 }}
+                          >
+                            Détail des modules:
+                          </Typography>
+                          {moduleBreakdown.map((item, idx) => (
+                            <Box
+                              key={idx}
+                              sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}
+                            >
+                              <item.icon sx={{ fontSize: 14, color: item.color }} />
+                              <Typography variant='caption' sx={{ color: '#fff', fontWeight: 500 }}>
+                                {item.count} {item.label.toLowerCase()}
+                              </Typography>
+                            </Box>
+                          ))}
+                          <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid rgba(255,255,255,0.2)' }}>
+                            <Typography
+                              variant='caption'
+                              sx={{ color: colors.success, fontWeight: 600 }}
+                            >
+                              {completedModules}/{moduleCount} modules terminés
+                            </Typography>
+                          </Box>
+                        </Box>
+                      }
+                      arrow
+                      placement='top'
+                    >
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          bottom: 16,
+                          right: 16,
+                          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                          backdropFilter: 'blur(12px)',
+                          px: 2,
+                          py: 1,
+                          borderRadius: '10px',
+                          border: `1.5px solid ${colors.info}33`,
+                          cursor: 'pointer',
+                          transition: 'all 0.3s ease',
+                          '&:hover': {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            transform: 'scale(1.05)',
+                          },
+                        }}
+                      >
+                        <Typography
+                          sx={{
+                            fontSize: '0.8rem',
+                            fontWeight: 700,
+                            color: colors.info,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.5,
+                          }}
+                        >
+                          <LayersIcon sx={{ fontSize: 14 }} />
+                          {completedModules}/{moduleCount} modules
+                        </Typography>
+                      </Box>
+                    </Tooltip>
                   </Box>
 
                   {/* Catégorie */}
@@ -1282,12 +1761,12 @@ const MyCourses = () => {
                     {course.description}
                   </Typography>
 
-                  {/* Informations du cours */}
+                  {/* Informations du cours AMÉLIORÉES */}
                   <Stack spacing={1.5} sx={{ mb: 2 }}>
                     {/* Instructeur */}
                     {course.instructeur && (
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <User size={18} color={colors.pink} />
+                        <UserIcon sx={{ fontSize: 18, color: colors.pink }} />
                         <Typography
                           sx={{
                             color: 'rgba(255, 255, 255, 0.7)',
@@ -1300,10 +1779,63 @@ const MyCourses = () => {
                       </Box>
                     )}
 
+                    {/* ✅ Type de contenu principal */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <TypeIcon sx={{ fontSize: 18, color: typeInfo.color }} />
+                      <Typography
+                        sx={{
+                          color: 'rgba(255, 255, 255, 0.7)',
+                          fontSize: { xs: '0.85rem', sm: '0.9rem' },
+                          fontWeight: 500,
+                        }}
+                      >
+                        {typeInfo.description}
+                      </Typography>
+                    </Box>
+
+                    {/* ✅ Détail des types de modules */}
+                    {moduleBreakdown.length > 0 && (
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}
+                      >
+                        <LayersIcon sx={{ fontSize: 16, color: colors.purple }} />
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                          {moduleBreakdown.slice(0, 3).map((item, idx) => (
+                            <Chip
+                              key={idx}
+                              label={`${item.count} ${item.label}`}
+                              size='small'
+                              sx={{
+                                height: 20,
+                                fontSize: '0.7rem',
+                                backgroundColor: `${item.color}22`,
+                                color: item.color,
+                                fontWeight: 600,
+                                border: `1px solid ${item.color}33`,
+                              }}
+                            />
+                          ))}
+                          {moduleBreakdown.length > 3 && (
+                            <Chip
+                              label={`+${moduleBreakdown.length - 3}`}
+                              size='small'
+                              sx={{
+                                height: 20,
+                                fontSize: '0.7rem',
+                                backgroundColor: `${colors.glass}66`,
+                                color: 'rgba(255, 255, 255, 0.6)',
+                                fontWeight: 600,
+                              }}
+                            />
+                          )}
+                        </Box>
+                      </Box>
+                    )}
+
                     {/* Durée */}
-                    {course.duration && (
+                    {course.duration > 0 && (
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Clock size={18} color={colors.purple} />
+                        <ClockIcon sx={{ fontSize: 18, color: colors.purple }} />
                         <Typography
                           sx={{
                             color: 'rgba(255, 255, 255, 0.7)',
@@ -1317,7 +1849,7 @@ const MyCourses = () => {
                     )}
                   </Stack>
 
-                  {/* Section de progression */}
+                  {/* Section de progression AMÉLIORÉE */}
                   <Box sx={{ mb: 2 }}>
                     <Box
                       sx={{
@@ -1334,7 +1866,7 @@ const MyCourses = () => {
                           fontWeight: 600,
                         }}
                       >
-                        Votre progression
+                        Progression des modules
                       </Typography>
                       <Typography
                         sx={{
@@ -1347,27 +1879,44 @@ const MyCourses = () => {
                       </Typography>
                     </Box>
                     <ProgressBar variant='determinate' value={progress} />
-                    <Typography
+                    <Box
                       sx={{
-                        color: progressColor,
-                        fontSize: '0.85rem',
-                        mt: 1,
-                        fontWeight: 700,
                         display: 'flex',
+                        justifyContent: 'space-between',
                         alignItems: 'center',
-                        gap: 0.5,
+                        mt: 1,
                       }}
                     >
-                      {progress === 100 && <CheckCircle size={16} />}
-                      {progressLabel}
-                    </Typography>
+                      <Typography
+                        sx={{
+                          color: progressColor,
+                          fontSize: '0.85rem',
+                          fontWeight: 700,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.5,
+                        }}
+                      >
+                        {progress === 100 && <CheckCircleIcon sx={{ fontSize: 16 }} />}
+                        {progressLabel}
+                      </Typography>
+                      <Typography
+                        sx={{
+                          color: 'rgba(255, 255, 255, 0.6)',
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                        }}
+                      >
+                        {completedModules}/{moduleCount} modules
+                      </Typography>
+                    </Box>
                   </Box>
 
                   {/* Bouton d'action */}
                   <ActionButton
                     fullWidth
                     className='course-cta'
-                    endIcon={progress === 100 ? <Award size={20} /> : <ArrowRight size={20} />}
+                    endIcon={progress === 100 ? <TrophyIcon /> : <ArrowRightIcon />}
                     sx={{
                       mt: 'auto',
                       background:
@@ -1404,7 +1953,7 @@ const MyCourses = () => {
                 border: `2px solid ${colors.glassBorder}`,
               }}
             >
-              <BookOpen size={70} color={colors.red} style={{ opacity: 0.5 }} />
+              <BookIcon sx={{ fontSize: 70, color: colors.red, opacity: 0.5 }} />
             </Box>
             <Typography
               sx={{
@@ -1435,7 +1984,7 @@ const MyCourses = () => {
             {selectedView === 'all' && !searchTerm && (
               <ActionButton
                 onClick={() => navigate('/catalog')}
-                endIcon={<ArrowRight size={22} />}
+                endIcon={<ArrowRightIcon />}
                 sx={{ px: 5, py: 2, fontSize: '1rem' }}
                 aria-label='Découvrir le catalogue de cours'
               >
@@ -1499,7 +2048,7 @@ const MyCourses = () => {
             }}
             aria-label='Fermer la boîte de dialogue'
           >
-            <X size={24} />
+            <CloseIcon sx={{ fontSize: 24 }} />
           </IconButton>
         </DialogTitle>
 
@@ -1545,6 +2094,38 @@ const MyCourses = () => {
               >
                 {selectedCourse.description}
               </Typography>
+
+              {/* ✅ Affichage des détails du cours dans la boîte de dialogue */}
+              <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+                <Chip
+                  label={selectedCourse.typeInfo?.label || 'Cours'}
+                  size='small'
+                  sx={{
+                    backgroundColor: `${selectedCourse.typeInfo?.color || colors.purple}33`,
+                    color: selectedCourse.typeInfo?.color || colors.purple,
+                    fontWeight: 600,
+                  }}
+                />
+                <Chip
+                  label={`${selectedCourse.completedModules}/${selectedCourse.moduleCount} modules`}
+                  size='small'
+                  sx={{
+                    backgroundColor: `${colors.info}33`,
+                    color: colors.info,
+                    fontWeight: 600,
+                  }}
+                />
+                <Chip
+                  label={`Niveau ${selectedCourse.level}`}
+                  size='small'
+                  sx={{
+                    backgroundColor: `${getLevelColor(selectedCourse.level)}33`,
+                    color: getLevelColor(selectedCourse.level),
+                    fontWeight: 600,
+                  }}
+                />
+              </Box>
+
               <Box
                 sx={{
                   display: 'flex',
@@ -1634,7 +2215,7 @@ const MyCourses = () => {
               </>
             ) : (
               <>
-                <Trash2 size={18} style={{ marginRight: 10 }} />
+                <TrashIcon sx={{ mr: 1, fontSize: 18 }} />
                 Confirmer
               </>
             )}

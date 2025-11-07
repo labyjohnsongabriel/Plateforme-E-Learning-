@@ -1,51 +1,39 @@
-import { Schema, model, Document, Types, Model } from 'mongoose';
+// models/course/Quiz.ts
+import { Schema, model, Document, Types } from 'mongoose';
 
-// Interface pour le document Quiz
-interface IQuiz extends Document {
+export interface IQuiz extends Document {
   titre: string;
   description?: string;
-  cours: Types.ObjectId;
   questions: Types.ObjectId[];
-  scoreMinValide: number;
+  parametres: {
+    showResults: boolean;
+    allowRetry: boolean;
+    randomizeQuestions: boolean;
+    timeLimit: boolean;
+    showProgress: boolean;
+    passPercentage: number;
+    maxAttempts: number;
+  };
   createdAt: Date;
   updatedAt: Date;
-  corriger(reponsesUtilisateur: number[]): Promise<{ score: number; valide: boolean }>;
 }
 
-// Schéma pour Quiz
 const quizSchema = new Schema<IQuiz>(
   {
     titre: { type: String, required: true },
     description: { type: String },
-    cours: { type: Schema.Types.ObjectId, ref: 'Cours', required: true },
     questions: [{ type: Schema.Types.ObjectId, ref: 'Question' }],
-    scoreMinValide: { type: Number, default: 70 }, // Pourcentage minimal pour validation
+    parametres: {
+      showResults: { type: Boolean, default: true },
+      allowRetry: { type: Boolean, default: false },
+      randomizeQuestions: { type: Boolean, default: false },
+      timeLimit: { type: Boolean, default: true },
+      showProgress: { type: Boolean, default: true },
+      passPercentage: { type: Number, default: 70, min: 0, max: 100 },
+      maxAttempts: { type: Number, default: 3, min: 1 }
+    }
   },
   { timestamps: true }
 );
 
-// Méthode pour corriger un quiz
-quizSchema.methods.corriger = async function (
-  this: IQuiz,
-  reponsesUtilisateur: number[]
-): Promise<{ score: number; valide: boolean }> {
-  const Question = model('Question');
-  const questions = await Question.find({ _id: { $in: this.questions } });
-  let score = 0;
-  questions.forEach((q: any, index: number) => {
-    if (q.reponseCorrecte === reponsesUtilisateur[index]) {
-      score += 1;
-    }
-  });
-  const pourcentage = (questions.length > 0 ? score / questions.length : 0) * 100;
-  // Innovation: Si validé, déclencher un certificat si niveau approprié
-  if (pourcentage >= this.scoreMinValide) {
-    // Logique pour vérifier niveau et générer certificat (à connecter avec Certificat model)
-  }
-  return { score: pourcentage, valide: pourcentage >= this.scoreMinValide };
-};
-
-// Modèle Quiz
-const Quiz: Model<IQuiz> = model<IQuiz>('Quiz', quizSchema);
-
-export default Quiz;
+export default model<IQuiz>('Quiz', quizSchema);

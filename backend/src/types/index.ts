@@ -1,4 +1,3 @@
-// src/types/index.ts
 import { Document, Types } from 'mongoose';
 
 // ──────────────────────────────────────────────────
@@ -91,6 +90,7 @@ export interface IUser {
   createdAt?: Date;
   updatedAt?: Date;
 }
+
 
 export interface UserData {
   nom?: string;

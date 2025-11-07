@@ -38,10 +38,10 @@ import {
   ArrowBack as BackIcon,
 } from '@mui/icons-material';
 
-// Custom theme
+// Custom theme - CORRECTION: Utilisation des mêmes valeurs que dans CreateCourse
 const instructorTheme = createTheme({
   palette: {
-    primary: { main: colors.fuschia || '#f13544', light: colors.lightFuschia || '#ff6b74' },
+    primary: { main: colors.fuchsia || '#f13544', light: colors.lightFuchsia || '#ff6b74' },
     secondary: { main: colors.navy || '#010b40', light: colors.lightNavy || '#1a237e' },
     background: {
       default: colors.navy || '#010b40',
@@ -57,12 +57,19 @@ const instructorTheme = createTheme({
   components: {
     MuiCard: {
       styleOverrides: {
-        root: { borderRadius: '16px', backgroundColor: `${colors.navy || '#010b40'}cc` },
+        root: { 
+          borderRadius: '16px', 
+          backgroundColor: `${colors.navy || '#010b40'}cc`,
+          backdropFilter: 'blur(10px)',
+        },
       },
     },
     MuiPaper: {
       styleOverrides: {
-        root: { backgroundColor: `${colors.navy || '#010b40'}dd` },
+        root: { 
+          backgroundColor: `${colors.navy || '#010b40'}dd`,
+          backdropFilter: 'blur(10px)',
+        },
       },
     },
     MuiTextField: {
@@ -71,12 +78,26 @@ const instructorTheme = createTheme({
           '& .MuiInputBase-root': {
             backgroundColor: `${colors.navy || '#010b40'}cc`,
             color: colors.white || '#ffffff',
+            borderRadius: '12px',
           },
-          '& .MuiInputLabel-root': { color: colors.lightFuschia || '#ff6b74' },
-          '& .MuiOutlinedInput-notchedOutline': { borderColor: colors.lightNavy || '#1a237e' },
-          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: colors.fuschia || '#f13544' },
+          '& .MuiInputLabel-root': { 
+            color: colors.lightFuchsia || '#ff6b74',
+            fontSize: '0.95rem',
+          },
+          '& .MuiOutlinedInput-notchedOutline': { 
+            borderColor: colors.lightNavy || '#1a237e',
+            borderRadius: '12px',
+          },
+          '&:hover .MuiOutlinedInput-notchedOutline': { 
+            borderColor: colors.fuchsia || '#f13544',
+          },
           '& .Mui-focused .MuiOutlinedInput-notchedOutline': {
-            borderColor: colors.fuschia || '#f13544',
+            borderColor: colors.fuchsia || '#f13544',
+            borderWidth: '2px',
+          },
+          '& .MuiFormHelperText-root': {
+            color: colors.lightFuchsia || '#ff6b74',
+            fontSize: '0.75rem',
           },
         },
       },
@@ -86,8 +107,15 @@ const instructorTheme = createTheme({
         root: {
           backgroundColor: `${colors.navy || '#010b40'}cc`,
           color: colors.white || '#ffffff',
+          borderRadius: '12px',
+          '& .MuiOutlinedInput-notchedOutline': {
+            borderColor: colors.lightNavy || '#1a237e',
+          },
+          '&:hover .MuiOutlinedInput-notchedOutline': {
+            borderColor: colors.fuchsia || '#f13544',
+          },
         },
-        icon: { color: colors.lightFuschia || '#ff6b74' },
+        icon: { color: colors.lightFuchsia || '#ff6b74' },
       },
     },
     MuiMenuItem: {
@@ -97,6 +125,12 @@ const instructorTheme = createTheme({
           color: colors.white || '#ffffff',
           '&:hover': {
             backgroundColor: `${colors.lightNavy || '#1a237e'}cc`,
+          },
+          '&.Mui-selected': {
+            backgroundColor: `${colors.fuchsia || '#f13544'}33`,
+            '&:hover': {
+              backgroundColor: `${colors.fuchsia || '#f13544'}44`,
+            },
           },
         },
       },
@@ -108,19 +142,26 @@ const instructorTheme = createTheme({
           textTransform: 'none',
           fontWeight: 600,
           padding: '10px 20px',
+          fontSize: '0.95rem',
+          transition: 'all 0.3s ease',
         },
         containedPrimary: {
-          background: `linear-gradient(135deg, ${colors.fuschia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`,
+          background: `linear-gradient(135deg, ${colors.fuchsia || '#f13544'}, ${colors.lightFuchsia || '#ff6b74'})`,
+          boxShadow: '0 4px 15px rgba(241, 53, 68, 0.3)',
           '&:hover': {
-            background: `linear-gradient(135deg, ${colors.fuschia || '#f13544'}cc, ${colors.lightFuschia || '#ff6b74'}cc)`,
+            background: `linear-gradient(135deg, ${colors.fuchsia || '#f13544'}cc, ${colors.lightFuchsia || '#ff6b74'}cc)`,
+            boxShadow: '0 6px 20px rgba(241, 53, 68, 0.4)',
+            transform: 'translateY(-2px)',
           },
         },
         outlinedSecondary: {
           color: colors.white || '#ffffff',
           borderColor: colors.lightNavy || '#1a237e',
+          borderWidth: '2px',
           '&:hover': {
-            borderColor: colors.fuschia || '#f13544',
+            borderColor: colors.fuchsia || '#f13544',
             backgroundColor: `${colors.lightNavy || '#1a237e'}33`,
+            transform: 'translateY(-2px)',
           },
         },
       },
@@ -130,7 +171,12 @@ const instructorTheme = createTheme({
         root: {
           color: colors.white || '#ffffff',
           backgroundColor: `${colors.navy || '#010b40'}cc`,
-          border: `1px solid ${colors.fuschia || '#f13544'}33`,
+          border: `1px solid ${colors.fuchsia || '#f13544'}33`,
+          borderRadius: '12px',
+          backdropFilter: 'blur(10px)',
+          '& .MuiAlert-icon': {
+            color: colors.fuchsia || '#f13544',
+          },
         },
       },
     },
@@ -138,6 +184,8 @@ const instructorTheme = createTheme({
       styleOverrides: {
         root: {
           color: colors.white || '#ffffff',
+          fontWeight: 500,
+          borderRadius: '8px',
         },
       },
     },
@@ -145,6 +193,7 @@ const instructorTheme = createTheme({
       styleOverrides: {
         root: {
           borderColor: colors.lightNavy || '#1a237e',
+          margin: '20px 0',
         },
       },
     },
@@ -153,9 +202,14 @@ const instructorTheme = createTheme({
         root: {
           '& .MuiStepLabel-label': {
             color: colors.white || '#ffffff',
+            fontWeight: 500,
+            fontSize: '0.9rem',
           },
           '& .MuiStepLabel-iconContainer': {
-            color: colors.fuschia || '#f13544',
+            color: colors.fuchsia || '#f13544',
+          },
+          '& .MuiStepConnector-line': {
+            borderColor: colors.lightNavy || '#1a237e',
           },
         },
       },
@@ -263,8 +317,8 @@ const EditCourse = () => {
           estPublie: courseResponse.data.data.estPublie || false,
         });
 
-        // Fetch domaines
-        const domainesResponse = await axios.get(`${API_BASE_URL}/domaines`, {
+        // CORRECTION: Utilisation de la même route que dans CreateCourse
+        const domainesResponse = await axios.get(`${API_BASE_URL}/instructeurs/domaines`, {
           headers: { Authorization: `Bearer ${user.token}` },
         });
         const domainesData = domainesResponse.data.data || domainesResponse.data || [];
@@ -366,7 +420,7 @@ const EditCourse = () => {
       });
 
       setSuccess('Cours mis à jour avec succès ! Vous allez être redirigé...');
-      setTimeout(() => navigate('/instructor/courses'), 2000);
+      setTimeout(() => navigate('/instructor/manageCourses'), 2000);
     } catch (err) {
       let errorMessage =
         'Erreur inattendue lors de la mise à jour du cours. Veuillez réessayer plus tard.';
@@ -397,7 +451,7 @@ const EditCourse = () => {
           bgcolor: colors.navy || '#010b40',
         }}
       >
-        <CircularProgress size={60} sx={{ color: colors.fuschia || '#f13544' }} />
+        <CircularProgress size={60} sx={{ color: colors.fuchsia || '#f13544' }} />
         <Typography sx={{ ml: 2, color: colors.white || '#ffffff' }}>
           Chargement du cours...
         </Typography>
@@ -424,7 +478,7 @@ const EditCourse = () => {
             borderRadius: 2,
             backgroundColor: `${colors.navy || '#010b40'}cc`,
             color: colors.white || '#ffffff',
-            border: `1px solid ${colors.fuschia || '#f13544'}33`,
+            border: `1px solid ${colors.fuchsia || '#f13544'}33`,
           }}
         >
           Accès interdit : Réservé aux enseignants uniquement.
@@ -437,7 +491,7 @@ const EditCourse = () => {
     switch (step) {
       case 0:
         return (
-          <Box sx={{ p: 2 }}>
+          <Box sx={{ p: 2, animation: `${fadeInUp} 0.6s ease-out` }}>
             <Typography
               variant='h5'
               gutterBottom
@@ -445,11 +499,15 @@ const EditCourse = () => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1.5,
-                color: colors.fuschia || '#f13544',
+                color: colors.fuchsia || '#f13544',
+                mb: 3,
               }}
             >
               <SchoolIcon fontSize='large' />
               Informations de Base du Cours
+            </Typography>
+            <Typography variant='body2' sx={{ mb: 4, color: colors.white, opacity: 0.8 }}>
+              Modifiez le titre de votre cours. Choisissez un titre clair et descriptif qui permettra aux étudiants de comprendre immédiatement le sujet du cours.
             </Typography>
             <TextField
               label='Titre du Cours'
@@ -460,7 +518,7 @@ const EditCourse = () => {
               required
               variant='outlined'
               placeholder='Exemple : Apprendre le Développement Web avec React'
-              helperText={`Longueur : ${formData.titre.length}/100 (min 10)`}
+              helperText={`${formData.titre.length}/100 caractères (minimum 10 requis)`}
               inputProps={{ maxLength: 100 }}
               error={
                 formData.titre.length > 0 &&
@@ -473,7 +531,7 @@ const EditCourse = () => {
 
       case 1:
         return (
-          <Box sx={{ p: 2 }}>
+          <Box sx={{ p: 2, animation: `${fadeInUp} 0.6s ease-out` }}>
             <Typography
               variant='h5'
               gutterBottom
@@ -481,11 +539,15 @@ const EditCourse = () => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1.5,
-                color: colors.fuschia || '#f13544',
+                color: colors.fuchsia || '#f13544',
+                mb: 3,
               }}
             >
               <DescriptionIcon fontSize='large' />
               Détails et Contenu
+            </Typography>
+            <Typography variant='body2' sx={{ mb: 4, color: colors.white, opacity: 0.8 }}>
+              Mettez à jour la description détaillée, la durée et le contenu de votre cours.
             </Typography>
             <TextField
               label='Description Détaillée'
@@ -498,7 +560,7 @@ const EditCourse = () => {
               rows={8}
               variant='outlined'
               placeholder='Décrivez les objectifs, le programme, les prérequis et les compétences acquises...'
-              helperText={`Longueur : ${formData.description.length}/1000 (min 50)`}
+              helperText={`${formData.description.length}/1000 caractères (minimum 50 requis)`}
               inputProps={{ maxLength: 1000 }}
               error={
                 formData.description.length > 0 &&
@@ -519,10 +581,10 @@ const EditCourse = () => {
               inputProps={{ min: 0.5, step: 0.5, max: 1000 }}
               InputProps={{
                 startAdornment: (
-                  <TimerIcon sx={{ mr: 1.5, color: colors.lightFuschia || '#ff6b74' }} />
+                  <TimerIcon sx={{ mr: 1.5, color: colors.lightFuchsia || '#ff6b74' }} />
                 ),
               }}
-              helperText='Indiquez la durée totale approximative du cours'
+              helperText='Durée totale approximative pour compléter le cours (0.5 à 1000 heures)'
               error={
                 formData.duree &&
                 (parseFloat(formData.duree) <= 0 || parseFloat(formData.duree) > 1000)
@@ -539,13 +601,14 @@ const EditCourse = () => {
               rows={4}
               variant='outlined'
               placeholder='Entrez le contenu du cours au format JSON'
+              helperText='Structure JSON optionnelle pour le contenu avancé du cours'
             />
           </Box>
         );
 
       case 2:
         return (
-          <Box sx={{ p: 2 }}>
+          <Box sx={{ p: 2, animation: `${fadeInUp} 0.6s ease-out` }}>
             <Typography
               variant='h5'
               gutterBottom
@@ -553,7 +616,8 @@ const EditCourse = () => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1.5,
-                color: colors.fuschia || '#f13544',
+                color: colors.fuchsia || '#f13544',
+                mb: 3,
               }}
             >
               <CategoryIcon fontSize='large' />
@@ -561,7 +625,7 @@ const EditCourse = () => {
             </Typography>
             {isLoadingDomaines ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-                <CircularProgress sx={{ color: colors.fuschia || '#f13544' }} />
+                <CircularProgress sx={{ color: colors.fuchsia || '#f13544' }} />
               </Box>
             ) : (
               <FormControl fullWidth required sx={{ mb: 4 }}>
@@ -584,6 +648,11 @@ const EditCourse = () => {
                     </MenuItem>
                   ))}
                 </Select>
+                {domaines.length === 0 && (
+                  <Typography variant='caption' sx={{ color: colors.lightFuchsia, mt: 1 }}>
+                    Aucun domaine disponible. Contactez l'administrateur.
+                  </Typography>
+                )}
               </FormControl>
             )}
 
@@ -594,8 +663,9 @@ const EditCourse = () => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1.5,
-                color: colors.lightFuschia || '#ff6b74',
+                color: colors.lightFuchsia || '#ff6b74',
                 mt: 4,
+                mb: 3,
               }}
             >
               <LevelIcon fontSize='medium' />
@@ -616,7 +686,7 @@ const EditCourse = () => {
                       transition: 'transform 0.2s, box-shadow 0.2s',
                       '&:hover': {
                         transform: 'scale(1.02)',
-                        boxShadow: `0 8px 16px ${colors.fuschia || '#f13544'}33`,
+                        boxShadow: `0 8px 16px ${colors.fuchsia || '#f13544'}33`,
                       },
                     }}
                     onClick={() => setFormData((prev) => ({ ...prev, niveau: niveau.value }))}
@@ -630,7 +700,7 @@ const EditCourse = () => {
                           mb: 1,
                         }}
                       >
-                        <Typography variant='h6' sx={{ color: niveau.color }}>
+                        <Typography variant='h6' sx={{ color: niveau.color, fontWeight: 'bold' }}>
                           {niveau.label}
                         </Typography>
                         <Chip
@@ -654,91 +724,146 @@ const EditCourse = () => {
             <Divider sx={{ my: 5, borderColor: colors.lightNavy || '#1a237e' }} />
 
             <Paper
-              elevation={2}
+              elevation={3}
               sx={{
-                p: 3,
+                p: 4,
                 borderRadius: 2,
                 backgroundColor: `${colors.navy || '#010b40'}cc`,
+                border: `2px solid ${colors.fuchsia}`,
               }}
             >
-              <Typography variant='h6' gutterBottom sx={{ color: colors.fuschia || '#f13544' }}>
+              <Typography
+                variant='h5'
+                gutterBottom
+                sx={{
+                  color: colors.fuchsia || '#f13544',
+                  mb: 3,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                }}
+              >
                 Récapitulatif Final du Cours
               </Typography>
               <Grid container spacing={3}>
                 <Grid item xs={12}>
-                  <Typography variant='subtitle2' sx={{ color: colors.lightFuschia || '#ff6b74' }}>
+                  <Typography
+                    variant='subtitle2'
+                    sx={{ color: colors.lightFuchsia || '#ff6b74', mb: 1 }}
+                  >
                     Titre :
                   </Typography>
                   <Typography
-                    variant='body1'
+                    variant='h6'
                     sx={{ fontWeight: 600, color: colors.white || '#ffffff' }}
                   >
                     {formData.titre || 'Non défini'}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' sx={{ color: colors.lightFuschia || '#ff6b74' }}>
+                  <Typography
+                    variant='subtitle2'
+                    sx={{ color: colors.lightFuchsia || '#ff6b74', mb: 1 }}
+                  >
                     Durée :
                   </Typography>
-                  <Typography
-                    variant='body1'
-                    sx={{ fontWeight: 600, color: colors.white || '#ffffff' }}
-                  >
-                    {formData.duree ? `${formData.duree} heures` : 'Non définie'}
-                  </Typography>
+                  <Chip
+                    icon={<TimerIcon />}
+                    label={formData.duree ? `${formData.duree} heures` : 'Non définie'}
+                    sx={{ bgcolor: colors.lightNavy, fontWeight: 'bold' }}
+                  />
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <Typography variant='subtitle2' sx={{ color: colors.lightFuschia || '#ff6b74' }}>
+                  <Typography
+                    variant='subtitle2'
+                    sx={{ color: colors.lightFuchsia || '#ff6b74', mb: 1 }}
+                  >
                     Niveau :
                   </Typography>
-                  <Typography
-                    variant='body1'
-                    sx={{ fontWeight: 600, color: colors.white || '#ffffff' }}
-                  >
-                    {niveaux.find((n) => n.value === formData.niveau)?.label || 'Non sélectionné'}
-                  </Typography>
+                  <Chip
+                    icon={<LevelIcon />}
+                    label={
+                      niveaux.find((n) => n.value === formData.niveau)?.label || 'Non sélectionné'
+                    }
+                    sx={{
+                      bgcolor:
+                        niveaux.find((n) => n.value === formData.niveau)?.color || colors.lightNavy,
+                      fontWeight: 'bold',
+                    }}
+                  />
                 </Grid>
                 <Grid item xs={12}>
-                  <Typography variant='subtitle2' sx={{ color: colors.lightFuschia || '#ff6b74' }}>
+                  <Typography
+                    variant='subtitle2'
+                    sx={{ color: colors.lightFuchsia || '#ff6b74', mb: 1 }}
+                  >
                     Domaine :
                   </Typography>
-                  <Typography
-                    variant='body1'
-                    sx={{ fontWeight: 600, color: colors.white || '#ffffff' }}
-                  >
-                    {domaines.find((d) => d._id === formData.domaineId)?.nom || 'Non sélectionné'}
-                  </Typography>
+                  <Chip
+                    icon={<CategoryIcon />}
+                    label={
+                      domaines.find((d) => d._id === formData.domaineId)?.nom || 'Non sélectionné'
+                    }
+                    sx={{ bgcolor: colors.lightNavy, fontWeight: 'bold' }}
+                  />
                 </Grid>
                 <Grid item xs={12}>
-                  <Typography variant='subtitle2' sx={{ color: colors.lightFuschia || '#ff6b74' }}>
+                  <Typography
+                    variant='subtitle2'
+                    sx={{ color: colors.lightFuchsia || '#ff6b74', mb: 1 }}
+                  >
                     Description :
                   </Typography>
-                  <Typography
-                    variant='body1'
+                  <Paper
                     sx={{
-                      fontWeight: 600,
-                      color: colors.white || '#ffffff',
-                      whiteSpace: 'pre-line',
+                      p: 2,
+                      backgroundColor: `${colors.navy}aa`,
+                      border: `1px solid ${colors.lightNavy}`,
+                      borderRadius: 1,
                     }}
                   >
-                    {formData.description || 'Non définie'}
-                  </Typography>
+                    <Typography
+                      variant='body1'
+                      sx={{
+                        color: colors.white || '#ffffff',
+                        whiteSpace: 'pre-line',
+                      }}
+                    >
+                      {formData.description || 'Non définie'}
+                    </Typography>
+                  </Paper>
                 </Grid>
-                <Grid item xs={12}>
-                  <Typography variant='subtitle2' sx={{ color: colors.lightFuschia || '#ff6b74' }}>
-                    Contenu (JSON) :
-                  </Typography>
-                  <Typography
-                    variant='body1'
-                    sx={{
-                      fontWeight: 600,
-                      color: colors.white || '#ffffff',
-                      whiteSpace: 'pre-line',
-                    }}
-                  >
-                    {formData.contenu || 'Non défini'}
-                  </Typography>
-                </Grid>
+                {formData.contenu && (
+                  <Grid item xs={12}>
+                    <Typography
+                      variant='subtitle2'
+                      sx={{ color: colors.lightFuchsia || '#ff6b74', mb: 1 }}
+                    >
+                      Contenu (JSON) :
+                    </Typography>
+                    <Paper
+                      sx={{
+                        p: 2,
+                        backgroundColor: `${colors.navy}aa`,
+                        border: `1px solid ${colors.lightNavy}`,
+                        borderRadius: 1,
+                        maxHeight: 200,
+                        overflow: 'auto',
+                      }}
+                    >
+                      <Typography
+                        variant='body2'
+                        sx={{
+                          color: colors.white || '#ffffff',
+                          fontFamily: 'monospace',
+                          fontSize: '0.8rem',
+                        }}
+                      >
+                        {formData.contenu}
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                )}
               </Grid>
             </Paper>
           </Box>
@@ -757,7 +882,7 @@ const EditCourse = () => {
           sx={{
             position: 'absolute',
             inset: 0,
-            background: `linear-gradient(${colors.fuschia || '#f13544'}0a 1px, transparent 1px)`,
+            background: `linear-gradient(${colors.fuchsia || '#f13544'}0a 1px, transparent 1px)`,
             backgroundSize: '40px 40px',
             opacity: 0.05,
             pointerEvents: 'none',
@@ -770,7 +895,7 @@ const EditCourse = () => {
             right: 30,
             width: 120,
             height: 120,
-            background: `linear-gradient(135deg, ${colors.fuschia || '#f13544'}, ${colors.lightFuschia || '#ff6b74'})`,
+            background: `linear-gradient(135deg, ${colors.fuchsia || '#f13544'}, ${colors.lightFuchsia || '#ff6b74'})`,
             borderRadius: '50%',
             opacity: 0.15,
             animation: `${floatingAnimation} 4s ease-in-out infinite`,
@@ -791,18 +916,18 @@ const EditCourse = () => {
 
           <Paper elevation={6} sx={{ p: { xs: 3, md: 5 }, borderRadius: 3 }}>
             <Box sx={{ mb: 5, textAlign: 'center' }}>
-              <SchoolIcon sx={{ fontSize: 80, color: colors.fuschia || '#f13544', mb: 2 }} />
+              <SchoolIcon sx={{ fontSize: 80, color: colors.fuchsia || '#f13544', mb: 2 }} />
               <Typography
                 variant='h3'
                 gutterBottom
                 fontWeight={800}
-                color={colors.fuschia || '#f13544'}
+                color={colors.fuchsia || '#f13544'}
               >
                 Modification du Cours
               </Typography>
               <Typography
                 variant='subtitle1'
-                sx={{ maxWidth: 600, mx: 'auto', color: colors.white || '#ffffff' }}
+                sx={{ maxWidth: 600, mx: 'auto', color: colors.white || '#ffffff', opacity: 0.9 }}
               >
                 Modifiez les détails de votre cours à l'aide de cet assistant pas à pas.
               </Typography>
@@ -816,6 +941,7 @@ const EditCourse = () => {
                       '& .MuiStepLabel-label': {
                         fontWeight: activeStep === index ? 700 : 400,
                         color: colors.white || '#ffffff',
+                        fontSize: { xs: '0.75rem', md: '0.875rem' },
                       },
                     }}
                   >
@@ -827,7 +953,9 @@ const EditCourse = () => {
 
             {error && (
               <Alert severity='error' sx={{ mb: 4, borderRadius: 2 }} onClose={() => setError('')}>
-                {error}
+                <Typography variant='body2' sx={{ fontWeight: 'bold' }}>
+                  {error}
+                </Typography>
               </Alert>
             )}
 
@@ -839,24 +967,26 @@ const EditCourse = () => {
                   borderRadius: 2,
                   backgroundColor: `${colors.navy || '#010b40'}cc`,
                   color: colors.white || '#ffffff',
-                  border: `1px solid ${colors.fuschia || '#f13544'}33`,
+                  border: `1px solid ${colors.fuchsia || '#f13544'}33`,
                 }}
                 onClose={() => setSuccess('')}
               >
-                {success}
+                <Typography variant='body2' sx={{ fontWeight: 'bold' }}>
+                  {success}
+                </Typography>
               </Alert>
             )}
 
             {renderStepContent(activeStep)}
 
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 6 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 6, gap: 2 }}>
               <Button
                 disabled={activeStep === 0 || isLoading}
                 onClick={handleBack}
                 variant='outlined'
                 color='secondary'
                 size='large'
-                sx={{ borderRadius: 2 }}
+                sx={{ borderRadius: 2, px: 4 }}
               >
                 Précédent
               </Button>
@@ -875,7 +1005,7 @@ const EditCourse = () => {
                     )
                   }
                   size='large'
-                  sx={{ borderRadius: 2 }}
+                  sx={{ borderRadius: 2, px: 4 }}
                 >
                   {isLoading ? 'Mise à jour en cours...' : 'Sauvegarder le Cours'}
                 </Button>
@@ -886,7 +1016,7 @@ const EditCourse = () => {
                   onClick={handleNext}
                   disabled={isLoading || isLoadingDomaines}
                   size='large'
-                  sx={{ borderRadius: 2 }}
+                  sx={{ borderRadius: 2, px: 4 }}
                 >
                   Suivant
                 </Button>
@@ -895,10 +1025,16 @@ const EditCourse = () => {
           </Paper>
 
           <Box sx={{ mt: 5, textAlign: 'center', color: colors.white || '#ffffff' }}>
-            <Typography variant='body1'>
-              Note : Les modifications seront enregistrées en mode brouillon jusqu'à ce que vous
-              décidiez de publier le cours.
-            </Typography>
+            <Paper sx={{ p: 3, backgroundColor: `${colors.navy}aa`, borderRadius: 2 }}>
+              <Typography variant='body1' sx={{ mb: 1, fontWeight: 'bold' }}>
+                📝 Note Importante
+              </Typography>
+              <Typography variant='body2' sx={{ opacity: 0.9 }}>
+                Les modifications seront enregistrées en mode brouillon jusqu'à ce que vous
+                décidiez de publier le cours. Un administrateur devra approuver les modifications
+                importantes.
+              </Typography>
+            </Paper>
           </Box>
         </Container>
       </FormContainer>

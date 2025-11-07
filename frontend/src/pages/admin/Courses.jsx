@@ -1,4 +1,4 @@
-// src/pages/admin/Courses.jsx
+// src/pages/admin/Courses.jsx - CORRIGÉ AVEC UPLOAD PROFESSIONNEL
 import React, { useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import {
   Box,
@@ -45,14 +45,15 @@ import {
   ListItemText,
   ListItemSecondaryAction,
   Divider,
+  LinearProgress,
 } from '@mui/material';
 import {
   Delete,
   Edit,
   Visibility,
   Add as AddIcon,
-  Edit as EditIcon ,
-  Delete as DeleteIcon, 
+  Edit as EditIcon,
+  Delete as DeleteIcon,
   Search,
   School,
   CheckCircle,
@@ -66,6 +67,13 @@ import {
   Article as ArticleIcon,
   Quiz as QuizIcon,
   Preview as PreviewIcon,
+  CloudUpload as UploadIcon,
+  AttachFile as AttachFileIcon,
+  InsertDriveFile as FileIcon,
+  PictureAsPdf as PdfIcon,
+  VideoFile as VideoFileIcon,
+  Description as TextIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { styled, keyframes } from '@mui/material/styles';
 import axios from 'axios';
@@ -76,6 +84,7 @@ import { colors } from '../../utils/colors';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 const COURSES_BASE_URL = `${API_BASE_URL}/courses`;
 const USERS_BASE_URL = `${API_BASE_URL}/users`;
+const UPLOAD_BASE_URL = `${API_BASE_URL}/upload`;
 
 // Animations
 const fadeInUp = keyframes`
@@ -85,6 +94,11 @@ const fadeInUp = keyframes`
 const pulse = keyframes`
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
+`;
+const shake = keyframes`
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
 `;
 
 // Styled Components
@@ -98,6 +112,337 @@ const CoursesContainer = styled(Box)(({ theme }) => ({
   [theme.breakpoints.down('sm')]: { padding: theme.spacing(2) },
 }));
 
+// Composant d'upload de fichiers professionnel
+const FileUploadZone = styled(Box)(({ theme, isDragActive, isUploading, hasError }) => ({
+  border: `2px dashed ${
+    hasError
+      ? theme.palette.error.main
+      : isDragActive
+        ? colors.fuchsia
+        : alpha(colors.fuchsia || '#f13544', 0.4)
+  }`,
+  borderRadius: 12,
+  padding: theme.spacing(4),
+  textAlign: 'center',
+  cursor: 'pointer',
+  transition: 'all 0.3s ease',
+  backgroundColor: isDragActive
+    ? alpha(colors.fuchsia || '#f13544', 0.1)
+    : alpha(colors.navy || '#010b40', 0.3),
+  position: 'relative',
+  overflow: 'hidden',
+  animation: hasError ? `${shake} 0.5s ease` : 'none',
+  '&:hover': {
+    borderColor: colors.fuchsia || '#f13544',
+    backgroundColor: alpha(colors.fuchsia || '#f13544', 0.05),
+  },
+}));
+
+const UploadProgress = styled(LinearProgress)(({ theme }) => ({
+  height: 8,
+  borderRadius: 4,
+  backgroundColor: alpha(colors.white || '#ffffff', 0.1),
+  '& .MuiLinearProgress-bar': {
+    background: `linear-gradient(90deg, ${colors.fuchsia || '#f13544'}, ${colors.lightFuchsia || '#ff6b74'})`,
+    borderRadius: 4,
+  },
+}));
+
+const FilePreview = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(2),
+  margin: theme.spacing(1, 0),
+  backgroundColor: alpha(colors.navy || '#010b40', 0.6),
+  border: `1px solid ${alpha(colors.fuchsia || '#f13544', 0.2)}`,
+  borderRadius: 8,
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(2),
+  transition: 'all 0.3s ease',
+  '&:hover': {
+    backgroundColor: alpha(colors.navy || '#010b40', 0.8),
+    borderColor: colors.fuchsia || '#f13544',
+  },
+}));
+
+const FileIconWrapper = styled(Box)(({ theme, fileType }) => ({
+  width: 48,
+  height: 48,
+  borderRadius: 8,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: getFileTypeColor(fileType),
+  color: colors.white || '#ffffff',
+  fontSize: 24,
+}));
+
+function getFileTypeColor(fileType) {
+  const type = fileType?.toLowerCase() || '';
+  if (type.includes('pdf')) return '#f44336';
+  if (type.includes('video')) return '#ff4081';
+  if (type.includes('image')) return '#4caf50';
+  if (type.includes('text') || type.includes('doc')) return '#2196f3';
+  return '#9c27b0';
+}
+
+function getFileIcon(fileType) {
+  const type = fileType?.toLowerCase() || '';
+  if (type.includes('pdf')) return <PdfIcon />;
+  if (type.includes('video')) return <VideoFileIcon />;
+  if (type.includes('image')) return <TextIcon />;
+  if (type.includes('text') || type.includes('doc')) return <TextIcon />;
+  return <FileIcon />;
+}
+
+function formatFileSize(bytes) {
+  if (!bytes) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Composant d'upload réutilisable
+const ProfessionalFileUpload = ({
+  onFileUpload,
+  acceptedTypes = '*',
+  maxSize = 100 * 1024 * 1024, // 100MB par défaut
+  multiple = false,
+  label = 'Déposez vos fichiers ici ou cliquez pour parcourir',
+  uploadUrl = UPLOAD_BASE_URL,
+}) => {
+  const [isDragActive, setIsDragActive] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [error, setError] = useState('');
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+
+  const handleDrag = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setIsDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setIsDragActive(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    handleFiles(files);
+  }, []);
+
+  const handleFileInput = useCallback((e) => {
+    const files = Array.from(e.target.files);
+    handleFiles(files);
+    e.target.value = ''; // Reset input
+  }, []);
+
+  const validateFile = (file) => {
+    // Validation de la taille
+    if (file.size > maxSize) {
+      throw new Error(
+        `Le fichier ${file.name} dépasse la taille maximale de ${formatFileSize(maxSize)}`
+      );
+    }
+
+    // Validation du type (simplifiée)
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    const allowedExtensions =
+      acceptedTypes === '*'
+        ? ['*']
+        : acceptedTypes.split(',').map((ext) => ext.trim().replace('.', ''));
+
+    if (acceptedTypes !== '*' && !allowedExtensions.includes('*')) {
+      const isValid = allowedExtensions.some((ext) => {
+        if (ext === fileExtension) return true;
+        if (ext.includes('/')) {
+          // Validation MIME type
+          return file.type.includes(ext.split('/')[0]);
+        }
+        return false;
+      });
+
+      if (!isValid) {
+        throw new Error(
+          `Type de fichier non supporté: ${file.name}. Types autorisés: ${allowedExtensions.join(', ')}`
+        );
+      }
+    }
+
+    return true;
+  };
+
+  const uploadFile = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('uploadType', 'course_content');
+
+    try {
+      const response = await axios.post(uploadUrl, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        onUploadProgress: (progressEvent) => {
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(progress);
+        },
+        timeout: 300000, // 5 minutes timeout pour les gros fichiers
+      });
+
+      if (response.data && response.data.url) {
+        return {
+          url: response.data.url,
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type,
+          uploadedAt: new Date().toISOString(),
+        };
+      } else {
+        throw new Error('Aucune URL retournée par le serveur');
+      }
+    } catch (error) {
+      console.error('Erreur upload:', error);
+      if (error.code === 'ECONNABORTED') {
+        throw new Error('Timeout: Le téléchargement a pris trop de temps');
+      }
+      throw new Error(error.response?.data?.message || 'Erreur lors du téléchargement');
+    }
+  };
+
+  const handleFiles = async (files) => {
+    if (!files.length) return;
+
+    setError('');
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      // Validation des fichiers
+      for (const file of files) {
+        validateFile(file);
+      }
+
+      const uploadPromises = files.map((file) => uploadFile(file));
+      const results = await Promise.all(uploadPromises);
+
+      // Mettre à jour la liste des fichiers uploadés
+      setUploadedFiles((prev) => [...prev, ...results]);
+
+      // Notifier le parent
+      if (onFileUpload) {
+        onFileUpload(results);
+      }
+    } catch (err) {
+      setError(err.message);
+      console.error('Erreur lors du traitement des fichiers:', err);
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const removeFile = (index) => {
+    setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleClick = () => {
+    document.getElementById('file-input').click();
+  };
+
+  return (
+    <Box sx={{ width: '100%' }}>
+      {/* Zone de dépôt */}
+      <FileUploadZone
+        isDragActive={isDragActive}
+        isUploading={isUploading}
+        hasError={!!error}
+        onClick={handleClick}
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
+        onDrop={handleDrop}
+      >
+        <input
+          id='file-input'
+          type='file'
+          multiple={multiple}
+          accept={acceptedTypes}
+          onChange={handleFileInput}
+          style={{ display: 'none' }}
+        />
+
+        <UploadIcon
+          sx={{ fontSize: 48, color: colors.fuchsia, mb: 2, opacity: isUploading ? 0.5 : 1 }}
+        />
+
+        <Typography variant='h6' sx={{ color: colors.white, mb: 1 }}>
+          {isUploading ? 'Téléchargement en cours...' : label}
+        </Typography>
+
+        <Typography variant='body2' sx={{ color: alpha(colors.white, 0.7), mb: 2 }}>
+          Formats supportés: PDF, MP4, MP3, DOC, DOCX, PPT, PPTX, IMAGES
+          <br />
+          Taille max: {formatFileSize(maxSize)}
+        </Typography>
+
+        {isUploading && (
+          <Box sx={{ width: '100%', maxWidth: 300, mx: 'auto' }}>
+            <UploadProgress variant='determinate' value={uploadProgress} />
+            <Typography variant='caption' sx={{ color: colors.white, mt: 1 }}>
+              {uploadProgress}% complété
+            </Typography>
+          </Box>
+        )}
+      </FileUploadZone>
+
+      {/* Message d'erreur */}
+      {error && (
+        <Alert severity='error' sx={{ mt: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Prévisualisation des fichiers uploadés */}
+      {uploadedFiles.length > 0 && (
+        <Box sx={{ mt: 3 }}>
+          <Typography variant='h6' sx={{ color: colors.white, mb: 2 }}>
+            Fichiers téléchargés ({uploadedFiles.length})
+          </Typography>
+          {uploadedFiles.map((file, index) => (
+            <FilePreview key={index}>
+              <FileIconWrapper fileType={file.mimeType}>
+                {getFileIcon(file.mimeType)}
+              </FileIconWrapper>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant='body1' sx={{ color: colors.white, fontWeight: 600 }}>
+                  {file.fileName}
+                </Typography>
+                <Typography variant='caption' sx={{ color: alpha(colors.white, 0.7) }}>
+                  {formatFileSize(file.fileSize)} • {new Date(file.uploadedAt).toLocaleDateString()}
+                </Typography>
+              </Box>
+              <IconButton
+                size='small'
+                onClick={() => removeFile(index)}
+                sx={{ color: colors.fuchsia }}
+              >
+                <CloseIcon />
+              </IconButton>
+            </FilePreview>
+          ))}
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+// Styles restants...
 const StatsCard = styled(Paper)(({ theme }) => ({
   background: `linear-gradient(135deg, ${alpha(colors.navy || '#010b40', 0.8)}, ${alpha(colors.lightNavy || '#1a237e', 0.8)})`,
   backdropFilter: 'blur(20px)',
@@ -228,26 +573,43 @@ const Courses = () => {
     contenu: '',
     duree: '',
     ordre: 1,
+    metadata: null,
   });
   const [editingSectionIndex, setEditingSectionIndex] = useState(null);
   const [editingModuleIndex, setEditingModuleIndex] = useState(null);
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [selectedPreviewSection, setSelectedPreviewSection] = useState(null);
 
+  // CORRECTION: Types de modules mis à jour pour correspondre au backend
   const typesModule = [
     {
       value: 'VIDEO',
       label: 'Vidéo',
       icon: <VideoIcon />,
       description: 'Contenu vidéo (URL YouTube, Vimeo, etc.)',
+      acceptedFiles: 'video/*',
     },
     {
-      value: 'TEXTE',
-      label: 'Article/Texte',
+      value: 'DOCUMENT',
+      label: 'Document',
       icon: <ArticleIcon />,
-      description: 'Contenu textuel ou document',
+      description: 'Document PDF, Word, PowerPoint, etc.',
+      acceptedFiles: '.pdf,.doc,.docx,.ppt,.pptx,.txt',
     },
-    { value: 'QUIZ', label: 'Quiz', icon: <QuizIcon />, description: 'Évaluation interactive' },
+    {
+      value: 'QUIZ',
+      label: 'Quiz',
+      icon: <QuizIcon />,
+      description: 'Évaluation interactive',
+      acceptedFiles: null, // Pas de fichier pour les quiz
+    },
+    {
+      value: 'EXERCICE',
+      label: 'Exercice',
+      icon: <DescriptionIcon />,
+      description: 'Exercice pratique ou devoir',
+      acceptedFiles: '.pdf,.doc,.docx,.zip,.rar',
+    },
   ];
 
   const niveaux = [
@@ -286,15 +648,14 @@ const Courses = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // CORRECTION : Utiliser le bon endpoint pour les domaines
+  // CORRECTION AMÉLIORÉE : Récupération des domaines
   const fetchDomaines = useCallback(async () => {
     if (!user?.token) return;
     try {
-      // Essayer différents endpoints possibles
       const endpoints = [
         `${API_BASE_URL}/domaines`,
-        `${API_BASE_URL}/domaine`,
-        `${API_BASE_URL}/instructeurs/domaines`
+        `${API_BASE_URL}/instructeurs/domaines`,
+        `${API_BASE_URL}/categories`,
       ];
 
       let response;
@@ -302,39 +663,59 @@ const Courses = () => {
 
       for (const endpoint of endpoints) {
         try {
+          console.log(`🔄 Tentative de récupération des domaines depuis: ${endpoint}`);
           response = await axios.get(endpoint, {
             headers: { Authorization: `Bearer ${user.token}` },
           });
-          if (response.data) break; // Si on a une réponse valide, on sort de la boucle
+
+          if (
+            response.data &&
+            (response.data.data || response.data.length > 0 || response.data.domaines)
+          ) {
+            console.log(`✅ Endpoint ${endpoint} réussi`);
+            break;
+          }
         } catch (err) {
           lastError = err;
-          console.log(`Endpoint ${endpoint} non disponible, tentative suivante...`);
+          console.log(`❌ Endpoint ${endpoint} non disponible:`, err.message);
         }
       }
 
       if (!response) {
-        throw lastError || new Error('Aucun endpoint de domaines disponible');
+        console.error('❌ Tous les endpoints de domaines ont échoué');
+        throw lastError || new Error('Aucun endpoint pour les domaines disponible');
       }
 
-      const domainesData = response.data.data || response.data || [];
-      setDomaines(
-        domainesData.map((domaine) => ({
-          ...domaine,
-          _id: domaine._id?.toString() || domaine.id?.toString(),
-          nom: domaine.nom || 'Domaine sans nom'
-        }))
-      );
+      let domainesData = [];
+      if (Array.isArray(response.data.data)) {
+        domainesData = response.data.data;
+      } else if (Array.isArray(response.data)) {
+        domainesData = response.data;
+      } else if (Array.isArray(response.data.domaines)) {
+        domainesData = response.data.domaines;
+      }
 
-      if (domainesData.length === 0) {
-        console.warn('Aucun domaine trouvé');
+      console.log(`📚 ${domainesData.length} domaines trouvés`);
+
+      const formattedDomaines = domainesData.map((domaine) => ({
+        _id: domaine._id?.toString() || domaine.id?.toString(),
+        nom: domaine.nom || domaine.name || 'Domaine sans nom',
+      }));
+
+      setDomaines(formattedDomaines);
+
+      if (formattedDomaines.length === 0) {
+        console.warn('⚠️ Aucun domaine trouvé');
+        setError("Aucun domaine disponible. Contactez l'administrateur pour en ajouter.");
       }
     } catch (err) {
-      console.error('Erreur lors du chargement des domaines:', err);
-      const errorMsg = err.response?.status === 404 
-        ? "La route pour les domaines n'existe pas encore. Contactez l'administrateur backend."
-        : 'Erreur lors du chargement des domaines disponibles';
+      console.error('❌ Erreur lors du chargement des domaines:', err);
+      const errorMsg =
+        err.response?.status === 404
+          ? "Les domaines ne sont pas encore configurés. Contactez l'administrateur backend."
+          : 'Erreur lors du chargement des domaines disponibles';
       setError(errorMsg);
-      
+
       if (err.response?.status === 401) {
         setError('Session expirée. Veuillez vous reconnecter.');
         navigate('/login');
@@ -342,38 +723,128 @@ const Courses = () => {
     }
   }, [user, navigate]);
 
-  // Récupération des instructeurs
+  // CORRECTION AMÉLIORÉE : Récupération des instructeurs
   const fetchInstructors = useCallback(async () => {
     if (!user?.token) {
       console.warn('Aucun token utilisateur disponible');
       return;
     }
     try {
-      const response = await axios.get(`${USERS_BASE_URL}`, {
-        headers: { Authorization: `Bearer ${user.token}` },
-      });
-      const instructorsData = Array.isArray(response.data.data)
-        ? response.data.data
-        : Array.isArray(response.data)
-          ? response.data
-          : [];
-      setInstructors(
-        instructorsData.map((instructor) => ({
-          ...instructor,
-          _id: instructor._id.toString(),
-          nom:
-            instructor.username ||
-            `${instructor.prenom || ''} ${instructor.nom || ''}`.trim() ||
-            'Inconnu',
-        }))
-      );
-    } catch (err) {
-      console.error('Erreur lors du chargement des instructeurs:', err);
-      setError('Erreur lors du chargement des instructeurs');
-      if (err.response?.status === 401) {
-        setError('Session expirée. Veuillez vous reconnecter.');
-        navigate('/login');
+      console.log('🔍 Tentative de récupération des instructeurs...');
+
+      const endpoints = [
+        `${API_BASE_URL}/instructeurs`,
+        `${API_BASE_URL}/users/instructeurs`,
+        `${API_BASE_URL}/users?role=ENSEIGNANT`,
+        `${API_BASE_URL}/users?role=TEACHER`,
+        `${USERS_BASE_URL}?role=ENSEIGNANT`,
+      ];
+
+      let response;
+      let lastError;
+
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`🔄 Essai de l'endpoint: ${endpoint}`);
+          response = await axios.get(endpoint, {
+            headers: { Authorization: `Bearer ${user.token}` },
+          });
+
+          const hasData =
+            response.data &&
+            (Array.isArray(response.data.data) ||
+              Array.isArray(response.data) ||
+              Array.isArray(response.data.instructeurs) ||
+              Array.isArray(response.data.users));
+
+          if (hasData) {
+            console.log(`✅ Endpoint ${endpoint} réussi`);
+            break;
+          }
+        } catch (err) {
+          lastError = err;
+          console.log(`❌ Endpoint ${endpoint} non disponible:`, err.message);
+        }
       }
+
+      if (!response) {
+        console.error('❌ Tous les endpoints ont échoué');
+        throw lastError || new Error('Aucun endpoint pour les instructeurs disponible');
+      }
+
+      console.log('📦 Données reçues:', response.data);
+
+      let instructorsData = [];
+      if (Array.isArray(response.data.data)) {
+        instructorsData = response.data.data;
+      } else if (Array.isArray(response.data)) {
+        instructorsData = response.data;
+      } else if (Array.isArray(response.data.instructeurs)) {
+        instructorsData = response.data.instructeurs;
+      } else if (Array.isArray(response.data.users)) {
+        instructorsData = response.data.users;
+      }
+
+      console.log(`👨‍🏫 ${instructorsData.length} instructeurs trouvés avant filtrage`);
+
+      const filteredInstructors = instructorsData.filter(
+        (instructor) =>
+          instructor.role === 'ENSEIGNANT' ||
+          instructor.role === 'TEACHER' ||
+          instructor.role === 'ADMIN' ||
+          instructor.role === 'INSTRUCTOR'
+      );
+
+      console.log(`👨‍🏫 ${filteredInstructors.length} instructeurs après filtrage`);
+
+      const formattedInstructors = filteredInstructors.map((instructor) => {
+        const id =
+          instructor._id?.toString() || instructor.id?.toString() || Math.random().toString();
+
+        let nomComplet = instructor.username || instructor.displayName || '';
+
+        if (!nomComplet) {
+          const prenom = instructor.prenom || instructor.firstName || '';
+          const nom = instructor.nom || instructor.lastName || '';
+          nomComplet = `${prenom} ${nom}`.trim();
+        }
+
+        if (!nomComplet) {
+          nomComplet = instructor.email || 'Instructeur sans nom';
+        }
+
+        return {
+          ...instructor,
+          _id: id,
+          nom: nomComplet,
+          email: instructor.email || 'Email non disponible',
+        };
+      });
+
+      setInstructors(formattedInstructors);
+
+      if (formattedInstructors.length === 0) {
+        console.warn('⚠️ Aucun instructeur trouvé');
+        setError("Aucun instructeur disponible. Veuillez créer des comptes enseignants d'abord.");
+      } else {
+        console.log(`✅ ${formattedInstructors.length} instructeurs chargés avec succès`);
+      }
+    } catch (err) {
+      console.error('❌ Erreur lors du chargement des instructeurs:', err);
+
+      let errorMessage = 'Erreur lors du chargement des instructeurs disponibles';
+
+      if (err.response?.status === 404) {
+        errorMessage =
+          "Endpoint des instructeurs non disponible. Contactez l'administrateur backend.";
+      } else if (err.response?.status === 401) {
+        errorMessage = 'Session expirée. Veuillez vous reconnecter.';
+        navigate('/login');
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
     }
   }, [user, navigate]);
 
@@ -387,7 +858,6 @@ const Courses = () => {
       setStats(response.data);
     } catch (err) {
       console.error('Erreur lors du chargement des stats:', err);
-      // Ne pas afficher d'erreur pour les stats, ce n'est pas critique
       if (err.response?.status === 401) {
         setError('Session expirée. Veuillez vous reconnecter.');
         navigate('/login');
@@ -395,7 +865,7 @@ const Courses = () => {
     }
   }, [user, navigate]);
 
-  // Récupération des cours avec pagination, recherche et filtres
+  // CORRECTION AMÉLIORÉE : Récupération des cours
   const fetchCourses = useCallback(async () => {
     if (!user?.token) return;
     setIsLoading(true);
@@ -411,33 +881,86 @@ const Courses = () => {
         },
         headers: { Authorization: `Bearer ${user.token}` },
       });
+
       const coursesData = response.data.data || response.data || [];
-      const normalizedCourses = coursesData.map((course) => ({
-        ...course,
-        _id: course._id?.toString() || course.id?.toString(),
-        titre: course.titre || 'Sans titre',
-        niveau: course.niveau || 'N/A',
-        createur: course.createur || null,
-        estPublie: course.estPublie || false,
-        domaineId: course.domaineId ? {
-          _id: course.domaineId._id?.toString() || course.domaineId.toString(),
-          nom: course.domaineId.nom || 'Domaine non défini',
-        } : { _id: null, nom: 'Domaine non défini' },
-        instructeurId: course.instructeurId ? {
-          _id: course.instructeurId._id?.toString() || course.instructeurId.toString(),
-          nom: course.instructeurId.username ||
-               `${course.instructeurId.prenom || ''} ${course.instructeurId.nom || ''}`.trim() ||
-               'Inconnu',
-        } : null,
-        duree: course.duree || 0,
-        contenu: course.contenu || { sections: [] },
-        statutApprobation: course.statutApprobation || 'PENDING',
-        createdAt: course.createdAt,
-      }));
+      console.log('📚 Cours reçus:', coursesData);
+
+      const normalizedCourses = coursesData.map((course) => {
+        let instructeurInfo = null;
+
+        if (course.instructeurId) {
+          if (typeof course.instructeurId === 'object' && course.instructeurId !== null) {
+            instructeurInfo = {
+              _id: course.instructeurId._id?.toString() || course.instructeurId.toString(),
+              nom:
+                course.instructeurId.username ||
+                course.instructeurId.nom ||
+                course.instructeurId.displayName ||
+                `${course.instructeurId.prenom || ''} ${course.instructeurId.nom || ''}`.trim() ||
+                'Instructeur inconnu',
+              email: course.instructeurId.email || 'Email non disponible',
+            };
+          } else {
+            const foundInstructor = instructors.find(
+              (instr) => instr._id === course.instructeurId.toString()
+            );
+            instructeurInfo = foundInstructor
+              ? {
+                  _id: foundInstructor._id,
+                  nom: foundInstructor.nom,
+                  email: foundInstructor.email,
+                }
+              : {
+                  _id: course.instructeurId.toString(),
+                  nom: 'Instructeur non chargé',
+                  email: 'Email non disponible',
+                };
+          }
+        }
+
+        let domaineInfo = null;
+        if (course.domaineId) {
+          if (typeof course.domaineId === 'object' && course.domaineId !== null) {
+            domaineInfo = {
+              _id: course.domaineId._id?.toString() || course.domaineId.toString(),
+              nom: course.domaineId.nom || course.domaineId.name || 'Domaine non défini',
+            };
+          } else {
+            const foundDomaine = domaines.find((dom) => dom._id === course.domaineId.toString());
+            domaineInfo = foundDomaine
+              ? {
+                  _id: foundDomaine._id,
+                  nom: foundDomaine.nom,
+                }
+              : {
+                  _id: course.domaineId.toString(),
+                  nom: 'Domaine non chargé',
+                };
+          }
+        }
+
+        return {
+          ...course,
+          _id: course._id?.toString() || course.id?.toString(),
+          titre: course.titre || 'Sans titre',
+          niveau: course.niveau || 'N/A',
+          createur: course.createur || null,
+          estPublie: course.estPublie || false,
+          domaineId: domaineInfo || { _id: null, nom: 'Domaine non défini' },
+          instructeurId: instructeurInfo,
+          duree: course.duree || 0,
+          contenu: course.contenu || { sections: [] },
+          statutApprobation: course.statutApprobation || 'PENDING',
+          createdAt: course.createdAt,
+        };
+      });
+
       setCourses(normalizedCourses);
       setTotal(response.data.total || normalizedCourses.length);
+
+      console.log(`✅ ${normalizedCourses.length} cours normalisés avec succès`);
     } catch (err) {
-      console.error('Erreur lors du chargement des cours:', err);
+      console.error('❌ Erreur lors du chargement des cours:', err);
       setError(err.response?.data?.message || 'Erreur lors du chargement des cours');
       if (err.response?.status === 401) {
         setError('Session expirée. Veuillez vous reconnecter.');
@@ -446,20 +969,36 @@ const Courses = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [user, page, rowsPerPage, search, statusFilter, approvalFilter, navigate]);
+  }, [
+    user,
+    page,
+    rowsPerPage,
+    search,
+    statusFilter,
+    approvalFilter,
+    navigate,
+    instructors,
+    domaines,
+  ]);
 
   // Chargement initial
   useEffect(() => {
     if (user?.role === 'ADMIN') {
-      console.log('Utilisateur admin détecté, récupération des données...');
+      console.log('👑 Utilisateur admin détecté, récupération des données...');
       fetchDomaines();
       fetchInstructors();
       fetchStats();
-      fetchCourses();
     } else {
       console.warn('Accès non autorisé ou utilisateur non chargé:', user);
     }
-  }, [user, fetchDomaines, fetchInstructors, fetchStats, fetchCourses]);
+  }, [user, fetchDomaines, fetchInstructors, fetchStats]);
+
+  // Recharger les cours quand les dépendances changent
+  useEffect(() => {
+    if (user?.role === 'ADMIN') {
+      fetchCourses();
+    }
+  }, [user, page, rowsPerPage, search, statusFilter, approvalFilter, fetchCourses]);
 
   // Gestion des contenus lors de l'ouverture de la modale
   useEffect(() => {
@@ -480,12 +1019,32 @@ const Courses = () => {
           contenu: '',
           duree: '',
           ordre: 1,
+          metadata: null,
         });
       } else if (editingCourse?._id && editingCourse.contenu) {
         setContenu(editingCourse.contenu);
       }
     }
   }, [modalOpen, modalMode, editingCourse?._id]);
+
+  // NOUVELLE FONCTION : Gestion de l'upload de fichiers pour les modules
+  const handleModuleFileUpload = (uploadedFiles) => {
+    if (uploadedFiles.length > 0) {
+      const file = uploadedFiles[0]; // Prendre le premier fichier
+      setCurrentModule((prev) => ({
+        ...prev,
+        contenu: file.url,
+        metadata: {
+          fileName: file.fileName,
+          fileSize: file.fileSize,
+          mimeType: file.mimeType,
+          uploadedAt: file.uploadedAt,
+        },
+      }));
+      setSuccess(`Fichier "${file.fileName}" uploadé avec succès`);
+      setSnackbarOpen(true);
+    }
+  };
 
   // Handlers pour les sections et modules
   const handleSectionChange = (e) => {
@@ -503,13 +1062,31 @@ const Courses = () => {
       setFormError('Le titre du module est requis');
       return;
     }
-    if (!currentModule.contenu.trim()) {
+
+    // CORRECTION: Validation spécifique selon le type
+    if (currentModule.type === 'DOCUMENT' && !currentModule.contenu) {
+      setFormError('Veuillez uploader un fichier pour le module document');
+      return;
+    }
+
+    if (
+      (currentModule.type === 'VIDEO' || currentModule.type === 'EXERCICE') &&
+      !currentModule.contenu.trim()
+    ) {
       setFormError('Le contenu du module est requis');
+      return;
+    }
+
+    // CORRECTION: S'assurer que la durée est valide
+    const duree = currentModule.duree ? parseInt(currentModule.duree) : 0;
+    if (duree < 0) {
+      setFormError('La durée doit être un nombre positif');
       return;
     }
 
     const newModule = {
       ...currentModule,
+      duree: duree || 1, // Durée par défaut de 1 minute
       ordre: currentSection.modules.length + 1,
     };
 
@@ -534,6 +1111,7 @@ const Courses = () => {
       contenu: '',
       duree: '',
       ordre: currentSection.modules.length + 2,
+      metadata: null,
     });
     setFormError('');
   };
@@ -557,6 +1135,7 @@ const Courses = () => {
         contenu: '',
         duree: '',
         ordre: 1,
+        metadata: null,
       });
     }
   };
@@ -569,6 +1148,7 @@ const Courses = () => {
       contenu: '',
       duree: '',
       ordre: currentSection.modules.length + 1,
+      metadata: null,
     });
   };
 
@@ -677,37 +1257,49 @@ const Courses = () => {
     setModalOpen(true);
   };
 
-  // Validation du formulaire
+  // CORRECTION AMÉLIORÉE : Validation du formulaire
   const validateForm = () => {
-    if (!formData.titre.trim()) return 'Le titre est requis';
-    if (!formData.description.trim()) return 'La description est requise';
+    if (!formData.titre?.trim()) return 'Le titre est requis';
+    if (formData.titre.trim().length < 5) return 'Le titre doit contenir au moins 5 caractères';
+    if (!formData.description?.trim()) return 'La description est requise';
+    if (formData.description.trim().length < 20)
+      return 'La description doit contenir au moins 20 caractères';
     if (!formData.domaineId) return 'Le domaine est requis';
     if (!formData.niveau) return 'Le niveau est requis';
+
     const dureeNum = parseFloat(formData.duree);
-    if (!formData.duree || isNaN(dureeNum) || dureeNum <= 0)
+    if (!formData.duree || isNaN(dureeNum) || dureeNum <= 0) {
       return 'La durée doit être un nombre positif';
-    if (!['ALFA', 'BETA', 'GAMMA', 'DELTA'].includes(formData.niveau))
+    }
+
+    if (!['ALFA', 'BETA', 'GAMMA', 'DELTA'].includes(formData.niveau)) {
       return 'Le niveau doit être ALFA, BETA, GAMMA ou DELTA';
+    }
+
     return '';
   };
 
-  // Soumission du formulaire cours
+  // CORRECTION AMÉLIORÉE : Soumission du formulaire cours
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     setFormLoading(true);
+
     const validationError = validateForm();
     if (validationError) {
       setFormError(validationError);
       setFormLoading(false);
       return;
     }
+
     try {
       const data = {
         ...formData,
         duree: parseFloat(formData.duree),
         contenu: contenu.sections.length > 0 ? contenu : null,
       };
+
+      console.log('📤 Données envoyées:', data);
 
       let response;
       if (modalMode === 'create') {
@@ -723,21 +1315,33 @@ const Courses = () => {
       } else {
         throw new Error('ID du cours manquant pour la mise à jour');
       }
+
       setSnackbarOpen(true);
       setModalOpen(false);
       fetchCourses();
       fetchStats();
     } catch (err) {
-      console.error('Erreur lors de la soumission du formulaire:', err);
-      const errorMessage = err.response?.data?.message || "Erreur lors de l'opération sur le cours";
-      const errorDetails = err.response?.data?.errors || [];
-      setFormError(
-        `${errorMessage} ${errorDetails.length ? `- Détails: ${JSON.stringify(errorDetails)}` : ''}`
-      );
-      if (err.response?.status === 401) {
-        setFormError('Session expirée. Veuillez vous reconnecter.');
+      console.error('❌ Erreur lors de la soumission du formulaire:', err);
+
+      let errorMessage = "Erreur lors de l'opération sur le cours";
+
+      if (err.response?.status === 400) {
+        errorMessage = 'Données invalides. Vérifiez les informations saisies.';
+      } else if (err.response?.status === 401) {
+        errorMessage = 'Session expirée. Veuillez vous reconnecter.';
         navigate('/login');
+      } else if (err.response?.status === 403) {
+        errorMessage = "Vous n'avez pas la permission d'effectuer cette action.";
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response?.data?.errors) {
+        const errorDetails = err.response.data.errors || [];
+        errorMessage = `${errorMessage} - Détails: ${errorDetails.map((e) => e.msg || e.message).join(', ')}`;
+      } else if (err.message) {
+        errorMessage = err.message;
       }
+
+      setFormError(errorMessage);
     } finally {
       setFormLoading(false);
     }
@@ -862,7 +1466,95 @@ const Courses = () => {
     return contenu.sections.reduce((acc, section) => acc + (section.modules?.length || 0), 0);
   };
 
-  // CORRECTION : Rendu du contenu des sections pour la modale avec AddIcon importé
+  // NOUVEAU: Rendu du champ de contenu selon le type de module
+  const renderModuleContentField = () => {
+    const currentType = typesModule.find((t) => t.value === currentModule.type);
+
+    switch (currentModule.type) {
+      case 'DOCUMENT':
+        return (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant='subtitle2' sx={{ color: colors.white, mb: 1 }}>
+              Télécharger un document
+            </Typography>
+            <ProfessionalFileUpload
+              onFileUpload={handleModuleFileUpload}
+              acceptedTypes={currentType?.acceptedFiles}
+              maxSize={50 * 1024 * 1024} // 50MB
+              multiple={false}
+              label='Déposez votre document ici ou cliquez pour parcourir'
+            />
+            {currentModule.contenu && (
+              <Alert severity='success' sx={{ mt: 2 }}>
+                Fichier uploadé: {currentModule.metadata?.fileName}
+              </Alert>
+            )}
+          </Box>
+        );
+
+      case 'VIDEO':
+        return (
+          <TextField
+            label='URL de la vidéo *'
+            name='contenu'
+            value={currentModule.contenu}
+            onChange={handleModuleChange}
+            fullWidth
+            required
+            placeholder='https://www.youtube.com/watch?v=... ou https://vimeo.com/...'
+            helperText='URL YouTube, Vimeo, ou autre service de streaming vidéo'
+            sx={{ mt: 2 }}
+          />
+        );
+
+      case 'EXERCICE':
+        return (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant='subtitle2' sx={{ color: colors.white, mb: 1 }}>
+              Instructions de l'exercice ou fichier
+            </Typography>
+            <ProfessionalFileUpload
+              onFileUpload={handleModuleFileUpload}
+              acceptedTypes={currentType?.acceptedFiles}
+              maxSize={20 * 1024 * 1024} // 20MB
+              multiple={false}
+              label="Déposez les instructions ou le fichier d'exercice"
+            />
+            <TextField
+              label='Instructions (optionnel si fichier uploadé)'
+              name='contenu'
+              value={currentModule.contenu}
+              onChange={handleModuleChange}
+              fullWidth
+              multiline
+              rows={3}
+              placeholder='Décrivez les consignes de l exercice...'
+              sx={{ mt: 2 }}
+            />
+          </Box>
+        );
+
+      case 'QUIZ':
+        return (
+          <TextField
+            label='Identifiant du Quiz *'
+            name='contenu'
+            value={currentModule.contenu}
+            onChange={handleModuleChange}
+            fullWidth
+            required
+            placeholder='ID du quiz créé dans la section évaluations'
+            helperText='Référencez un quiz existant par son identifiant'
+            sx={{ mt: 2 }}
+          />
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  // Rendu du contenu des sections pour la modale
   const renderStructureContent = () => (
     <Box sx={{ p: 2 }}>
       <Typography
@@ -883,7 +1575,7 @@ const Courses = () => {
       <Alert severity='info' sx={{ mb: 4, borderRadius: 2 }}>
         <Typography variant='body2'>
           Structurez votre cours en sections et modules. Chaque section peut contenir plusieurs
-          modules de différents types (vidéos, textes, quiz).
+          modules de différents types (vidéos, documents, quiz, exercices).
         </Typography>
       </Alert>
 
@@ -899,12 +1591,7 @@ const Courses = () => {
           }}
         >
           <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              mb: 3,
-            }}
+            sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}
           >
             <Typography variant='h6' sx={{ color: colors.lightFuchsia }}>
               Sections du Cours ({contenu.sections.length})
@@ -927,11 +1614,7 @@ const Courses = () => {
               >
                 <CardContent>
                   <Box
-                    sx={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'start',
-                    }}
+                    sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}
                   >
                     <Box sx={{ flex: 1 }}>
                       <Typography variant='h6' sx={{ color: colors.white, mb: 1 }}>
@@ -1051,9 +1734,7 @@ const Courses = () => {
                     backgroundColor: `${colors.navy}cc`,
                   }}
                 >
-                  <Box sx={{ mr: 2 }}>
-                    {typesModule.find((t) => t.value === module.type)?.icon}
-                  </Box>
+                  <Box sx={{ mr: 2 }}>{typesModule.find((t) => t.value === module.type)?.icon}</Box>
                   <ListItemText
                     primary={
                       <Typography variant='body1' sx={{ color: colors.white }}>
@@ -1062,8 +1743,8 @@ const Courses = () => {
                     }
                     secondary={
                       <Typography variant='caption' sx={{ color: colors.white, opacity: 0.7 }}>
-                        Type: {module.type} | Durée: {module.duree || 'N/A'} min | Contenu:{' '}
-                        {module.contenu.substring(0, 50)}...
+                        Type: {module.type} | Durée: {module.duree || 'N/A'} min
+                        {module.metadata && ` | Fichier: ${module.metadata.fileName}`}
                       </Typography>
                     }
                   />
@@ -1074,10 +1755,7 @@ const Courses = () => {
                     >
                       <EditIcon />
                     </IconButton>
-                    <IconButton
-                      onClick={() => removeModule(index)}
-                      sx={{ color: colors.fuchsia }}
-                    >
+                    <IconButton onClick={() => removeModule(index)} sx={{ color: colors.fuchsia }}>
                       <DeleteIcon />
                     </IconButton>
                   </ListItemSecondaryAction>
@@ -1132,26 +1810,12 @@ const Courses = () => {
                 </Select>
               </FormControl>
             </Grid>
+
+            {/* Champ de contenu dynamique selon le type */}
             <Grid item xs={12}>
-              <TextField
-                label='Contenu/URL du Module *'
-                name='contenu'
-                value={currentModule.contenu}
-                onChange={handleModuleChange}
-                fullWidth
-                required
-                multiline
-                rows={3}
-                placeholder='URL vidéo YouTube/Vimeo, texte du cours, ou identifiant du quiz'
-                helperText={
-                  currentModule.type === 'VIDEO'
-                    ? 'Exemple: https://www.youtube.com/watch?v=...'
-                    : currentModule.type === 'TEXTE'
-                      ? "Saisissez le contenu textuel ou l'URL d'un document"
-                      : 'Identifiant du quiz associé'
-                }
-              />
+              {renderModuleContentField()}
             </Grid>
+
             <Grid item xs={12} md={6}>
               <TextField
                 label='Durée (minutes)'
@@ -1171,7 +1835,11 @@ const Courses = () => {
                   variant='contained'
                   startIcon={editingModuleIndex !== null ? <EditIcon /> : <AddIcon />}
                   onClick={addModule}
-                  disabled={!currentModule.titre || !currentModule.contenu}
+                  disabled={
+                    !currentModule.titre ||
+                    (currentModule.type !== 'DOCUMENT' && !currentModule.contenu?.trim()) ||
+                    (currentModule.type === 'DOCUMENT' && !currentModule.contenu)
+                  }
                 >
                   {editingModuleIndex !== null ? 'Mettre à jour le Module' : 'Ajouter le Module'}
                 </Button>
@@ -1199,7 +1867,9 @@ const Courses = () => {
             disabled={!currentSection.titre || currentSection.modules.length === 0}
             fullWidth
           >
-            {editingSectionIndex !== null ? 'Mettre à jour la Section' : 'Enregistrer cette Section'}
+            {editingSectionIndex !== null
+              ? 'Mettre à jour la Section'
+              : 'Enregistrer cette Section'}
           </Button>
           {editingSectionIndex !== null && (
             <Button
@@ -1555,7 +2225,32 @@ const Courses = () => {
                           <StyledTableCell>{getStatusChip(course)}</StyledTableCell>
                           <StyledTableCell>{getApprovalChip(course)}</StyledTableCell>
                           <StyledTableCell>
-                            {course.instructeurId?.nom || 'Non assigné'}
+                            {course.instructeurId ? (
+                              <Tooltip
+                                title={course.instructeurId.email || 'Email non disponible'}
+                                arrow
+                              >
+                                <Chip
+                                  label={course.instructeurId.nom}
+                                  size='small'
+                                  sx={{
+                                    bgcolor: alpha('#8b5cf6', 0.2),
+                                    color: '#8b5cf6',
+                                    fontWeight: 600,
+                                  }}
+                                />
+                              </Tooltip>
+                            ) : (
+                              <Chip
+                                label='Non assigné'
+                                size='small'
+                                sx={{
+                                  bgcolor: alpha('#6b7280', 0.2),
+                                  color: '#6b7280',
+                                  fontWeight: 600,
+                                }}
+                              />
+                            )}
                           </StyledTableCell>
                           <StyledTableCell sx={{ color: alpha(colors.white || '#ffffff', 0.9) }}>
                             {course.duree ? `${course.duree} h` : 'N/A'}
@@ -1706,12 +2401,19 @@ const Courses = () => {
             {tabValue === 0 ? (
               <form onSubmit={handleFormSubmit}>
                 <TextField
-                  label='Titre du Cours'
+                  label='Titre du Cours *'
                   value={formData.titre}
                   onChange={(e) => setFormData({ ...formData, titre: e.target.value })}
                   fullWidth
                   required
                   margin='normal'
+                  placeholder='Ex: Maîtriser React.js - De Zéro à Expert'
+                  helperText={`${formData.titre.length}/100 caractères (minimum 5 requis)`}
+                  inputProps={{ maxLength: 100 }}
+                  error={
+                    formData.titre.length > 0 &&
+                    (formData.titre.length < 5 || formData.titre.length > 100)
+                  }
                   sx={{
                     '& .MuiInputLabel-root': { color: alpha(colors.white || '#ffffff', 0.7) },
                     '& .MuiOutlinedInput-root': { color: colors.white || '#ffffff' },
@@ -1727,7 +2429,7 @@ const Courses = () => {
                   }}
                 />
                 <TextField
-                  label='Description'
+                  label='Description *'
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   fullWidth
@@ -1735,6 +2437,13 @@ const Courses = () => {
                   rows={4}
                   required
                   margin='normal'
+                  placeholder='Décrivez votre cours en détail : objectifs, contenu, prérequis, compétences acquises...'
+                  helperText={`${formData.description.length}/1000 caractères (minimum 20 requis)`}
+                  inputProps={{ maxLength: 1000 }}
+                  error={
+                    formData.description.length > 0 &&
+                    (formData.description.length < 20 || formData.description.length > 1000)
+                  }
                   sx={{
                     '& .MuiInputLabel-root': { color: alpha(colors.white || '#ffffff', 0.7) },
                     '& .MuiOutlinedInput-root': { color: colors.white || '#ffffff' },
@@ -1749,14 +2458,13 @@ const Courses = () => {
                     },
                   }}
                 />
-                <FormControl fullWidth margin='normal'>
+                <FormControl fullWidth margin='normal' required>
                   <InputLabel sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}>
-                    Domaine
+                    Domaine *
                   </InputLabel>
                   <Select
                     value={formData.domaineId}
                     onChange={(e) => setFormData({ ...formData, domaineId: e.target.value })}
-                    required
                     sx={{
                       color: colors.white || '#ffffff',
                       '& .MuiOutlinedInput-notchedOutline': {
@@ -1780,14 +2488,13 @@ const Courses = () => {
                     ))}
                   </Select>
                 </FormControl>
-                <FormControl fullWidth margin='normal'>
+                <FormControl fullWidth margin='normal' required>
                   <InputLabel sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}>
-                    Niveau
+                    Niveau *
                   </InputLabel>
                   <Select
                     value={formData.niveau}
                     onChange={(e) => setFormData({ ...formData, niveau: e.target.value })}
-                    required
                     sx={{
                       color: colors.white || '#ffffff',
                       '& .MuiOutlinedInput-notchedOutline': {
@@ -1812,7 +2519,7 @@ const Courses = () => {
                 </FormControl>
                 <FormControl fullWidth margin='normal'>
                   <InputLabel sx={{ color: alpha(colors.white || '#ffffff', 0.7) }}>
-                    Instructeur
+                    Instructeur (Optionnel)
                   </InputLabel>
                   <Select
                     value={formData.instructeurId}
@@ -1831,30 +2538,41 @@ const Courses = () => {
                     }}
                   >
                     <MenuItem value=''>
-                      <em>Aucun instructeur</em>
+                      <em>Aucun instructeur assigné</em>
                     </MenuItem>
                     {instructors.length > 0 ? (
                       instructors.map((instructor) => (
                         <MenuItem key={instructor._id} value={instructor._id}>
-                          {instructor.nom}
+                          <Box>
+                            <Typography>{instructor.nom}</Typography>
+                            <Typography variant='caption' sx={{ opacity: 0.7 }}>
+                              {instructor.email}
+                            </Typography>
+                          </Box>
                         </MenuItem>
                       ))
                     ) : (
                       <MenuItem disabled>
-                        <em>Aucun instructeur disponible</em>
+                        <em>Aucun instructeur disponible - Contactez l'administrateur</em>
                       </MenuItem>
                     )}
                   </Select>
                 </FormControl>
                 <TextField
-                  label='Durée (heures)'
+                  label='Durée (heures) *'
                   value={formData.duree}
                   onChange={(e) => setFormData({ ...formData, duree: e.target.value })}
                   fullWidth
                   type='number'
-                  inputProps={{ min: 0, step: 0.5 }}
+                  inputProps={{ min: 0.5, step: 0.5, max: 1000 }}
                   required
                   margin='normal'
+                  placeholder='Ex: 24.5'
+                  helperText='Durée totale approximative pour compléter le cours (0.5 à 1000 heures)'
+                  error={
+                    formData.duree &&
+                    (parseFloat(formData.duree) <= 0 || parseFloat(formData.duree) > 1000)
+                  }
                   sx={{
                     '& .MuiInputLabel-root': { color: alpha(colors.white || '#ffffff', 0.7) },
                     '& .MuiOutlinedInput-root': { color: colors.white || '#ffffff' },
@@ -1883,8 +2601,9 @@ const Courses = () => {
                   </InputLabel>
                   <Select
                     value={formData.statutApprobation}
-                    onChange={(e) => setFormData({ ...formData, statutApprobation: e.target.value })}
-                    required
+                    onChange={(e) =>
+                      setFormData({ ...formData, statutApprobation: e.target.value })
+                    }
                     sx={{
                       color: colors.white || '#ffffff',
                       '& .MuiOutlinedInput-notchedOutline': {
@@ -2070,7 +2789,18 @@ const Courses = () => {
                     variant='body2'
                     sx={{ color: alpha(colors.white || '#ffffff', 0.7), mt: 1 }}
                   >
-                    {selectedCourseDetails.instructeurId?.nom || 'Non assigné'}
+                    {selectedCourseDetails.instructeurId ? (
+                      <Box>
+                        <Typography>{selectedCourseDetails.instructeurId.nom}</Typography>
+                        {selectedCourseDetails.instructeurId.email && (
+                          <Typography variant='caption' sx={{ opacity: 0.7 }}>
+                            {selectedCourseDetails.instructeurId.email}
+                          </Typography>
+                        )}
+                      </Box>
+                    ) : (
+                      'Non assigné'
+                    )}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -2147,7 +2877,10 @@ const Courses = () => {
                     </Typography>
                     <Box sx={{ mt: 1 }}>
                       {selectedCourseDetails.contenu.sections.map((section, sectionIndex) => (
-                        <Card key={sectionIndex} sx={{ mb: 2, backgroundColor: `${colors.navy}cc` }}>
+                        <Card
+                          key={sectionIndex}
+                          sx={{ mb: 2, backgroundColor: `${colors.navy}cc` }}
+                        >
                           <CardContent>
                             <Typography variant='h6' sx={{ color: colors.white, mb: 1 }}>
                               Section {section.ordre}: {section.titre}
@@ -2186,6 +2919,7 @@ const Courses = () => {
                                       sx={{ color: colors.white, opacity: 0.7 }}
                                     >
                                       Type: {module.type} | Durée: {module.duree || 'N/A'} min
+                                      {module.metadata && ` | Fichier: ${module.metadata.fileName}`}
                                     </Typography>
                                   </Box>
                                 </Box>
@@ -2281,12 +3015,31 @@ const Courses = () => {
                           <Typography variant='h6' sx={{ color: colors.white, mb: 1 }}>
                             {module.titre}
                           </Typography>
-                          <Typography
-                            variant='body2'
-                            sx={{ color: colors.white, opacity: 0.7, mb: 1 }}
-                          >
-                            {module.contenu}
-                          </Typography>
+                          {module.metadata ? (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                              <FileIconWrapper fileType={module.metadata.mimeType}>
+                                {getFileIcon(module.metadata.mimeType)}
+                              </FileIconWrapper>
+                              <Box>
+                                <Typography variant='body2' sx={{ color: colors.white }}>
+                                  Fichier: {module.metadata.fileName}
+                                </Typography>
+                                <Typography
+                                  variant='caption'
+                                  sx={{ color: colors.white, opacity: 0.7 }}
+                                >
+                                  Taille: {formatFileSize(module.metadata.fileSize)}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          ) : (
+                            <Typography
+                              variant='body2'
+                              sx={{ color: colors.white, opacity: 0.7, mb: 1 }}
+                            >
+                              {module.contenu}
+                            </Typography>
+                          )}
                           <Box sx={{ display: 'flex', gap: 1 }}>
                             <Chip
                               size='small'

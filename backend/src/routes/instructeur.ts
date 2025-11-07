@@ -1,12 +1,16 @@
+// src/routes/instructeurs.js - VERSION CORRIGÉE
 import { Router } from 'express';
 import { 
-  getDomaines, // Import ajouté
+  getDomaines,
   getCourses, 
   createCourse, 
   updateCourse, 
   submitForApproval, 
   getCoursesInProgress, 
-  getProfile 
+  getProfile,
+  getInstructeurs,
+  getTotalStudents, // NOUVELLE IMPORTATION
+  getTotalStudentsByInstructor // NOUVELLE IMPORTATION
 } from '../controllers/user/InstructeurController';
 import authMiddleware from '../middleware/auth';
 import authorize from '../middleware/authorization';
@@ -14,7 +18,33 @@ import { RoleUtilisateur } from '../types';
 
 const router = Router();
 
-// NOUVELLE ROUTE : Récupérer tous les domaines
+// === NOUVELLES ROUTES POUR LES STATISTIQUES ÉTUDIANTS ===
+
+// Route pour le nombre total d'étudiants (selon le rôle)
+router.get(
+  '/stats/total-students',
+  authMiddleware,
+  authorize([RoleUtilisateur.ADMIN, RoleUtilisateur.ENSEIGNANT]),
+  getTotalStudents
+);
+
+// Route pour le nombre d'étudiants par instructeur spécifique
+router.get(
+  '/:id/stats/total-students',
+  authMiddleware,
+  authorize([RoleUtilisateur.ADMIN, RoleUtilisateur.ENSEIGNANT]),
+  getTotalStudentsByInstructor
+);
+
+// ROUTE EXISTANTE : Récupérer tous les instructeurs (ENSEIGNANTS)
+router.get(
+  '/',
+  authMiddleware,
+  authorize([RoleUtilisateur.ADMIN, RoleUtilisateur.ENSEIGNANT]),
+  getInstructeurs
+);
+
+// Route pour les domaines
 router.get(
   '/domaines',
   authMiddleware,
@@ -22,6 +52,7 @@ router.get(
   getDomaines
 );
 
+// Routes existantes pour les cours par instructeur
 router.get(
   '/:id/courses',
   authMiddleware,

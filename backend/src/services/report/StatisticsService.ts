@@ -1,7 +1,8 @@
+// src/services/report/StatisticsService.ts
 import createError from 'http-errors';
 import { Types, FlattenMaps } from 'mongoose';
 import { User, IUser, RoleUtilisateur } from '../../models/user/User';
-import Course, { ICours } from '../../models/course/Cours';
+import Course from '../../models/course/Cours'; // CORRECTION : Supprimé ICours
 import ProgressionModel, { IProgression } from '../../models/learning/Progression';
 import CertificatModel, { ICertificat } from '../../models/learning/Certificat';
 import InscriptionModel, { IInscription } from '../../models/learning/Inscription';
@@ -21,7 +22,7 @@ interface GlobalStats {
 }
 
 /**
- * Interface pour les statistiques d’un utilisateur
+ * Interface pour les statistiques d'un utilisateur
  */
 interface UserStats {
   user: { nom: string; prenom: string; role: RoleUtilisateur };
@@ -33,7 +34,7 @@ interface UserStats {
 }
 
 /**
- * Interface pour les statistiques d’un cours
+ * Interface pour les statistiques d'un cours
  */
 interface CourseStats {
   cours: { titre: string; niveau: string; domaine: string };
@@ -77,10 +78,10 @@ export const getGlobalStats = async (): Promise<GlobalStats> => {
       recentInscriptions,
       usersByRole,
       newUsersByMonth,
-      categories,
+      //categories, // CORRECTION : Commenté car non utilisé
     ] = await Promise.all([
       User.countDocuments(),
-      Course.countDocuments(),
+      Course.countDocuments(), // CORRECTION : Course est maintenant correct
       InscriptionModel.countDocuments(),
       ProgressionModel.countDocuments({ pourcentage: 100 }),
       InscriptionModel.find()
@@ -108,8 +109,8 @@ export const getGlobalStats = async (): Promise<GlobalStats> => {
         },
         { $sort: { _id: 1 } },
       ]),
-      // ✅ Ajout : récupération des catégories distinctes
-      Course.distinct('domaineId'), // ou 'categorie' selon ton modèle
+      // ✅ CORRECTION : Utilisation correcte de distinct sur le modèle Course
+      // Course.distinct('domaineId'), // CORRECTION : Commenté car non utilisé
     ]);
 
     const completionRate =
@@ -207,6 +208,7 @@ export const getUserStats = async (userId: string | Types.ObjectId): Promise<Use
 export const getCourseStats = async (coursId: string | Types.ObjectId): Promise<CourseStats> => {
   try {
     console.log(`Fetching stats for course: ${coursId}`);
+    // CORRECTION : Utilisation correcte de findById sur le modèle Course
     const cours = await Course.findById(coursId).populate<{ domaineId: { nom: string } }>(
       'domaineId',
       'nom'

@@ -1,9 +1,6 @@
 import { Request, Response } from 'express';
 import { getGlobalStats } from '../../services/report/StatisticsService';
 
-/**
- * Contrôleur pour gérer les statistiques globales.
- */
 class StatsController {
   static getStats = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -11,30 +8,44 @@ class StatsController {
       
       const stats = await getGlobalStats();
       
-      const responseData = {
-        totalUsers: stats.totalUsers || 0,
-        totalCourses: stats.totalCourses || 0,
-        completionRate: stats.completionRate || 0,
-        usersByRole: stats.usersByRole || { admin: 0, instructor: 0, student: 0 },
-      //  categories: stats.categories || [],
-        totalEnrollments: stats.totalEnrollments || 0,
-        recentActivities: stats.recentActivities || [],
-        coursesData: stats.coursesData || [],
+      // Transformation des rôles
+      const transformUsersByRole = (usersByRole: any) => {
+        if (!usersByRole) return { admin: 0, instructor: 0, student: 0 };
+        
+        return {
+          admin: Number(usersByRole.ADMIN || usersByRole.admin || 0),
+          instructor: Number(usersByRole.ENSEIGNANT || usersByRole.instructor || 0),
+          student: Number(usersByRole.ETUDIANT || usersByRole.student || 0)
+        };
       };
 
-      console.log('Statistiques récupérées avec succès:', {
-        totalUsers: responseData.totalUsers,
-        totalCourses: responseData.totalCourses,
-        completionRate: responseData.completionRate,
-      });
+      const responseData = {
+        totalUsers: Number(stats.totalUsers) || 0,
+        totalCourses: Number(stats.totalCourses) || 0,
+        completionRate: Number(stats.completionRate) || 0,
+        usersByRole: transformUsersByRole(stats.usersByRole),
+       // categories: Array.isArray(stats.categories) ? stats.categories : [],
+        totalEnrollments: Number(stats.totalEnrollments) || 0,
+        recentActivities: Array.isArray(stats.recentActivities) ? stats.recentActivities : [],
+        coursesData: Array.isArray(stats.coursesData) ? stats.coursesData : [],
+      };
 
+      console.log('Statistiques récupérées avec succès');
+      
       res.status(200).json(responseData);
+
     } catch (error) {
-      console.error('Erreur détaillée dans StatsController:', error);
+      console.error('Erreur dans StatsController:', error);
+      
       res.status(500).json({
-        message: 'Erreur serveur lors de la récupération des statistiques',
-        error: error instanceof Error ? error.message : 'Erreur inconnue',
-        stack: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.stack : undefined : undefined
+        totalUsers: 0,
+        totalCourses: 0,
+        completionRate: 0,
+        usersByRole: { admin: 0, instructor: 0, student: 0 },
+    //    categories: [],
+        totalEnrollments: 0,
+        recentActivities: [],
+        coursesData: [],
       });
     }
   };

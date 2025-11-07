@@ -1,4 +1,3 @@
-// src/controllers/learning/ProgressionController.ts
 import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
 import createError from 'http-errors';
@@ -10,7 +9,7 @@ import { IProgression, ProgressionUpdateData, CourseDocument } from '../../types
 
 class ProgressionController {
   static getByUserAndCourse = async (
-    req: Request<{ coursId: string }>,
+    req: Request<{ coursId?: string; courseId?: string }>,
     res: Response,
     next: NextFunction
   ): Promise<void> => {
@@ -24,13 +23,16 @@ class ProgressionController {
         throw createError(401, 'Utilisateur non authentifié');
       }
 
-      if (!Types.ObjectId.isValid(req.params.coursId)) {
+      // Gérer les deux paramètres possibles (coursId ou courseId)
+      const courseId = req.params.coursId || req.params.courseId;
+      
+      if (!courseId || !Types.ObjectId.isValid(courseId)) {
         throw createError(400, 'Identifiant de cours invalide');
       }
 
-      console.log(`📘 Récupération de la progression pour l’utilisateur ${req.user._id} et le cours ${req.params.coursId}`);
+      console.log(`📘 Récupération de la progression pour l'utilisateur ${req.user._id} et le cours ${courseId}`);
 
-      const progression = await ProgressionService.getByUserAndCourse(req.user._id, req.params.coursId);
+      const progression = await ProgressionService.getByUserAndCourse(req.user._id, courseId);
 
       res.status(200).json(progression);
     } catch (err: any) {
@@ -38,7 +40,7 @@ class ProgressionController {
         message: err.message,
         stack: err.stack,
         userId: req.user?._id,
-        coursId: req.params.coursId,
+        coursId: req.params.coursId || req.params.courseId,
       });
       next(createError(err.status || 500, err.message || 'Erreur serveur lors de la récupération de la progression'));
     }
@@ -63,7 +65,7 @@ class ProgressionController {
         throw createError(400, 'Identifiant de cours invalide');
       }
 
-      console.log(`🔄 Mise à jour de la progression pour l’utilisateur ${req.user._id} et le cours ${req.params.coursId}`);
+      console.log(`🔄 Mise à jour de la progression pour l'utilisateur ${req.user._id} et le cours ${req.params.coursId}`);
 
       const progression: IProgression = await ProgressionService.update(
         req.user._id,
@@ -129,6 +131,68 @@ class ProgressionController {
         userId: req.user?._id,
       });
       next(createError(500, err.message || 'Erreur serveur lors de la récupération de la progression globale'));
+    }
+  };
+
+  // ✅ NOUVELLE MÉTHODE POUR MARQUER UN CONTENU COMME COMPLÉTÉ
+  static markContentComplete = async (
+    req: Request<{}, {}, { courseId: string; contenuId?: string }>,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw createError(400, 'Validation failed', { errors: errors.array() });
+      }
+
+      if (!req.user?._id) {
+        throw createError(401, 'Utilisateur non authentifié');
+      }
+
+      const { courseId, contenuId } = req.body;
+
+      if (!Types.ObjectId.isValid(courseId)) {
+        throw createError(400, 'Identifiant de cours invalide');
+      }
+
+      console.log(`✅ Marquage du contenu comme complété - User: ${req.user._id}, Cours: ${courseId}, Contenu: ${contenuId}`);
+
+      // Récupérer la progression actuelle
+      const progression = await ProgressionService.getByUserAndCourse(req.user._id, courseId);
+      
+      let newPercentage = progression.pourcentage;
+
+      // Si un contenu spécifique est fourni, augmenter le pourcentage
+      if (contenuId) {
+        // Logique pour calculer le nouveau pourcentage basé sur le contenu complété
+        // Pour l'instant, on augmente de 10% à chaque contenu complété (à adapter)
+        newPercentage = Math.min(100, progression.pourcentage + 10);
+      } else {
+        // Si pas de contenu spécifique, marquer comme 100% complété
+        newPercentage = 100;
+      }
+
+      // Mettre à jour la progression
+      const updatedProgression = await ProgressionService.update(
+        req.user._id,
+        courseId,
+        newPercentage
+      );
+
+      res.status(200).json({
+        success: true,
+        progression: updatedProgression,
+        message: 'Progression mise à jour avec succès'
+      });
+    } catch (err: any) {
+      console.error('❌ Erreur dans markContentComplete :', {
+        message: err.message,
+        stack: err.stack,
+        userId: req.user?._id,
+        courseId: req.body.courseId,
+      });
+      next(createError(err.status || 500, err.message || 'Erreur serveur lors de la mise à jour de la progression'));
     }
   };
 }
