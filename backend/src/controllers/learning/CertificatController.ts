@@ -3,7 +3,7 @@ import { Request, Response, NextFunction } from 'express';
 import createError from 'http-errors';
 import mongoose from 'mongoose';
 import CertificationService from '../../services/learning/CertificationService';
-import { CertificatDocument } from '../../types';
+import { ICertificat } from '../../models/learning/Certificat';
 import logger from '../../utils/logger';
 
 /**
@@ -159,10 +159,10 @@ class CertificatController {
         throw createError(400, 'Identifiant de cours invalide');
       }
 
-      // Conversion de l'ObjectId en string pour résoudre l'erreur TypeScript
+      // Conversion de l'ObjectId en string
       const userId = req.user._id.toString();
 
-      // Logique de vérification d'éligibilité simplifiée
+      // Logique de vérification d'éligibilité
       const isEligible = await this.checkCourseCompletion(userId, courseId);
       
       res.json({
@@ -174,7 +174,7 @@ class CertificatController {
         },
         message: isEligible 
           ? 'Félicitations ! Vous êtes éligible pour un certificat.' 
-          : 'Vous n\'êtes pas encore éligible pour un certificat. Terminez le cours à 100%.'
+          : 'Vous n\'êtes pas encore éligible pour un certificat. Terminez le cours à au moins 70%.'
       });
 
     } catch (err: unknown) {
@@ -190,24 +190,30 @@ class CertificatController {
   };
 
   /**
-   * Méthode utilitaire pour vérifier la complétion du cours
+   * Méthode utilitaire pour vérifier la complétion du cours (70% minimum)
    */
   private static async checkCourseCompletion(userId: string, courseId: string): Promise<boolean> {
     try {
-      // Implémentez votre logique de vérification ici
-      // Par exemple, vérifier la progression dans la table des progressions
-      // Pour l'instant, retourne true pour les tests
+      // Import dynamique pour éviter les dépendances circulaires
+      const Progression = (await import('../../models/learning/Progression')).default;
       
-      logger.info(`🔍 Vérification éligibilité certificat - utilisateur: ${userId}, cours: ${courseId}`);
+      const progression = await Progression.findOne({
+        apprenant: new mongoose.Types.ObjectId(userId),
+        cours: new mongoose.Types.ObjectId(courseId)
+      }).exec();
+
+      if (!progression) {
+        logger.info(`Aucune progression trouvée pour l'utilisateur ${userId} dans le cours ${courseId}`);
+        return false;
+      }
+
+      // Vérification si la progression est d'au moins 70% ET a une date de fin
+      const estEligible = progression.pourcentage >= 70 && !!progression.dateFin;
       
-      // TODO: Implémenter la logique réelle de vérification
-      // Exemple de logique à implémenter :
-      // 1. Vérifier si l'utilisateur est inscrit au cours
-      // 2. Vérifier si la progression est à 100%
-      // 3. Vérifier si le cours est marqué comme terminé
-      // 4. Vérifier si un certificat n'existe pas déjà
+      logger.info(`🔍 Vérification éligibilité - utilisateur: ${userId}, cours: ${courseId}, progression: ${progression.pourcentage}%, dateFin: ${progression.dateFin}, éligible: ${estEligible}`);
       
-      return true; // Temporaire pour les tests
+      return estEligible;
+
     } catch (error) {
       logger.error('Erreur lors de la vérification de complétion du cours', {
         userId,
@@ -221,7 +227,7 @@ class CertificatController {
   /**
    * Génère un certificat pour un apprenant et un cours (utilitaire)
    */
-  static generateCertificate = async (apprenantId: string, coursId: string): Promise<CertificatDocument | null> => {
+  static generateCertificate = async (apprenantId: string, coursId: string): Promise<ICertificat | null> => {
     try {
       logger.info(`🔍 Génération certificat - apprenant: ${apprenantId}, cours: ${coursId}`);
 
@@ -233,19 +239,34 @@ class CertificatController {
         throw new Error('Identifiant de cours invalide');
       }
 
-      // Construction de l'objet progression simulé
-      const progression = {
-        apprenant: new mongoose.Types.ObjectId(apprenantId),
-        cours: new mongoose.Types.ObjectId(coursId),
-        pourcentage: 100,
-        dateFin: new Date(),
-      } as any;
+      // Import dynamique pour éviter les dépendances circulaires
+      const Progression = (await import('../../models/learning/Progression')).default;
 
-      const certificat = await CertificationService.generateIfEligible(progression);
+      // Récupération de la progression réelle
+      const progressionExistante = await Progression.findOne({
+        apprenant: new mongoose.Types.ObjectId(apprenantId),
+        cours: new mongoose.Types.ObjectId(coursId)
+      }).exec();
+
+      if (!progressionExistante) {
+        logger.error('❌ Progression non trouvée pour génération certificat', {
+          apprenantId,
+          coursId
+        });
+        return null;
+      }
+
+      // Vérification que la progression est d'au moins 70%
+      if (progressionExistante.pourcentage < 70) {
+        logger.info(`❌ Progression insuffisante pour certificat: ${progressionExistante.pourcentage}%`);
+        return null;
+      }
+
+      const certificat = await CertificationService.generateIfEligible(progressionExistante);
 
       if (certificat) {
         logger.info(`✅ Certificat généré: ${certificat._id}`);
-        return certificat as unknown as CertificatDocument;
+        return certificat;
       } else {
         logger.info(`ℹ️ Aucun certificat généré - conditions non remplies`);
         return null;
@@ -260,6 +281,87 @@ class CertificatController {
         coursId
       });
       throw error;
+    }
+  };
+
+  /**
+   * Route utilitaire pour corriger les certificats sans cours
+   */
+  static corrigerCertificats = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user || req.user.role !== 'ADMIN') {
+        throw createError(403, 'Accès non autorisé');
+      }
+
+      // CORRECTION : Utiliser la bonne méthode du service
+      const resultat = await CertificationService.corrigerCertificatsAvecCoursNull();
+      
+      res.json({
+        success: true,
+        data: resultat,
+        message: `Correction terminée: ${resultat.corriges}/${resultat.total} certificats corrigés`
+      });
+
+    } catch (err: unknown) {
+      const error = err as Error;
+      logger.error('❌ Erreur corrigerCertificats:', error);
+      next(createError(500, 'Erreur lors de la correction des certificats'));
+    }
+  };
+
+  /**
+   * Route pour lancer la migration complète des certificats
+   */
+  static migrationCertificats = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user || req.user.role !== 'ADMIN') {
+        throw createError(403, 'Accès non autorisé');
+      }
+
+      logger.info('🚀 Démarrage migration certificats demandée par admin');
+      await CertificationService.migrationCorrectionCertificats();
+      
+      res.json({
+        success: true,
+        message: 'Migration des certificats terminée avec succès'
+      });
+
+    } catch (err: unknown) {
+      const error = err as Error;
+      logger.error('❌ Erreur migrationCertificats:', error);
+      next(createError(500, 'Erreur lors de la migration des certificats'));
+    }
+  };
+
+  /**
+   * Vérifie l'intégrité d'un certificat spécifique
+   */
+  static verifierIntegrite = async (req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user || req.user.role !== 'ADMIN') {
+        throw createError(403, 'Accès non autorisé');
+      }
+
+      const certificatId = req.params.id;
+
+      if (!mongoose.Types.ObjectId.isValid(certificatId)) {
+        throw createError(400, 'Identifiant de certificat invalide');
+      }
+
+      const integrite = await CertificationService.verifierIntegriteCertificat(certificatId);
+      
+      res.json({
+        success: true,
+        data: integrite,
+        message: integrite.certificatExiste && integrite.coursExiste && integrite.utilisateurExiste
+          ? 'Certificat valide'
+          : 'Problèmes détectés avec le certificat'
+      });
+
+    } catch (err: unknown) {
+      const error = err as Error;
+      logger.error('❌ Erreur verifierIntegrite:', error);
+      next(createError(500, 'Erreur lors de la vérification d\'intégrité'));
     }
   };
 }

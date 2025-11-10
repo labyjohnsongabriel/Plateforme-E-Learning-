@@ -18,7 +18,6 @@ import {
   DialogContent,
   DialogActions,
   LinearProgress,
-  Avatar,
   Badge,
 } from '@mui/material';
 import { styled, keyframes } from '@mui/material/styles';
@@ -26,8 +25,6 @@ import {
   Download,
   Award,
   Calendar,
-  CheckCircle,
-  AlertCircle,
   RotateCcw,
   Share2,
   Eye,
@@ -42,12 +39,7 @@ import {
   BadgeCheck,
   Zap,
   Crown,
-  Sparkles,
-  Image as ImageIcon,
   Globe,
-  QrCode,
-  Lock,
-  Unlock,
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
@@ -63,24 +55,6 @@ const fadeInUp = keyframes`
   to { 
     opacity: 1; 
     transform: translateY(0); 
-  }
-`;
-
-const floatingAnimation = keyframes`
-  0%, 100% { 
-    transform: translateY(0px); 
-  }
-  50% { 
-    transform: translateY(-15px); 
-  }
-`;
-
-const shimmerAnimation = keyframes`
-  0% { 
-    background-position: -200px 0; 
-  }
-  100% { 
-    background-position: 200px 0; 
   }
 `;
 
@@ -357,6 +331,47 @@ const Certificates = () => {
     return defaultImages[level] || defaultImages.default;
   };
 
+  // Fonction pour obtenir les données enrichies du certificat
+  const getEnrichedCertificateData = (cert, index) => {
+    const certificateId = cert._id || `cert-${index}`;
+    
+    // Gestion robuste des cours manquants ou null
+    let coursData = cert.cours;
+    if (!coursData || coursData === null) {
+      console.warn(`⚠️ Cours manquant pour le certificat ${certificateId}, utilisation des données par défaut`);
+      coursData = {
+        titre: 'Certificat de Formation Youth Computing',
+        niveau: 'BETA',
+        description: 'Certificat attestant de la réussite et de la complétion de la formation',
+        duree: 'Formation complétée avec succès'
+      };
+    }
+
+    const certificateImage = cert.image || cert.thumbnail || getDefaultCertificateImage(cert);
+
+    return {
+      ...cert,
+      id: certificateId,
+      titre: coursData.titre || cert.title || 'Certificat de Formation',
+      dateEmission: cert.dateEmission || new Date().toISOString(),
+      dateExpiration: cert.dateExpiration || null,
+      valide: cert.valide ?? true,
+      numero: cert.codeCertificat || cert.numero || `CERT-${Date.now()}-${index}`,
+      niveau: coursData.niveau || cert.niveau || ['Alfa', 'BETA', 'GAMMA', 'Expert'][index % 4],
+      duree: coursData.duree || cert.duree || 'Formation complétée',
+      score: cert.score || Math.floor(Math.random() * 20) + 80,
+      featured: index < 2,
+      verified: Math.random() > 0.3,
+      type: cert.type || ['Technique', 'Professionnel', 'Spécialisation', 'Master'][index % 4],
+      image: certificateImage,
+      status: cert.valide ? 'active' : 'expired',
+      qrCode: cert.qrCode || `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${certificateId}`,
+      shareUrl: cert.shareUrl || `${window.location.origin}/verify/${certificateId}`,
+      // Stocker les données originales du cours pour référence
+      _coursData: coursData
+    };
+  };
+
   const fetchCertificates = useCallback(async () => {
     try {
       if (!user?.token) {
@@ -377,32 +392,9 @@ const Certificates = () => {
       const certificatesList = response.data?.data || response.data || [];
       if (!Array.isArray(certificatesList)) throw new Error('Format invalide');
 
-      // Enrichissement des données avec images et statuts
+      // Enrichissement des données avec gestion robuste des cours manquants
       const enrichedCertificates = certificatesList.map((cert, index) => {
-        const certificateId = cert._id || `cert-${index}`;
-        const certificateImage = cert.image || cert.thumbnail || getDefaultCertificateImage(cert);
-
-        return {
-          ...cert,
-          id: certificateId,
-          titre: cert.cours?.titre || cert.title || 'Certificat de Formation',
-          dateEmission: cert.dateEmission || new Date().toISOString(),
-          dateExpiration: cert.dateExpiration || null,
-          valide: cert.valide ?? true,
-          numero: cert.numero || `CERT-${Date.now()}-${index}`,
-          niveau: cert.niveau || ['Alfa', 'BETA', 'GAMMA', 'Expert'][index % 4],
-          duree: cert.duree || Math.floor(Math.random() * 50) + 10,
-          score: cert.score || Math.floor(Math.random() * 20) + 80,
-          featured: index < 2,
-          verified: Math.random() > 0.3,
-          type: cert.type || ['Technique', 'Professionnel', 'Spécialisation', 'Master'][index % 4],
-          image: certificateImage,
-          status: cert.valide ? 'active' : 'expired',
-          qrCode:
-            cert.qrCode ||
-            `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${certificateId}`,
-          shareUrl: cert.shareUrl || `${window.location.origin}/verify/${certificateId}`,
-        };
+        return getEnrichedCertificateData(cert, index);
       });
 
       setCertificates(enrichedCertificates);
@@ -920,7 +912,7 @@ const Certificates = () => {
                           <Typography
                             sx={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.9rem', flex: 1 }}
                           >
-                            {cert.duree} heures de formation
+                            {cert.duree}
                           </Typography>
                         </Box>
 
@@ -1175,7 +1167,7 @@ const Certificates = () => {
                         Durée
                       </Typography>
                       <Typography sx={{ color: colors.white, fontWeight: 600 }}>
-                        {selectedCertificate.duree}h
+                        {selectedCertificate.duree}
                       </Typography>
                     </Grid>
 

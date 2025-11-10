@@ -1,54 +1,116 @@
-import { Request, Response } from 'express';
-import { getGlobalStats } from '../../services/report/StatisticsService';
+// src/controllers/stats/StatsController.ts
+import { Request, Response, NextFunction } from 'express';
+import { Types } from 'mongoose';
+import * as StatisticsService from '../../services/report/StatisticsService';
 
-class StatsController {
-  static getStats = async (req: Request, res: Response): Promise<void> => {
+export class StatsController {
+  /**
+   * Récupérer les statistiques globales
+   */
+  public static async getStats(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      console.log('Début de la récupération des statistiques globales');
-      
-      const stats = await getGlobalStats();
-      
-      // Transformation des rôles
-      const transformUsersByRole = (usersByRole: any) => {
-        if (!usersByRole) return { admin: 0, instructor: 0, student: 0 };
-        
-        return {
-          admin: Number(usersByRole.ADMIN || usersByRole.admin || 0),
-          instructor: Number(usersByRole.ENSEIGNANT || usersByRole.instructor || 0),
-          student: Number(usersByRole.ETUDIANT || usersByRole.student || 0)
-        };
-      };
-
-      const responseData = {
-        totalUsers: Number(stats.totalUsers) || 0,
-        totalCourses: Number(stats.totalCourses) || 0,
-        completionRate: Number(stats.completionRate) || 0,
-        usersByRole: transformUsersByRole(stats.usersByRole),
-       // categories: Array.isArray(stats.categories) ? stats.categories : [],
-        totalEnrollments: Number(stats.totalEnrollments) || 0,
-        recentActivities: Array.isArray(stats.recentActivities) ? stats.recentActivities : [],
-        coursesData: Array.isArray(stats.coursesData) ? stats.coursesData : [],
-      };
-
-      console.log('Statistiques récupérées avec succès');
-      
-      res.status(200).json(responseData);
-
-    } catch (error) {
-      console.error('Erreur dans StatsController:', error);
-      
-      res.status(500).json({
-        totalUsers: 0,
-        totalCourses: 0,
-        completionRate: 0,
-        usersByRole: { admin: 0, instructor: 0, student: 0 },
-    //    categories: [],
-        totalEnrollments: 0,
-        recentActivities: [],
-        coursesData: [],
+      const stats = await StatisticsService.getGlobalStats();
+      res.json({
+        success: true,
+        data: stats
       });
+    } catch (error) {
+      next(error);
     }
-  };
+  }
+
+  /**
+   * Récupérer les statistiques d'un utilisateur
+   */
+  public static async getUserStats(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = req.params;
+      
+      // Vérifier que userId est défini et valide
+      if (!userId) {
+        res.status(400).json({
+          success: false,
+          message: 'ID utilisateur manquant'
+        });
+        return;
+      }
+
+      // Convertir en ObjectId si c'est une chaîne valide
+      const userObjectId = Types.ObjectId.isValid(userId) 
+        ? new Types.ObjectId(userId)
+        : userId;
+
+      const stats = await StatisticsService.getUserStats(userObjectId);
+      res.json({
+        success: true,
+        data: stats
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Récupérer les statistiques d'un cours
+   */
+  public static async getCourseStats(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { courseId } = req.params;
+      
+      // Vérifier que courseId est défini et valide
+      if (!courseId) {
+        res.status(400).json({
+          success: false,
+          message: 'ID cours manquant'
+        });
+        return;
+      }
+
+      // Convertir en ObjectId si c'est une chaîne valide
+      const courseObjectId = Types.ObjectId.isValid(courseId) 
+        ? new Types.ObjectId(courseId)
+        : courseId;
+
+      const stats = await StatisticsService.getCourseStats(courseObjectId);
+      res.json({
+        success: true,
+        data: stats
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Récupérer les utilisateurs récents
+   */
+  public static async getRecentUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const users = await StatisticsService.getRecentUsers(limit);
+      res.json({
+        success: true,
+        data: users
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Récupérer le taux de complétion global
+   */
+  public static async getCompletionRate(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const rate = await StatisticsService.getCompletionRate();
+      res.json({
+        success: true,
+        data: rate
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export default StatsController;

@@ -527,7 +527,7 @@ const Dashboard = () => {
                 WebkitTextFillColor: 'transparent',
               }}
             >
-              Bienvenue, {dashboardData.user?.prenom || 'Étudiant'} 
+              Bienvenue, {dashboardData.user?.prenom || 'Étudiant'}
             </Typography>
             <Typography
               sx={{
@@ -541,10 +541,7 @@ const Dashboard = () => {
           </Box>
 
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            <SecondaryButton 
-              onClick={handleBrowseCourses}
-              startIcon={<BookOpen size={18} />}
-            >
+            <SecondaryButton onClick={handleBrowseCourses} startIcon={<BookOpen size={18} />}>
               Parcourir les cours
             </SecondaryButton>
             <Tooltip title='Actualiser les données'>
@@ -586,7 +583,7 @@ const Dashboard = () => {
             '& .MuiAlert-icon': { color: colors.red },
           }}
           action={
-            <Button color="inherit" size="small" onClick={() => setError(null)}>
+            <Button color='inherit' size='small' onClick={() => setError(null)}>
               Fermer
             </Button>
           }
@@ -595,10 +592,10 @@ const Dashboard = () => {
         </Alert>
       )}
 
-      {/* CARTES DE STATISTIQUES AUTOMATIQUES */}
+      {/* CARTES DE STATISTIQUES AUTOMATIQUES - 5 CARTES EN UNE LIGNE */}
       <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mb: { xs: 4, sm: 6 } }}>
         {/* Progression Moyenne */}
-        <Grid item xs={6} sm={4} md={3}>
+        <Grid item xs={12} sm={6} md={4} lg={2.4}>
           <StatCard color={colors.red}>
             <TrendingUp size={36} color={colors.red} style={{ marginBottom: '16px' }} />
             <Typography
@@ -624,7 +621,7 @@ const Dashboard = () => {
         </Grid>
 
         {/* Total des Cours */}
-        <Grid item xs={6} sm={4} md={3}>
+        <Grid item xs={12} sm={6} md={4} lg={2.4}>
           <StatCard color={colors.purple}>
             <BookOpen size={36} color={colors.purple} style={{ marginBottom: '16px' }} />
             <Typography
@@ -650,7 +647,7 @@ const Dashboard = () => {
         </Grid>
 
         {/* Cours Complétés */}
-        <Grid item xs={6} sm={4} md={3}>
+        <Grid item xs={12} sm={6} md={4} lg={2.4}>
           <StatCard color={colors.success}>
             <Award size={36} color={colors.success} style={{ marginBottom: '16px' }} />
             <Typography
@@ -676,7 +673,7 @@ const Dashboard = () => {
         </Grid>
 
         {/* Total des Certificats */}
-        <Grid item xs={6} sm={4} md={3}>
+        <Grid item xs={12} sm={6} md={4} lg={2.4}>
           <StatCard color={colors.pink}>
             <Award size={36} color={colors.pink} style={{ marginBottom: '16px' }} />
             <Typography
@@ -702,7 +699,7 @@ const Dashboard = () => {
         </Grid>
 
         {/* Taux de Réussite */}
-        <Grid item xs={6} sm={4} md={3}>
+        <Grid item xs={12} sm={6} md={4} lg={2.4}>
           <StatCard color={colors.info}>
             <BarChart3 size={36} color={colors.info} style={{ marginBottom: '16px' }} />
             <Typography
@@ -723,58 +720,6 @@ const Dashboard = () => {
               }}
             >
               Taux de Réussite
-            </Typography>
-          </StatCard>
-        </Grid>
-
-        {/* Temps d'Étude Total */}
-     { /*  <Grid item xs={6} sm={4} md={3}>
-          <StatCard color={colors.warning}>
-            <Clock size={36} color={colors.warning} style={{ marginBottom: '16px' }} />
-            <Typography
-              sx={{
-                color: colors.warning,
-                fontWeight: 800,
-                fontSize: { xs: '1.8rem', sm: '2.2rem' },
-                mb: 0.5,
-              }}
-            >
-              {Math.round(dashboardData.stats.totalStudyTime / 60)}h
-            </Typography>
-            <Typography
-              sx={{
-                color: 'rgba(255, 255, 255, 0.8)',
-                fontSize: { xs: '0.85rem', sm: '0.9rem' },
-                fontWeight: 600,
-              }}
-            >
-              Temps d'Étude
-            </Typography>
-          </StatCard>
-        </Grid>*/}
-
-        {/* Apprenants Actifs (statique pour l'instant) */}
-        <Grid item xs={6} sm={4} md={3}>
-          <StatCard color={colors.success}>
-            <Users size={36} color={colors.success} style={{ marginBottom: '16px' }} />
-            <Typography
-              sx={{
-                color: colors.success,
-                fontWeight: 800,
-                fontSize: { xs: '1.8rem', sm: '2.2rem' },
-                mb: 0.5,
-              }}
-            >
-              {dashboardData.stats.totalCourses * 25}+
-            </Typography>
-            <Typography
-              sx={{
-                color: 'rgba(255, 255, 255, 0.8)',
-                fontSize: { xs: '0.85rem', sm: '0.9rem' },
-                fontWeight: 600,
-              }}
-            >
-              Apprenants Actifs
             </Typography>
           </StatCard>
         </Grid>
@@ -920,7 +865,10 @@ const Dashboard = () => {
                           mb: 0.5,
                         }}
                       >
-                        {cert.cours?.titre || cert.cours?.title || cert.title || 'Certificat de formation'}
+                        {cert.cours?.titre ||
+                          cert.cours?.title ||
+                          cert.title ||
+                          'Certificat de formation'}
                       </Typography>
                       <Typography
                         sx={{
@@ -942,7 +890,7 @@ const Dashboard = () => {
                       disabled={downloadingId === cert._id}
                       onClick={() =>
                         handleDownloadCertificate(
-                          cert._id, 
+                          cert._id,
                           cert.cours?.titre || cert.cours?.title || cert.title
                         )
                       }
@@ -972,7 +920,7 @@ const Dashboard = () => {
                   </SecondaryButton>
                 </Box>
               )}
-              
+
               {dashboardData.certificates.length > 3 && (
                 <Box sx={{ textAlign: 'center', pt: 2 }}>
                   <Typography sx={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.9rem' }}>
@@ -987,7 +935,9 @@ const Dashboard = () => {
         {/* COURS INSCRITS */}
         <Grid item xs={12}>
           <DashboardCard elevation={0}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}
+            >
               <Typography
                 variant='h5'
                 sx={{
@@ -1002,7 +952,7 @@ const Dashboard = () => {
                 <BookOpen size={28} color={colors.purple} />
                 Mes Cours ({dashboardData.stats.totalCourses})
               </Typography>
-              
+
               {dashboardData.stats.totalCourses > 0 && (
                 <Chip
                   label={`${dashboardData.stats.completionRate}% de réussite`}
@@ -1061,11 +1011,11 @@ const Dashboard = () => {
                         >
                           {course.title}
                         </Typography>
-                        
+
                         <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
                           <Chip
                             label={course.niveau}
-                            size="small"
+                            size='small'
                             sx={{
                               backgroundColor: `${colors.purple}33`,
                               color: colors.purple,
@@ -1075,7 +1025,7 @@ const Dashboard = () => {
                           />
                           <Chip
                             label={`${course.duree} min`}
-                            size="small"
+                            size='small'
                             sx={{
                               backgroundColor: `${colors.info}33`,
                               color: colors.info,
@@ -1099,7 +1049,7 @@ const Dashboard = () => {
                           }}
                         />
                         <ActionButton
-                          size="small"
+                          size='small'
                           onClick={() => handleLaunchCourse(course)}
                           startIcon={<Play size={16} />}
                         >
@@ -1133,8 +1083,8 @@ const Dashboard = () => {
                         {course.progress === 100
                           ? '🎉 Formation terminée !'
                           : course.progress > 0
-                          ? '📚 En progression...'
-                          : '⏳ Pas encore commencé'}
+                            ? '📚 En progression...'
+                            : '⏳ Pas encore commencé'}
                       </Typography>
 
                       <Typography
@@ -1144,7 +1094,8 @@ const Dashboard = () => {
                           fontWeight: 500,
                         }}
                       >
-                        {Math.round((course.duree * (course.progress || 0)) / 100)}min / {course.duree}min
+                        {Math.round((course.duree * (course.progress || 0)) / 100)}min /{' '}
+                        {course.duree}min
                       </Typography>
                     </Box>
                   </Box>
@@ -1158,10 +1109,7 @@ const Dashboard = () => {
                   <Typography sx={{ fontSize: '0.95rem', mb: 3 }}>
                     Explorez notre catalogue pour commencer votre apprentissage
                   </Typography>
-                  <ActionButton 
-                    onClick={handleBrowseCourses}
-                    startIcon={<BookOpen size={18} />}
-                  >
+                  <ActionButton onClick={handleBrowseCourses} startIcon={<BookOpen size={18} />}>
                     Découvrir les cours
                   </ActionButton>
                 </Box>
@@ -1175,7 +1123,7 @@ const Dashboard = () => {
       <Dialog
         open={courseDialogOpen}
         onClose={() => setCourseDialogOpen(false)}
-        maxWidth="md"
+        maxWidth='md'
         fullWidth
         PaperProps={{
           sx: {
@@ -1197,10 +1145,7 @@ const Dashboard = () => {
           }}
         >
           Détails du cours
-          <IconButton
-            onClick={() => setCourseDialogOpen(false)}
-            sx={{ color: '#ffffff' }}
-          >
+          <IconButton onClick={() => setCourseDialogOpen(false)} sx={{ color: '#ffffff' }}>
             <X size={20} />
           </IconButton>
         </DialogTitle>
@@ -1208,10 +1153,10 @@ const Dashboard = () => {
         <DialogContent sx={{ py: 4 }}>
           {selectedCourse && (
             <Stack spacing={3}>
-              <Typography variant="h5" sx={{ color: '#ffffff', fontWeight: 700 }}>
+              <Typography variant='h5' sx={{ color: '#ffffff', fontWeight: 700 }}>
                 {selectedCourse.title}
               </Typography>
-              
+
               <Typography sx={{ color: 'rgba(255, 255, 255, 0.8)' }}>
                 {selectedCourse.description}
               </Typography>
@@ -1244,7 +1189,7 @@ const Dashboard = () => {
               </Box>
 
               <LinearProgress
-                variant="determinate"
+                variant='determinate'
                 value={selectedCourse.progress || 0}
                 sx={{
                   height: 12,
@@ -1258,17 +1203,16 @@ const Dashboard = () => {
               />
 
               <Typography sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.9rem' }}>
-                Temps passé: {Math.round((selectedCourse.duree * (selectedCourse.progress || 0)) / 100)} minutes
+                Temps passé:{' '}
+                {Math.round((selectedCourse.duree * (selectedCourse.progress || 0)) / 100)} minutes
               </Typography>
             </Stack>
           )}
         </DialogContent>
 
         <DialogActions sx={{ px: 3, pb: 3, gap: 2 }}>
-          <SecondaryButton onClick={() => setCourseDialogOpen(false)}>
-            Fermer
-          </SecondaryButton>
-          <ActionButton 
+          <SecondaryButton onClick={() => setCourseDialogOpen(false)}>Fermer</SecondaryButton>
+          <ActionButton
             onClick={() => {
               setCourseDialogOpen(false);
               handleLaunchCourse(selectedCourse);

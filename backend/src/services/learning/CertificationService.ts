@@ -20,7 +20,7 @@ export enum NiveauFormation {
 
 // Interface pour les données du certificat avec cours peuplé
 interface CertificatAvecCours extends Omit<ICertificat, 'cours'> {
-  cours: ICours;
+  cours: ICours | null;
 }
 
 interface CertificatData {
@@ -40,15 +40,70 @@ const CERTIFICATE_COLORS = {
   textLight: '#7F8C8D'
 };
 
+// Interface pour le cours par défaut
+interface CoursParDefaut {
+  _id: Types.ObjectId;
+  titre: string;
+  niveau: NiveauFormation;
+  description: string;
+  duree: string;
+  estPublic: boolean;
+  prix: number;
+  langues: string[];
+  prerequis: string[];
+  objectifs: string[];
+  competences: string[];
+  planCours: any[];
+  imageUrl: string;
+  formateur: Types.ObjectId;
+  categories: Types.ObjectId[];
+  estActif: boolean;
+  dateCreation: Date;
+  dateModification: Date;
+}
+
+// Fonction pour créer un cours par défaut
+const creerCoursParDefaut = (): CoursParDefaut => ({
+  _id: new Types.ObjectId('000000000000000000000000'),
+  titre: 'Formation Youth Computing',
+  niveau: NiveauFormation.BETA,
+  description: 'Certificat de complétion de formation',
+  duree: 'Variable',
+  estPublic: true,
+  prix: 0,
+  langues: ['fr'],
+  prerequis: [],
+  objectifs: ['Complétion réussie de la formation'],
+  competences: [],
+  planCours: [],
+  imageUrl: '',
+  formateur: new Types.ObjectId('000000000000000000000000'),
+  categories: [],
+  estActif: true,
+  dateCreation: new Date(),
+  dateModification: new Date()
+});
+
 export class CertificationService {
   /**
-   * Génère un certificat si l'utilisateur est éligible
+   * Génère un certificat si l'utilisateur est éligible (70% ou plus)
    */
   static async generateIfEligible(progression: IProgression): Promise<ICertificat | null> {
     try {
-      // Vérification de l'éligibilité
-      if (progression.pourcentage !== 100 || !progression.dateFin) {
-        logger.info(`Progression non éligible pour certificat: apprenant=${progression.apprenant}, cours=${progression.cours}`);
+      // Validation des données requises
+      if (!progression.apprenant || !progression.cours) {
+        logger.error('❌ Données manquantes pour génération certificat', {
+          apprenant: progression.apprenant,
+          cours: progression.cours,
+          progressionId: progression._id
+        });
+        return null;
+      }
+
+      // Vérification de l'éligibilité (70% ou plus et date de fin définie)
+      const pourcentageMinimum = 70;
+      if (progression.pourcentage < pourcentageMinimum || !progression.dateFin) {
+        logger.info(`Progression non éligible pour certificat: apprenant=${progression.apprenant}, cours=${progression.cours}, pourcentage=${progression.pourcentage}%`);
         return null;
       }
 
@@ -64,8 +119,10 @@ export class CertificationService {
       }
 
       // Récupération du cours et de l'utilisateur avec vérification
-      const cours = await Cours.findById(progression.cours).exec();
-      const user = await User.findById(progression.apprenant).exec();
+      const [cours, user] = await Promise.all([
+        Cours.findById(progression.cours).exec(),
+        User.findById(progression.apprenant).exec()
+      ]);
       
       if (!cours) {
         logger.error('❌ Cours non trouvé pour génération certificat', {
@@ -80,20 +137,6 @@ export class CertificationService {
           userId: progression.apprenant,
           coursId: progression.cours
         });
-        return null;
-      }
-
-      // Validation du niveau de formation
-      if (!Object.values(NiveauFormation).includes(cours.niveau as NiveauFormation)) {
-        logger.info(`Niveau de cours invalide: ${cours.niveau}`);
-        return null;
-      }
-
-      const levels = [NiveauFormation.ALFA, NiveauFormation.BETA, NiveauFormation.GAMMA, NiveauFormation.DELTA];
-      const levelIndex = levels.indexOf(cours.niveau as NiveauFormation);
-      
-      if (levelIndex < 1) {
-        logger.info(`Niveau ${cours.niveau} est ALFA, aucun certificat généré`);
         return null;
       }
 
@@ -113,14 +156,14 @@ export class CertificationService {
 
       const url = `/certificates/${filename}`;
       
-      // Création du certificat en base de données
+      // Création du certificat en base de données avec code unique
       const cert = new Certificat({
         apprenant: progression.apprenant,
         cours: progression.cours,
         dateEmission: new Date(),
         urlCertificat: url,
         valide: true,
-        numero: `CERT-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+        codeCertificat: `YC-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
       });
       
       await cert.save();
@@ -159,7 +202,7 @@ export class CertificationService {
       logger.info(`📜 Récupération des certificats pour apprenant: ${apprenantId}`);
 
       const certificats = await Certificat.find({ apprenant: apprenantId })
-        .populate<{ cours: ICours }>('cours', 'titre niveau description')
+        .populate<{ cours: ICours }>('cours', 'titre niveau description duree')
         .lean()
         .exec();
 
@@ -189,7 +232,7 @@ export class CertificationService {
 
       logger.info(`📥 Génération du PDF pour certificat: ${certificatId}, apprenant: ${apprenantId}`);
 
-      // Récupération du certificat avec populate et vérification approfondie
+      // Récupération du certificat avec populate
       const certificat = await Certificat.findOne({
         _id: certificatId,
         apprenant: apprenantId,
@@ -200,44 +243,57 @@ export class CertificationService {
         throw new Error('Certificat non trouvé');
       }
 
-      // Vérification détaillée du cours
-      if (!certificat.cours) {
-        logger.error('❌ Cours non trouvé pour le certificat', {
-          certificatId,
-          apprenantId,
-          coursId: certificat.cours
-        });
-        
-        // Tentative de récupération directe du cours depuis la base
-        const coursDirect = await Cours.findById(certificat.cours).exec();
-        if (!coursDirect) {
-          throw new Error('Cours associé au certificat introuvable');
-        }
-        
-        // Si le cours est trouvé directement, on l'assigne
-        (certificat as any).cours = coursDirect;
-      }
-
       const user = await User.findById(apprenantId).exec();
       if (!user) {
         throw new Error('Utilisateur non trouvé');
       }
 
-      // Vérification finale que le cours est disponible
-      if (!certificat.cours) {
-        throw new Error('Impossible de récupérer les informations du cours');
+      let cours: ICours | CoursParDefaut;
+      
+      // Gestion robuste du cours - vérification approfondie
+      if (!certificat.cours || certificat.cours === null) {
+        logger.warn('⚠️ Cours null ou manquant dans le certificat', {
+          certificatId,
+          apprenantId,
+          coursId: certificat.cours
+        });
+        
+        // Si le cours est null, essayer de récupérer le cours original depuis la progression
+        const progression = await this.trouverProgressionParCertificat(certificat._id);
+        if (progression && progression.cours) {
+          const coursDirect = await Cours.findById(progression.cours).exec();
+          if (coursDirect) {
+            cours = coursDirect;
+            logger.info('✅ Cours récupéré depuis la progression');
+          } else {
+            cours = creerCoursParDefaut();
+            logger.info('ℹ️ Utilisation du cours par défaut');
+          }
+        } else {
+          cours = creerCoursParDefaut();
+          logger.info('ℹ️ Utilisation du cours par défaut (progression non trouvée)');
+        }
+      } else {
+        // Vérifier que le cours peuplé est valide
+        if (typeof certificat.cours === 'object' && certificat.cours !== null) {
+          cours = certificat.cours as ICours;
+        } else {
+          // Si le cours peuplé est invalide, utiliser le cours par défaut
+          cours = creerCoursParDefaut();
+          logger.warn('⚠️ Cours peuplé invalide, utilisation du cours par défaut');
+        }
       }
 
-      // Conversion en CertificatAvecCours pour résoudre le problème de typage
+      // Conversion en CertificatAvecCours
       const certificatAvecCours: CertificatAvecCours = {
         ...certificat.toObject(),
-        cours: certificat.cours as ICours
+        cours: cours as ICours
       };
 
       // Génération du PDF professionnel
       return await this.generateProfessionalCertificate({
         certificat: certificatAvecCours,
-        cours: certificat.cours as ICours,
+        cours: cours as ICours,
         user
       });
 
@@ -253,10 +309,52 @@ export class CertificationService {
   }
 
   /**
+   * Génère un PDF simple pour le certificat (méthode de secours)
+   */
+  private static async generateCertificatePDF(user: any, cours: ICours | CoursParDefaut): Promise<Buffer> {
+    return new Promise<Buffer>((resolve, reject) => {
+      const doc = new PDFDocument({ size: 'A4', layout: 'landscape' });
+      const buffers: Buffer[] = [];
+      
+      doc.on('data', (chunk: Buffer) => buffers.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(buffers)));
+      doc.on('error', reject);
+
+      // Version simplifiée mais professionnelle
+      doc.fillColor(CERTIFICATE_COLORS.primary)
+         .fontSize(30)
+         .font('Helvetica-Bold')
+         .text('CERTIFICAT DE RÉUSSITE', 0, 100, { align: 'center' });
+      
+      const nomComplet = user?.prenom && user?.nom 
+        ? `${user.prenom} ${user.nom}`
+        : user?.prenom || user?.nom || 'Récipiendaire';
+      
+      const titreCours = cours?.titre || 'Formation Youth Computing';
+      
+      doc.fillColor(CERTIFICATE_COLORS.textDark)
+         .fontSize(18)
+         .font('Helvetica')
+         .text(`Délivré à : ${nomComplet}`, 150, 200);
+      
+      doc.text(`Pour le cours : ${titreCours}`, 150, 230);
+      
+      if (cours?.niveau) {
+        doc.text(`Niveau : ${cours.niveau}`, 150, 260);
+      }
+      
+      doc.text(`Date d'émission : ${new Date().toLocaleDateString('fr-FR')}`, 150, 290);
+      doc.text('Youth Computing - Association pour la formation numérique', 0, 350, { align: 'center' });
+      
+      doc.end();
+    });
+  }
+
+  /**
    * Génère un PDF de certificat professionnel
    */
   private static async generateProfessionalCertificate(data: CertificatData): Promise<Buffer> {
-    return new Promise<Buffer>(async (resolve, reject) => {
+    return new Promise<Buffer>((resolve, reject) => {
       try {
         const doc = new PDFDocument({ 
           size: 'A4', 
@@ -278,7 +376,7 @@ export class CertificationService {
         this.drawCertificateBackground(doc);
 
         // En-tête avec logo
-        await this.drawHeader(doc);
+        this.drawHeader(doc);
 
         // Titre principal
         this.drawMainTitle(doc);
@@ -308,41 +406,40 @@ export class CertificationService {
    */
   private static drawCertificateBackground(doc: PDFKit.PDFDocument): void {
     // Fond principal avec dégradé
-    const gradient = doc.linearGradient(0, 0, doc.page.width, doc.page.height);
+    const width = doc.page.width;
+    const height = doc.page.height;
+    
+    const gradient = doc.linearGradient(0, 0, width, height);
     gradient.stop(0, CERTIFICATE_COLORS.lightBg);
     gradient.stop(1, '#FFFFFF');
     
-    doc.rect(0, 0, doc.page.width, doc.page.height)
+    doc.rect(0, 0, width, height)
        .fill(gradient);
 
     // Bordure décorative
     doc.strokeColor(CERTIFICATE_COLORS.gold)
        .lineWidth(8)
-       .roundedRect(20, 20, doc.page.width - 40, doc.page.height - 40, 10)
+       .roundedRect(20, 20, width - 40, height - 40, 10)
        .stroke();
 
-    // Motif de fond subtil avec opacité réduite
-    doc.fillColor(CERTIFICATE_COLORS.primary);
-    
-    // Utilisation de save/restore pour gérer l'état graphique
+    // Motif de fond subtil
     doc.save();
-    (doc as any).opacity(0.03); // Cast pour contourner le typage strict
+    doc.fillColor(CERTIFICATE_COLORS.primary);
+    (doc as any).opacity(0.03);
     
-    for (let i = 0; i < doc.page.width; i += 80) {
-      for (let j = 0; j < doc.page.height; j += 80) {
-        doc.text('✓', i, j, { 
-          align: 'center'
-        });
+    for (let i = 0; i < width; i += 80) {
+      for (let j = 0; j < height; j += 80) {
+        doc.text('✓', i, j);
       }
     }
     
-    doc.restore(); // Restaure l'état graphique précédent
+    doc.restore();
   }
 
   /**
    * Dessine l'en-tête avec logo
    */
-  private static async drawHeader(doc: PDFKit.PDFDocument): Promise<void> {
+  private static drawHeader(doc: PDFKit.PDFDocument): void {
     const logoPath = path.join(__dirname, '../../public/logo-youth-computing.png');
     
     try {
@@ -374,11 +471,10 @@ export class CertificationService {
        .fontSize(36)
        .font('Helvetica-Bold')
        .text('CERTIFICAT DE RÉUSSITE', 0, 150, {
-         align: 'center',
-         underline: true
+         align: 'center'
        });
     
-    // Ajout d'une ligne décorative colorée sous le titre
+    // Ligne décorative colorée sous le titre
     doc.save();
     doc.strokeColor(CERTIFICATE_COLORS.secondary)
        .lineWidth(3)
@@ -399,10 +495,15 @@ export class CertificationService {
        .font('Helvetica')
        .text('Décerné à', centerX, 230, { align: 'center' });
     
+    // Gestion des noms d'utilisateur manquants
+    const nomComplet = user?.prenom && user?.nom 
+      ? `${user.prenom} ${user.nom}`
+      : user?.prenom || user?.nom || 'Récipiendaire';
+    
     doc.fillColor(CERTIFICATE_COLORS.primary)
        .fontSize(28)
        .font('Helvetica-Bold')
-       .text(`${user.prenom} ${user.nom}`, centerX, 260, { align: 'center' });
+       .text(nomComplet, centerX, 260, { align: 'center' });
     
     // Ligne décorative sous le nom
     doc.strokeColor(CERTIFICATE_COLORS.secondary)
@@ -415,7 +516,7 @@ export class CertificationService {
   /**
    * Dessine les informations du cours
    */
-  private static drawCourseInfo(doc: PDFKit.PDFDocument, cours: ICours): void {
+  private static drawCourseInfo(doc: PDFKit.PDFDocument, cours: ICours | CoursParDefaut): void {
     const centerX = doc.page.width / 2;
     
     doc.fillColor(CERTIFICATE_COLORS.textDark)
@@ -423,12 +524,15 @@ export class CertificationService {
        .font('Helvetica')
        .text('Pour avoir suivi et validé avec succès le cours', centerX, 340, { align: 'center' });
     
+    // Gestion du titre de cours manquant
+    const titreCours = cours?.titre || 'Formation Youth Computing';
+    
     doc.fillColor(CERTIFICATE_COLORS.accent)
        .fontSize(20)
        .font('Helvetica-Bold')
-       .text(`"${cours.titre}"`, centerX, 370, { align: 'center' });
+       .text(`"${titreCours}"`, centerX, 370, { align: 'center' });
     
-    if (cours.niveau) {
+    if (cours?.niveau) {
       doc.fillColor(CERTIFICATE_COLORS.textLight)
          .fontSize(12)
          .font('Helvetica')
@@ -442,21 +546,27 @@ export class CertificationService {
   private static drawCertificateDetails(doc: PDFKit.PDFDocument, certificat: CertificatAvecCours): void {
     const centerX = doc.page.width / 2;
     
+    // Gestion de la date d'émission
+    const dateEmission = certificat.dateEmission 
+      ? new Date(certificat.dateEmission).toLocaleDateString('fr-FR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })
+      : new Date().toLocaleDateString('fr-FR');
+    
     doc.fillColor(CERTIFICATE_COLORS.textDark)
        .fontSize(11)
        .font('Helvetica')
-       .text(`Date d'émission : ${new Date(certificat.dateEmission).toLocaleDateString('fr-FR', {
-         year: 'numeric',
-         month: 'long',
-         day: 'numeric'
-       })}`, centerX, 450, { align: 'center' });
+       .text(`Date d'émission : ${dateEmission}`, centerX, 450, { align: 'center' });
     
-    if (certificat.numero) {
-      doc.fillColor(CERTIFICATE_COLORS.textLight)
-         .fontSize(10)
-         .font('Helvetica-Oblique')
-         .text(`N° ${certificat.numero}`, centerX, 470, { align: 'center' });
-    }
+    // Gestion du code de certificat
+    const codeCertificat = certificat.codeCertificat || certificat._id?.toString().slice(-8) || 'YC-' + Date.now().toString().slice(-6);
+    
+    doc.fillColor(CERTIFICATE_COLORS.textLight)
+       .fontSize(10)
+       .font('Helvetica-Oblique')
+       .text(`N° ${codeCertificat}`, centerX, 470, { align: 'center' });
   }
 
   /**
@@ -485,39 +595,79 @@ export class CertificationService {
   }
 
   /**
-   * Génère un PDF simple pour le certificat (méthode de secours)
+   * Trouve la progression associée à un certificat
    */
-  private static async generateCertificatePDF(user: any, cours: ICours): Promise<Buffer> {
-    return new Promise<Buffer>((resolve, reject) => {
-      const doc = new PDFDocument({ size: 'A4', layout: 'landscape' });
-      const buffers: Buffer[] = [];
+  private static async trouverProgressionParCertificat(certificatId: Types.ObjectId | string): Promise<any> {
+    try {
+      const Progression = (await import('../../models/learning/Progression')).default;
+      const certificat = await Certificat.findById(certificatId).exec();
       
-      doc.on('data', (chunk: Buffer) => buffers.push(chunk));
-      doc.on('end', () => resolve(Buffer.concat(buffers)));
-      doc.on('error', reject);
+      if (!certificat) return null;
 
-      // Version simplifiée mais professionnelle
-      doc.fillColor(CERTIFICATE_COLORS.primary)
-         .fontSize(30)
-         .font('Helvetica-Bold')
-         .text('CERTIFICAT DE RÉUSSITE', 150, 100, { align: 'center' });
-      
-      doc.fillColor(CERTIFICATE_COLORS.textDark)
-         .fontSize(18)
-         .font('Helvetica')
-         .text(`Délivré à : ${user.prenom} ${user.nom}`, 150, 200);
-      
-      doc.text(`Pour le cours : ${cours.titre}`, 150, 230);
-      
-      if (cours.niveau) {
-        doc.text(`Niveau : ${cours.niveau}`, 150, 260);
+      return await Progression.findOne({
+        apprenant: certificat.apprenant,
+        cours: certificat.cours
+      }).exec();
+    } catch (error) {
+      logger.error('Erreur lors de la recherche de progression', { certificatId, error });
+      return null;
+    }
+  }
+
+  /**
+   * Corrige les certificats avec cours null en leur assignant un cours valide
+   */
+  static async corrigerCertificatsAvecCoursNull(): Promise<{ corriges: number; total: number }> {
+    try {
+      // Trouver tous les certificats avec cours null ou non existant
+      const certificatsProblematiques = await Certificat.find({
+        $or: [
+          { cours: { $in: [null, undefined] } },
+          { cours: { $exists: false } }
+        ]
+      }).exec();
+
+      logger.info(`🔧 Correction de ${certificatsProblematiques.length} certificats avec cours null`);
+
+      let corriges = 0;
+
+      for (const certificat of certificatsProblematiques) {
+        try {
+          // Trouver la progression associée pour récupérer le cours original
+          const progression = await this.trouverProgressionParCertificat(certificat._id);
+          
+          if (progression && progression.cours) {
+            // Assigner le cours de la progression
+            certificat.cours = progression.cours;
+            await certificat.save();
+            corriges++;
+            logger.info(`✅ Certificat ${certificat._id} corrigé avec cours: ${progression.cours}`);
+          } else {
+            // Si pas de progression, trouver un cours actif quelconque
+            const coursActif = await Cours.findOne({ estPublie: true }).exec();
+            if (coursActif) {
+              certificat.cours = coursActif._id;
+              await certificat.save();
+              corriges++;
+              logger.info(`✅ Certificat ${certificat._id} corrigé avec cours actif: ${coursActif.titre}`);
+            } else {
+              logger.warn(`⚠️ Impossible de corriger le certificat ${certificat._id}: aucun cours actif trouvé`);
+            }
+          }
+        } catch (error) {
+          logger.error(`❌ Erreur correction certificat ${certificat._id}:`, error);
+        }
       }
-      
-      doc.text(`Date d'émission : ${new Date().toLocaleDateString('fr-FR')}`, 150, 290);
-      doc.text('Youth Computing - Association pour la formation numérique', 150, 350, { align: 'center' });
-      
-      doc.end();
-    });
+
+      return {
+        corriges,
+        total: certificatsProblematiques.length
+      };
+
+    } catch (error) {
+      logger.error('Erreur lors de la correction des certificats avec cours null', error);
+      throw error;
+    }
   }
 
   /**
@@ -530,9 +680,7 @@ export class CertificationService {
     message: string;
   }> {
     try {
-      const certificat = await Certificat.findById(certificatId)
-        .populate<{ cours: ICours }>('cours')
-        .exec();
+      const certificat = await Certificat.findById(certificatId).exec();
 
       if (!certificat) {
         return {
@@ -543,8 +691,10 @@ export class CertificationService {
         };
       }
 
-      const cours = await Cours.findById(certificat.cours).exec();
-      const utilisateur = await User.findById(certificat.apprenant).exec();
+      const [cours, utilisateur] = await Promise.all([
+        Cours.findById(certificat.cours).exec(),
+        User.findById(certificat.apprenant).exec()
+      ]);
 
       return {
         certificatExiste: true,
@@ -557,6 +707,44 @@ export class CertificationService {
 
     } catch (error) {
       logger.error('Erreur lors de la vérification d\'intégrité du certificat', { certificatId, error });
+      throw error;
+    }
+  }
+
+  /**
+   * Script de migration pour corriger tous les certificats problématiques
+   */
+  static async migrationCorrectionCertificats(): Promise<void> {
+    try {
+      logger.info('🚀 Début de la migration de correction des certificats');
+      
+      // 1. Corriger les certificats avec cours null
+      const resultatNull = await this.corrigerCertificatsAvecCoursNull();
+      
+      // 2. Vérifier l'intégrité de tous les certificats
+      const tousCertificats = await Certificat.find().exec();
+      let certificatsValides = 0;
+      let certificatsInvalides = 0;
+
+      for (const cert of tousCertificats) {
+        const integrite = await this.verifierIntegriteCertificat(cert._id);
+        if (integrite.certificatExiste && integrite.coursExiste && integrite.utilisateurExiste) {
+          certificatsValides++;
+        } else {
+          certificatsInvalides++;
+          logger.warn(`Certificat invalide détecté: ${cert._id}`, integrite);
+        }
+      }
+
+      logger.info('📊 Rapport de migration des certificats:', {
+        totalCertificats: tousCertificats.length,
+        certificatsValides,
+        certificatsInvalides,
+        certificatsAvecCoursNullCorriges: resultatNull.corriges
+      });
+
+    } catch (error) {
+      logger.error('❌ Erreur lors de la migration des certificats', error);
       throw error;
     }
   }

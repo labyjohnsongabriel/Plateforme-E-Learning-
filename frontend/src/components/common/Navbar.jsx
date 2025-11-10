@@ -48,6 +48,19 @@ import {
   CloudUpload as UploadIcon,
   Edit as EditIcon,
   Verified as VerifiedIcon,
+  Home as HomeIcon,
+  LibraryBooks as LibraryBooksIcon,
+  Info as InfoIcon,
+  ContactMail as ContactMailIcon,
+  TrendingUp as TrendingUpIcon,
+  EmojiEvents as EmojiEventsIcon,
+  Create as CreateIcon,
+  Analytics as AnalyticsIcon,
+  ManageAccounts as ManageAccountsIcon,
+  People as PeopleIcon,
+  MenuBook as MenuBookIcon,
+  Assessment as AssessmentIcon,
+  Tune as TuneIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -283,6 +296,28 @@ const Navbar = ({ onToggleSidebar }) => {
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
+  // Fonction pour obtenir l'icône selon le label
+  const getMenuIcon = (label, path) => {
+    const iconMap = {
+      Accueil: <HomeIcon fontSize='small' />,
+      Catalogue: <LibraryBooksIcon fontSize='small' />,
+      'À propos': <InfoIcon fontSize='small' />,
+      Contact: <ContactMailIcon fontSize='small' />,
+      'Tableau de bord': <DashboardIcon fontSize='small' />,
+      'Mes Cours': <MenuBookIcon fontSize='small' />,
+      Progression: <TrendingUpIcon fontSize='small' />,
+      Certificats: <EmojiEventsIcon fontSize='small' />,
+      'Créer un Cours': <CreateIcon fontSize='small' />,
+      Analytiques: <AnalyticsIcon fontSize='small' />,
+      'Gestion des cours': <ManageAccountsIcon fontSize='small' />,
+      Utilisateurs: <PeopleIcon fontSize='small' />,
+      Cours: <MenuBookIcon fontSize='small' />,
+      Rapports: <AssessmentIcon fontSize='small' />,
+    //  Configuration: <TuneIcon fontSize='small' />,
+    };
+    return iconMap[label] || <CircleIcon fontSize='small' />;
+  };
+
   const getNavItems = useCallback(() => {
     if (!isAuthenticated) {
       return [
@@ -348,11 +383,11 @@ const Navbar = ({ onToggleSidebar }) => {
         path: '/admin/reports',
         roles: [ROLES.ADMIN],
       },
-      {
-        label: 'Configuration',
+      /*{
+        label: 'Configuration',x
         path: '/admin/config',
         roles: [ROLES.ADMIN],
-      },
+      },*/
     ];
 
     return baseItems.filter(
@@ -378,28 +413,22 @@ const Navbar = ({ onToggleSidebar }) => {
     return data?.email || 'Utilisateur';
   }, [profileData, user]);
 
-  // Fonction simplifiée pour obtenir l'avatar
   const getAvatarUrl = useCallback(() => {
     const data = profileData || user;
 
-    // Vérifier si on a un avatar valide
     if (data?.avatar && typeof data.avatar === 'string' && data.avatar.trim()) {
-      // Si c'est une URL complète
       if (data.avatar.startsWith('http://') || data.avatar.startsWith('https://')) {
         return data.avatar;
       }
-      // Si c'est un chemin relatif, construire l'URL complète
       const API_BASE_URL =
         import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:3001';
       const cleanPath = data.avatar.startsWith('/') ? data.avatar : `/${data.avatar}`;
       return `${API_BASE_URL}${cleanPath}`;
     }
 
-    // Fallback: avatar généré avec les initiales
     return null;
   }, [profileData, user]);
 
-  // Statut utilisateur avec badge visuel
   const getUserStatus = useCallback(() => {
     const data = profileData || user;
     const status = data?.status || data?.accountStatus || 'active';
@@ -618,6 +647,7 @@ const Navbar = ({ onToggleSidebar }) => {
                   <Button
                     color='inherit'
                     onClick={() => handleNavigation(item.path)}
+                    startIcon={getMenuIcon(item.label, item.path)}
                     sx={{
                       px: 2.5,
                       py: 1,
@@ -1433,6 +1463,13 @@ const Navbar = ({ onToggleSidebar }) => {
                       },
                     }}
                   >
+                    <ListItemIcon
+                      sx={{
+                        color: isActiveRoute(item.path) ? theme.palette.primary.main : 'inherit',
+                      }}
+                    >
+                      {getMenuIcon(item.label, item.path)}
+                    </ListItemIcon>
                     <ListItemText>
                       <Typography fontWeight={isActiveRoute(item.path) ? 700 : 500}>
                         {item.label}

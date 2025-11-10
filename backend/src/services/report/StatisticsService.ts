@@ -2,7 +2,7 @@
 import createError from 'http-errors';
 import { Types, FlattenMaps } from 'mongoose';
 import { User, IUser, RoleUtilisateur } from '../../models/user/User';
-import Course from '../../models/course/Cours'; // CORRECTION : Supprimé ICours
+import Course from '../../models/course/Cours';
 import ProgressionModel, { IProgression } from '../../models/learning/Progression';
 import CertificatModel, { ICertificat } from '../../models/learning/Certificat';
 import InscriptionModel, { IInscription } from '../../models/learning/Inscription';
@@ -13,12 +13,11 @@ import InscriptionModel, { IInscription } from '../../models/learning/Inscriptio
 interface GlobalStats {
   totalUsers: number;
   totalCourses: number;
-  totalEnrollments: number; // ✅ ajouté
+  totalEnrollments: number;
   completionRate: number;
   usersByRole: Record<RoleUtilisateur, number>;
   recentActivities: { description: string; date: string }[];
   coursesData: { newUsers: number; completed: number }[];
-  //categories: string[]; // ✅ ajouté
 }
 
 /**
@@ -78,10 +77,9 @@ export const getGlobalStats = async (): Promise<GlobalStats> => {
       recentInscriptions,
       usersByRole,
       newUsersByMonth,
-      //categories, // CORRECTION : Commenté car non utilisé
     ] = await Promise.all([
       User.countDocuments(),
-      Course.countDocuments(), // CORRECTION : Course est maintenant correct
+      Course.countDocuments(),
       InscriptionModel.countDocuments(),
       ProgressionModel.countDocuments({ pourcentage: 100 }),
       InscriptionModel.find()
@@ -109,8 +107,6 @@ export const getGlobalStats = async (): Promise<GlobalStats> => {
         },
         { $sort: { _id: 1 } },
       ]),
-      // ✅ CORRECTION : Utilisation correcte de distinct sur le modèle Course
-      // Course.distinct('domaineId'), // CORRECTION : Commenté car non utilisé
     ]);
 
     const completionRate =
@@ -146,12 +142,11 @@ export const getGlobalStats = async (): Promise<GlobalStats> => {
     return {
       totalUsers,
       totalCourses,
-      totalEnrollments: totalInscriptions, // ✅ ajouté
+      totalEnrollments: totalInscriptions,
       completionRate,
       usersByRole: usersByRoleMap,
       recentActivities,
       coursesData,
-    //  categories, // ✅ ajouté
     };
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -169,18 +164,22 @@ export const getGlobalStats = async (): Promise<GlobalStats> => {
 export const getUserStats = async (userId: string | Types.ObjectId): Promise<UserStats> => {
   try {
     console.log(`Fetching stats for user: ${userId}`);
-    const user = await User.findById(userId);
+    
+    // Convertir en ObjectId si nécessaire
+    const userObjectId = userId instanceof Types.ObjectId ? userId : new Types.ObjectId(userId);
+    
+    const user = await User.findById(userObjectId);
     if (!user) throw createError(404, 'Utilisateur non trouvé');
 
     const [enrollments, progressions, completions, certificates] = await Promise.all([
-      InscriptionModel.countDocuments({ apprenant: userId }),
-      ProgressionModel.countDocuments({ apprenant: userId }),
-      ProgressionModel.countDocuments({ apprenant: userId, pourcentage: 100 }),
-      CertificatModel.countDocuments({ apprenant: userId }),
+      InscriptionModel.countDocuments({ apprenant: userObjectId }),
+      ProgressionModel.countDocuments({ apprenant: userObjectId }),
+      ProgressionModel.countDocuments({ apprenant: userObjectId, pourcentage: 100 }),
+      CertificatModel.countDocuments({ apprenant: userObjectId }),
     ]);
 
     const averageProgressResult = await ProgressionModel.aggregate<{ avg: number }>([
-      { $match: { apprenant: new Types.ObjectId(userId) } },
+      { $match: { apprenant: userObjectId } },
       { $group: { _id: null, avg: { $avg: '$pourcentage' } } },
     ]);
 
@@ -208,17 +207,20 @@ export const getUserStats = async (userId: string | Types.ObjectId): Promise<Use
 export const getCourseStats = async (coursId: string | Types.ObjectId): Promise<CourseStats> => {
   try {
     console.log(`Fetching stats for course: ${coursId}`);
-    // CORRECTION : Utilisation correcte de findById sur le modèle Course
-    const cours = await Course.findById(coursId).populate<{ domaineId: { nom: string } }>(
+    
+    // Convertir en ObjectId si nécessaire
+    const courseObjectId = coursId instanceof Types.ObjectId ? coursId : new Types.ObjectId(coursId);
+    
+    const cours = await Course.findById(courseObjectId).populate<{ domaineId: { nom: string } }>(
       'domaineId',
       'nom'
     );
     if (!cours) throw createError(404, 'Cours non trouvé');
 
     const [enrollments, completions, certificates] = await Promise.all([
-      InscriptionModel.countDocuments({ cours: coursId }),
-      ProgressionModel.countDocuments({ cours: coursId, pourcentage: 100 }),
-      CertificatModel.countDocuments({ cours: coursId }),
+      InscriptionModel.countDocuments({ cours: courseObjectId }),
+      ProgressionModel.countDocuments({ cours: courseObjectId, pourcentage: 100 }),
+      CertificatModel.countDocuments({ cours: courseObjectId }),
     ]);
 
     return {

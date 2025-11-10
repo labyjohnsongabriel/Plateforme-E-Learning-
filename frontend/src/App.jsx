@@ -5,24 +5,22 @@ import { AuthProvider } from './context/AuthContext';
 import { CourseProvider } from './context/CourseContext';
 import { NotificationProvider } from './context/NotificationContext';
 
-// Lazy-loaded components
+
 const Layout = lazy(() => import('./components/common/Layout'));
-const DashboardLayout = lazy(() => import('./components/common/Layout')); // Simplifié
+const DashboardLayout = lazy(() => import('./components/common/Layout')); 
 const LoadingScreen = lazy(() => import('./components/common/Loading'));
 
-// Auth Pages
 const Login = lazy(() => import('./pages/auth/Login'));
 const Register = lazy(() => import('./pages/auth/Register'));
 const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'));
 const Profile = lazy(() => import('./pages/auth/Profile'));
 
-// Public Pages
 const Home = lazy(() => import('./pages/public/Home'));
 const About = lazy(() => import('./pages/public/About'));
 const Contact = lazy(() => import('./pages/public/Contact'));
 const Catalog = lazy(() => import('./pages/public/Catalog'));
 
-// Student Pages
+
 const StudentDashboard = lazy(() => import('./pages/student/Dashboard'));
 const MyCourses = lazy(() => import('./pages/student/MyCourses'));
 const CourseView = lazy(() => import('./pages/student/CourseView'));
@@ -31,29 +29,29 @@ const Progress = lazy(() => import('./pages/student/Progress'));
 const Certificates = lazy(() => import('./pages/student/Certificates'));
 const Settings = lazy(() => import('./pages/student/Settings'));
 
-// Instructor Pages
+
 const InstructorDashboard = lazy(() => import('./pages/instructor/InstructorDashboard'));
 const CreateCourse = lazy(() => import('./pages/instructor/CreateCourse'));
 const EditCourse = lazy(() => import('./pages/instructor/EditCourse'));
 const StudentAnalytics = lazy(() => import('./pages/instructor/StudentAnalytics'));
 const ManageCourses = lazy(() => import('./pages/instructor/ManageCourses')); // Corrigé
 
-// Admin Pages
+
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const Users = lazy(() => import('./pages/admin/Users'));
 const Courses = lazy(() => import('./pages/admin/Courses'));
 const Reports = lazy(() => import('./pages/admin/Reports'));
 const SystemConfig = lazy(() => import('./pages/admin/SystemConfig'));
 
-// Error Pages
+
 const NotFound = lazy(() => import('./pages/error/NotFound'));
 const Unauthorized = lazy(() => import('./pages/error/Unauthorized'));
 const ServerError = lazy(() => import('./pages/error/ServerError'));
 
-// Protected Route Component
+
 const ProtectedRoute = lazy(() => import('./components/common/ProtectedRoute'));
 
-// Theme Context for dark/light mode
+
 const ThemeContext = React.createContext();
 
 const getTheme = (mode) =>

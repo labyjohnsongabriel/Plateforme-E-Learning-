@@ -1,6 +1,6 @@
 // routes/quizRoutes.ts
 import { Router } from 'express';
-import QuizController from '../controllers/QuizController';
+import QuizController from '../controllers/course/QuizController';
 import authMiddleware from '../middleware/auth';
 
 const router = Router();

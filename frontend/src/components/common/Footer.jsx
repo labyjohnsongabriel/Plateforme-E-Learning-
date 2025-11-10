@@ -261,12 +261,12 @@ const Footer = ({ variant = "default" }) => {
 
   const contactInfo = useMemo(
     () => [
-      { icon: <Email />, label: "Email", value: "contact@youthcomputing.com" },
-      { icon: <Phone />, label: "Téléphone", value: "+33 1 23 45 67 89" },
+      { icon: <Email />, label: 'Email', value: 'contact@youthcomputing.com' },
+      { icon: <Phone />, label: 'Téléphone', value: '+261 34 51 371 61' },
       {
         icon: <LocationOn />,
-        label: "Adresse",
-        value: "123 Rue de l'Éducation, 75000 Paris",
+        label: 'Adresse',
+        value: '301, Mahamanina, Fianarantsoa',
       },
     ],
     []
